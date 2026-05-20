@@ -1,24 +1,15 @@
-// POST /api/intake/upload — parse file, extract facts, score urgency, persist cases
+// POST /api/intake/upload — parse file, run agent orchestrator, persist cases
+export const maxDuration = 30
 import { verifyToken } from '../../../../lib/verifyToken.js'
 import { rateLimitUpload } from '../../../../lib/ratelimit.js'
 import { apiError } from '../../../../lib/apiError.js'
 import { parseFile } from '../../../../lib/parser.js'
-import { extractCaseFacts } from '../../../../lib/gemini.js'
-import { findSimilarCases } from '../../../../lib/vectorSearch.js'
-import { computeScore } from '../../../../lib/urgencyScore.js'
-import { writeRecommendation } from '../../../../lib/gemini.js'
+import { runIntakeAgent } from '../../../../lib/agent/orchestrator.js'
 import { connectDB } from '../../../../lib/mongodb.js'
 import Case from '../../../../lib/models/Case.js'
 
 const ALLOWED_TYPES = ['text/csv', 'text/plain', 'application/pdf', 'application/vnd.ms-excel']
 const MAX_SIZE = 10 * 1024 * 1024
-
-async function processIntake(rawText) {
-  const extracted = await extractCaseFacts(rawText)
-  const similarCases = await findSimilarCases(extracted.summary)
-  const { score, breakdown, reason_string } = computeScore(extracted, similarCases)
-  return { extracted, similarCases, score, breakdown, reason_string, rawText }
-}
 
 async function chunkPromiseAll(items, fn, size) {
   const results = []
@@ -53,13 +44,13 @@ export async function POST(request) {
 
   const mimetype = file.type
   if (!ALLOWED_TYPES.includes(mimetype)) {
-    return apiError('Invalid file type. Accepted: CSV, TXT, PDF', 400)
+    return apiError('Invalid file type. Accepted: CSV, TXT, PDF', 415)
   }
 
   const arrayBuffer = await file.arrayBuffer()
   const buffer = Buffer.from(arrayBuffer)
 
-  if (buffer.length > MAX_SIZE) return apiError('File exceeds 10MB limit', 400)
+  if (buffer.length > MAX_SIZE) return apiError('File exceeds 10MB limit', 413)
 
   let intakeTexts
   try {
@@ -70,7 +61,7 @@ export async function POST(request) {
 
   if (intakeTexts.length === 0) return apiError('No intake records found in file', 400)
 
-  const settled = await chunkPromiseAll(intakeTexts, processIntake, 5)
+  const settled = await chunkPromiseAll(intakeTexts, runIntakeAgent, 5)
 
   const batchId = crypto.randomUUID()
   const now = new Date()
@@ -78,7 +69,7 @@ export async function POST(request) {
   const caseDocs = settled
     .map((r, i) => {
       if (r.status === 'rejected') return null
-      const { extracted, similarCases, score, breakdown, reason_string, rawText } = r.value
+      const { extracted, similarCases, score, breakdown, reason_string, recommendation, rawText, agent_trace } = r.value
       return {
         uid: decoded.uid,
         batch_id: batchId,
@@ -92,25 +83,14 @@ export async function POST(request) {
         score_breakdown: breakdown,
         priority_reason: reason_string,
         similar_cases: similarCases,
-        recommendation: '',
+        recommendation,
+        agent_trace,
         status: 'pending',
         raw_text: rawText,
         createdAt: now,
       }
     })
     .filter(Boolean)
-
-  // Write recommendations only for top 3 by score
-  const sorted = [...caseDocs].sort((a, b) => b.priority_score - a.priority_score)
-  await Promise.allSettled(
-    sorted.slice(0, 3).map(async (doc) => {
-      const topSim = doc.similar_cases?.[0] ?? null
-      doc.recommendation = await writeRecommendation(
-        { case_type: doc.case_type, deadline_days: doc.deadline_days, summary: doc.summary, vulnerability_flags: doc.vulnerability_flags },
-        topSim
-      )
-    })
-  )
 
   await connectDB()
   const inserted = await Case.insertMany(caseDocs)
@@ -134,5 +114,10 @@ export async function POST(request) {
     .sort((a, b) => b.priority_score - a.priority_score)
     .map((c, i) => ({ ...c, rank: i + 1 }))
 
-  return Response.json({ batch_id: batchId, cases: queue })
+  const failed = settled.filter((r) => r.status === 'rejected').length
+  return Response.json({
+    batch_id: batchId,
+    cases: queue,
+    stats: { total: intakeTexts.length, processed: caseDocs.length, failed },
+  })
 }
