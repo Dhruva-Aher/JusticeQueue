@@ -44,6 +44,9 @@ export async function POST(request, { params }) {
   doc.status = 'overridden'
   await doc.save()
 
-  const { _id, uid, __v, ...rest } = doc.toObject()
-  return Response.json({ case: { id: _id.toString(), ...rest } })
+  const plain = doc.toObject()
+  const sanitized = Object.fromEntries(
+    Object.entries(plain).filter(([k]) => !['_id', 'uid', '__v'].includes(k))
+  )
+  return Response.json({ case: { id: plain._id.toString(), ...sanitized } })
 }

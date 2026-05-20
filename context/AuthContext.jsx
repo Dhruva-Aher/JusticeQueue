@@ -2,7 +2,7 @@
 'use client'
 import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, signOut as firebaseSignOut } from 'firebase/auth'
-import { auth } from '../lib/firebase.js'
+import { getFirebaseAuth } from '../lib/firebase.js'
 
 const AuthContext = createContext(null)
 
@@ -11,7 +11,9 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const firebaseAuth = getFirebaseAuth()
+    if (!firebaseAuth) { setLoading(false); return }
+    const unsubscribe = onAuthStateChanged(firebaseAuth, (firebaseUser) => {
       setUser(firebaseUser)
       setLoading(false)
     })
@@ -19,7 +21,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function signOut() {
-    await firebaseSignOut(auth)
+    const firebaseAuth = getFirebaseAuth()
+    if (firebaseAuth) await firebaseSignOut(firebaseAuth)
   }
 
   return (

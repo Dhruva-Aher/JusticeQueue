@@ -1,5 +1,6 @@
 // Landing page — hero, stats bar, features grid, how-it-works, CTA
 'use client'
+export const dynamic = 'force-dynamic'
 import { useRouter } from 'next/navigation'
 
 const STATS = [
@@ -46,7 +47,7 @@ export default function LandingPage() {
           Every second counts.<br />Who gets help first?
         </h1>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', color: 'var(--ink-2)', lineHeight: 1.7, maxWidth: '520px', marginBottom: '2rem' }}>
-          JusticeQueue is an AI triage agent for legal aid clinics. Upload a batch of intake files and get a ranked priority queue in under 30 seconds — backed by Gemini, Atlas vector search, and your clinic's own case history.
+          JusticeQueue is an AI triage agent for legal aid clinics. Upload a batch of intake files and get a ranked priority queue in under 30 seconds — backed by Gemini, Atlas vector search, and your clinic&apos;s own case history.
         </p>
         <button
           onClick={() => router.push('/login')}

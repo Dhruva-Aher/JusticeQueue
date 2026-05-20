@@ -17,6 +17,8 @@ export async function GET(request, { params }) {
 
   if (!doc || doc.uid !== decoded.uid) return apiError('Case not found', 404)
 
-  const { _id, uid, __v, ...rest } = doc
-  return Response.json({ case: { id: _id.toString(), ...rest } })
+  const sanitized = Object.fromEntries(
+    Object.entries(doc).filter(([k]) => !['_id', 'uid', '__v'].includes(k))
+  )
+  return Response.json({ case: { id: doc._id.toString(), ...sanitized } })
 }

@@ -1,9 +1,10 @@
 // Login page — split layout, email/password + Google OAuth via Firebase
 'use client'
+export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
-import { auth } from '../../../lib/firebase.js'
+import { getFirebaseAuth } from '../../../lib/firebase.js'
 import { useAuth } from '../../../context/AuthContext.jsx'
 
 const inputStyle = {
@@ -43,7 +44,7 @@ export default function LoginPage() {
     setBusy(true)
     setError('')
     try {
-      await signInWithEmailAndPassword(auth, email, password)
+      await signInWithEmailAndPassword(getFirebaseAuth(), email, password)
       router.push('/dashboard')
     } catch (err) {
       setError(err.code === 'auth/invalid-credential' ? 'Invalid email or password.' : err.message)
@@ -55,7 +56,7 @@ export default function LoginPage() {
     setBusy(true)
     setError('')
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider())
+      await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider())
       router.push('/dashboard')
     } catch (err) {
       if (err.code !== 'auth/popup-closed-by-user') setError(err.message)
@@ -74,7 +75,7 @@ export default function LoginPage() {
 
         <div>
           <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '22px', color: '#fff', lineHeight: 1.55, marginBottom: '1rem' }}>
-            "The difference between seeing a client on Monday and seeing them on Friday is often the difference between keeping their home and losing it."
+            &ldquo;The difference between seeing a client on Monday and seeing them on Friday is often the difference between keeping their home and losing it.&rdquo;
           </p>
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#9a9187', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             — Legal Aid Director
@@ -94,7 +95,7 @@ export default function LoginPage() {
       {/* Right panel */}
       <div style={{ flex: 1, background: 'var(--bg)', padding: '3rem', display: 'flex', flexDirection: 'column', justifyContent: 'center', maxWidth: '480px', margin: '0 auto' }}>
         <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '30px', color: 'var(--ink)', marginBottom: '0.5rem' }}>Welcome back</h1>
-        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink-3)', marginBottom: '2rem' }}>Sign in to access your clinic's triage queue</p>
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--ink-3)', marginBottom: '2rem' }}>Sign in to access your clinic&apos;s triage queue</p>
 
         <form onSubmit={handleEmail}>
           <input
