@@ -1,0 +1,1 @@
+// Dense HTML table — RANK, SCORE, NAME, TYPE, DEADLINE, FLAGS, STATUS columns
