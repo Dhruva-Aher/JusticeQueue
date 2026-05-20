@@ -27,16 +27,67 @@ const FactRow = ({ label, value, highlight }) => (
   </div>
 )
 
-export default function CaseDetailPanel({ caseId, onClose }) {
+function AgentTrace({ trace }) {
+  const [open, setOpen] = useState(false)
+  if (!trace || trace.length === 0) return null
+
+  const totalMs = trace.reduce((sum, s) => sum + (s.durationMs || 0), 0)
+  const failed = trace.filter((s) => s.error).length
+
+  return (
+    <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-3)', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', gap: '6px' }}
+      >
+        <span>{open ? '▼' : '▶'}</span>
+        Agent Trace
+        <span style={{ color: failed > 0 ? 'var(--stamp)' : 'var(--forest)' }}>
+          ({trace.length} steps · {totalMs}ms{failed > 0 ? ` · ${failed} errors` : ''})
+        </span>
+      </button>
+      {open && (
+        <div style={{ marginTop: '0.75rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {trace.map((step, i) => (
+            <div key={i} style={{ background: 'var(--bg-inset)', padding: '8px 10px', borderLeft: `2px solid ${step.error ? 'var(--stamp)' : 'var(--forest)'}` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--ink)', letterSpacing: '0.04em' }}>{step.name}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--ink-3)' }}>{step.durationMs}ms</span>
+              </div>
+              {step.error ? (
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--stamp)' }}>{step.error}</p>
+              ) : step.output ? (
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--ink-3)', wordBreak: 'break-word' }}>
+                  {Object.entries(step.output).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(' · ')}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+const SkeletonLine = ({ width = '100%', height = '12px', marginBottom = '8px' }) => (
+  <div style={{ width, height, background: 'var(--bg-raised)', marginBottom, animation: 'pulse 1.5s ease-in-out infinite' }} />
+)
+
+export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelectCase }) {
   const [caseData, setCaseData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [overrideReason, setOverrideReason] = useState('')
   const [overrideRank, setOverrideRank] = useState('')
   const [overrideStatus, setOverrideStatus] = useState('idle')
 
+  const currentIndex = caseIds.indexOf(caseId)
+  const hasPrev = currentIndex > 0
+  const hasNext = currentIndex >= 0 && currentIndex < caseIds.length - 1
+
   useEffect(() => {
     if (!caseId) { setCaseData(null); return }
     setLoading(true)
+    setCaseData(null)
     axiosClient.get(`/api/cases/${caseId}`)
       .then((res) => setCaseData(res.data.case))
       .catch(() => setCaseData(null))
@@ -55,6 +106,7 @@ export default function CaseDetailPanel({ caseId, onClose }) {
       setOverrideReason('')
       setOverrideRank('')
       setOverrideStatus('done')
+      setTimeout(() => setOverrideStatus('idle'), 2000)
     } catch {
       setOverrideStatus('error')
     }
@@ -78,18 +130,30 @@ export default function CaseDetailPanel({ caseId, onClose }) {
         zIndex: 50,
       }}
     >
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.4; }
+        }
+      `}</style>
+
       <div style={{ padding: '1.5rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
           <div style={{ flex: 1 }}>
             {loading ? (
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--ink-3)' }}>LOADING...</p>
+              <>
+                <SkeletonLine width="60%" height="22px" marginBottom="8px" />
+                <SkeletonLine width="40%" height="11px" marginBottom="12px" />
+                <SkeletonLine width="80px" height="60px" marginBottom="8px" />
+                <SkeletonLine width="90%" height="13px" />
+              </>
             ) : caseData ? (
               <>
                 <p style={{ fontFamily: 'var(--font-serif)', fontSize: '22px', color: 'var(--ink)', lineHeight: 1.2, marginBottom: '4px' }}>
                   {caseData.client_name}
                 </p>
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-3)', marginBottom: '0.75rem' }}>
-                  {caseData.case_type?.replace('_', ' ')}
+                  {caseData.case_type?.replace(/_/g, ' ')}
                 </p>
                 <div style={{ fontFamily: 'var(--font-serif)', fontSize: '72px', color: scoreColor(caseData.priority_score), lineHeight: 1 }}>
                   {caseData.priority_score}
@@ -102,12 +166,32 @@ export default function CaseDetailPanel({ caseId, onClose }) {
               </>
             ) : null}
           </div>
-          <button
-            onClick={onClose}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', color: 'var(--ink-3)', lineHeight: 1, padding: '0 0 0 1rem', flexShrink: 0 }}
-          >
-            ×
-          </button>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem', paddingLeft: '1rem', flexShrink: 0 }}>
+            <button
+              onClick={onClose}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '18px', color: 'var(--ink-3)', lineHeight: 1, padding: 0, background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              ×
+            </button>
+            {caseIds.length > 1 && (
+              <div style={{ display: 'flex', gap: '4px' }}>
+                <button
+                  onClick={() => hasPrev && onSelectCase(caseIds[currentIndex - 1])}
+                  disabled={!hasPrev}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: hasPrev ? 'var(--ink)' : 'var(--ink-3)', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 0, padding: '2px 8px', cursor: hasPrev ? 'pointer' : 'default' }}
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={() => hasNext && onSelectCase(caseIds[currentIndex + 1])}
+                  disabled={!hasNext}
+                  style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: hasNext ? 'var(--ink)' : 'var(--ink-3)', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 0, padding: '2px 8px', cursor: hasNext ? 'pointer' : 'default' }}
+                >
+                  ↓
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {caseData && (
@@ -118,7 +202,7 @@ export default function CaseDetailPanel({ caseId, onClose }) {
 
             <Section title="Extracted Facts">
               <FactRow label="Deadline" value={caseData.deadline_days != null ? `${caseData.deadline_days} days` : '—'} />
-              <FactRow label="Case Type" value={caseData.case_type?.replace('_', ' ')} />
+              <FactRow label="Case Type" value={caseData.case_type?.replace(/_/g, ' ')} />
               <FactRow label="Minor Children" value={caseData.vulnerability_flags?.minor_children ? 'Yes' : 'No'} />
               <FactRow label="Language Barrier" value={caseData.vulnerability_flags?.language_barrier ? 'Yes' : 'No'} />
               <FactRow label="Medical Condition" value={caseData.vulnerability_flags?.medical_condition ? 'Yes' : 'No'} />
@@ -137,6 +221,12 @@ export default function CaseDetailPanel({ caseId, onClose }) {
                   {caseData.recommendation}
                 </p>
               </Section>
+            )}
+
+            {caseData.agent_trace && (
+              <div style={{ marginBottom: '1.5rem' }}>
+                <AgentTrace trace={caseData.agent_trace} />
+              </div>
             )}
 
             <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem' }}>
@@ -160,6 +250,7 @@ export default function CaseDetailPanel({ caseId, onClose }) {
                   color: 'var(--ink)',
                   marginBottom: '0.5rem',
                   outline: 'none',
+                  boxSizing: 'border-box',
                 }}
               />
               <textarea
@@ -179,6 +270,7 @@ export default function CaseDetailPanel({ caseId, onClose }) {
                   resize: 'none',
                   outline: 'none',
                   marginBottom: '0.5rem',
+                  boxSizing: 'border-box',
                 }}
               />
               <button
@@ -190,16 +282,17 @@ export default function CaseDetailPanel({ caseId, onClose }) {
                   fontSize: '12px',
                   textTransform: 'uppercase',
                   letterSpacing: '0.05em',
-                  background: 'var(--stamp)',
+                  background: overrideStatus === 'done' ? 'var(--forest)' : 'var(--stamp)',
                   color: '#fff',
                   border: 'none',
                   borderRadius: 0,
                   padding: '10px',
                   cursor: 'pointer',
                   opacity: (!overrideReason.trim() || !overrideRank) ? 0.5 : 1,
+                  transition: 'background 200ms ease',
                 }}
               >
-                {overrideStatus === 'saving' ? 'SAVING...' : overrideStatus === 'done' ? 'SAVED' : 'OVERRIDE RANKING'}
+                {overrideStatus === 'saving' ? 'SAVING...' : overrideStatus === 'done' ? 'OVERRIDE RECORDED ✓' : 'OVERRIDE RANKING'}
               </button>
               {overrideStatus === 'error' && (
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--stamp)', marginTop: '0.5rem' }}>Override failed. Try again.</p>
