@@ -1,1 +1,53 @@
 /* Global CSS variables, reset, and typography — the single source of truth for all visual tokens */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+:root {
+  --bg:           #f0ece3;
+  --bg-raised:    #e8e3d8;
+  --bg-inset:     #ddd7ca;
+  --ink:          #1a1714;
+  --ink-2:        #4a4540;
+  --ink-3:        #8a837a;
+  --border:       #c8c1b4;
+  --border-dark:  #9a9187;
+  --stamp:        #8b1a1a;
+  --stamp-light:  #f5e8e8;
+  --ochre:        #7a5c1e;
+  --ochre-light:  #f5eddb;
+  --forest:       #2a4a2e;
+  --forest-light: #e0ebe1;
+  --font-serif:   'Instrument Serif', serif;
+  --font-mono:    'IBM Plex Mono', monospace;
+  --font-sans:    'IBM Plex Sans', sans-serif;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  background: none;
+}
+
+input, textarea, select {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
