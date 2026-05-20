@@ -1,5 +1,6 @@
 // Root layout — wraps all pages in AuthContext and imports global styles
 import './globals.css'
+import { AuthProvider } from '../context/AuthContext.jsx'
 
 export const metadata = {
   title: 'JusticeQueue',
@@ -9,7 +10,9 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   )
 }
