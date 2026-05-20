@@ -33,42 +33,61 @@ export default function UploadZone({ status, onUpload, error }) {
   const bg = isProcessing ? 'var(--bg-raised)' : 'var(--bg-inset)'
 
   return (
-    <div
-      {...getRootProps()}
-      style={{
-        border: `1px dashed ${borderColor}`,
-        background: bg,
-        padding: '2.5rem',
-        textAlign: 'center',
-        cursor: isProcessing ? 'default' : 'pointer',
-        transition: 'border-color 120ms ease',
-        userSelect: 'none',
-      }}
-    >
-      <input {...getInputProps()} />
-      {isProcessing ? (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--ink-2)', letterSpacing: '0.04em' }}>
-          {PROCESSING_STAGES[stageIdx]}
-        </p>
-      ) : isError ? (
-        <>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--stamp)', letterSpacing: '0.04em' }}>
-            {error || 'UPLOAD FAILED'}
+    <div>
+      <div
+        {...getRootProps()}
+        style={{
+          border: `1px dashed ${borderColor}`,
+          background: bg,
+          padding: '2.5rem',
+          textAlign: 'center',
+          cursor: isProcessing ? 'default' : 'pointer',
+          transition: 'border-color 120ms ease',
+          userSelect: 'none',
+        }}
+      >
+        <input {...getInputProps()} />
+        {isProcessing ? (
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--ink-2)', letterSpacing: '0.04em' }}>
+            {PROCESSING_STAGES[stageIdx]}
           </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--ink-3)', marginTop: '0.5rem' }}>
-            CLICK OR DROP TO TRY AGAIN
-          </p>
-        </>
-      ) : (
-        <>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: isDragActive ? 'var(--stamp)' : 'var(--ink-2)', letterSpacing: '0.04em' }}>
-            DROP INTAKE FILE OR CLICK TO BROWSE
-          </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--ink-3)', marginTop: '0.5rem', letterSpacing: '0.04em' }}>
-            CSV · TXT · PDF · MAX 10MB
-          </p>
-        </>
-      )}
+        ) : isError ? (
+          <>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--stamp)', letterSpacing: '0.04em' }}>
+              {error || 'UPLOAD FAILED'}
+            </p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--ink-3)', marginTop: '0.5rem' }}>
+              CLICK OR DROP TO TRY AGAIN
+            </p>
+          </>
+        ) : (
+          <>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: isDragActive ? 'var(--stamp)' : 'var(--ink-2)', letterSpacing: '0.04em' }}>
+              DROP INTAKE FILE OR CLICK TO BROWSE
+            </p>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--ink-3)', marginTop: '0.5rem', letterSpacing: '0.04em' }}>
+              CSV · TXT · PDF · MAX 10MB
+            </p>
+          </>
+        )}
+      </div>
+
+      {/* Progress bar */}
+      <div style={{ height: '2px', background: 'var(--bg-raised)', overflow: 'hidden' }}>
+        {isProcessing && (
+          <div
+            style={{
+              height: '100%',
+              width: '40%',
+              background: 'var(--stamp)',
+              animation: 'progress-slide 1.2s ease-in-out infinite',
+            }}
+          />
+        )}
+        {status === 'complete' && (
+          <div style={{ height: '100%', width: '100%', background: 'var(--forest)' }} />
+        )}
+      </div>
     </div>
   )
 }
