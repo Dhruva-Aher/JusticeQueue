@@ -1,1 +1,212 @@
-{}
+[
+  {
+    "case_type": "eviction",
+    "description": "A family of five received a 3-day pay-or-quit notice after losing income during a medical emergency. The landlord had previously accepted late payments without notice for 18 months. The lease did not specify a late fee provision.",
+    "outcome": "won",
+    "outcome_notes": "Argued that landlord's prior course of dealing waived strict enforcement of the payment deadline. Court granted a 30-day cure period. Family retained housing.",
+    "year": 2024
+  },
+  {
+    "case_type": "eviction",
+    "description": "Single mother with two minor children facing eviction for alleged lease violation after hosting her sister for 6 weeks. Landlord claimed unauthorized occupant. Lease permitted guests up to 30 days.",
+    "outcome": "won",
+    "outcome_notes": "Argued 6-week stay did not convert guest to occupant under state tenancy law. Lease cure provision required 10-day notice before eviction filing. Case dismissed.",
+    "year": 2023
+  },
+  {
+    "case_type": "eviction",
+    "description": "Elderly tenant of 14 years received a no-fault eviction notice citing owner move-in. Landlord failed to file required relocation assistance paperwork within the mandated 30-day window.",
+    "outcome": "won",
+    "outcome_notes": "Procedural defect in owner move-in filing invalidated the eviction notice. Tenant received 6-month extension and full relocation assistance per city ordinance.",
+    "year": 2024
+  },
+  {
+    "case_type": "eviction",
+    "description": "Tenant received a 5-day notice for nonpayment after a bank error caused the rent check to bounce. Landlord refused to accept re-payment and filed for eviction within 48 hours.",
+    "outcome": "won",
+    "outcome_notes": "Bank error documented by written statement. Rent tendered in full before court date. Judge dismissed for lack of good cause given immediate cure attempt.",
+    "year": 2022
+  },
+  {
+    "case_type": "eviction",
+    "description": "Tenant with documented disability requested reasonable accommodation for a support animal. Landlord denied the request citing a no-pets policy and issued eviction notice when the animal was not removed.",
+    "outcome": "won",
+    "outcome_notes": "Fair Housing Act requires reasonable accommodation for support animals regardless of no-pets policy. Eviction stayed pending accommodation review. Animal permitted, case closed.",
+    "year": 2023
+  },
+  {
+    "case_type": "eviction",
+    "description": "Month-to-month tenant in a rent-controlled unit received a rent increase of 34% followed by eviction notice when the increase was rejected. Local ordinance capped annual increases at 5%.",
+    "outcome": "settled",
+    "outcome_notes": "Landlord agreed to rescind the increase and limit rent to allowed cap in exchange for tenant waiving past-due claims. Tenant remained housed.",
+    "year": 2022
+  },
+  {
+    "case_type": "eviction",
+    "description": "Tenant alleged habitability defects including a broken heating system for three winter months. Landlord retaliated with an eviction notice two weeks after tenant filed a code complaint.",
+    "outcome": "settled",
+    "outcome_notes": "Retaliatory eviction defense raised under state statute. Settled with landlord making all repairs, waiving two months rent, and withdrawing eviction.",
+    "year": 2024
+  },
+  {
+    "case_type": "eviction",
+    "description": "Commercial tenant operating a small restaurant was evicted after landlord claimed lease breach due to exterior signage. Tenant argued signage had been in place unchanged for 8 years without objection.",
+    "outcome": "declined",
+    "outcome_notes": "Lease explicitly prohibited exterior modifications without written consent. Long-standing acceptance did not create an easement under commercial tenancy law. Case not taken.",
+    "year": 2023
+  },
+  {
+    "case_type": "immigration",
+    "description": "Long-term resident of 22 years with two US-citizen children received a final order of removal after missing a hearing date due to a mail delivery failure. A prior attorney had filed a defective change-of-address form.",
+    "outcome": "won",
+    "outcome_notes": "Filed motion to reopen based on ineffective assistance of prior counsel and lack of notice. Immigration court granted reopening. Client placed in withholding-only proceedings.",
+    "year": 2023
+  },
+  {
+    "case_type": "immigration",
+    "description": "Asylum seeker from a country with active political persecution had their case denied after a one-year filing bar was triggered by an administrative delay at the resettlement agency.",
+    "outcome": "won",
+    "outcome_notes": "Documented that agency delay — not client inaction — caused the filing bar violation. Extraordinary circumstances exception granted. Case reopened and approved.",
+    "year": 2024
+  },
+  {
+    "case_type": "immigration",
+    "description": "DACA recipient whose renewal was denied due to a background check error involving a dismissed misdemeanor charge. USCIS treated the dismissal as a conviction in error.",
+    "outcome": "won",
+    "outcome_notes": "Submitted certified court disposition showing charge was dismissed without conviction. USCIS conceded error and granted DACA renewal on motion for reconsideration.",
+    "year": 2022
+  },
+  {
+    "case_type": "immigration",
+    "description": "Undocumented parent of three minor children detained during a routine check-in. Family had been compliant for 7 years with regular appearances and had a pending petition.",
+    "outcome": "won",
+    "outcome_notes": "Filed emergency stay of removal citing pending I-130 and humanitarian factors. Detained parent released on order of supervision pending adjudication of petition.",
+    "year": 2024
+  },
+  {
+    "case_type": "immigration",
+    "description": "Client with T visa eligibility due to trafficking victimization was denied certification by local law enforcement who refused to cooperate with the process.",
+    "outcome": "settled",
+    "outcome_notes": "Escalated to state attorney general's office. Law enforcement issued certification under pressure from state oversight. T visa application filed successfully.",
+    "year": 2023
+  },
+  {
+    "case_type": "immigration",
+    "description": "Refugee family with approved resettlement status lost their housing and benefits due to a data entry error in the state refugee office system that marked them as non-compliant.",
+    "outcome": "settled",
+    "outcome_notes": "Administrative error corrected after advocacy with state refugee coordinator. Benefits restored with back payment. Family re-housed within 30 days.",
+    "year": 2022
+  },
+  {
+    "case_type": "immigration",
+    "description": "Client seeking cancellation of removal based on 10-year continuous presence had their case undermined by a prior attorney who failed to file timely and correct documentation.",
+    "outcome": "declined",
+    "outcome_notes": "Continuous presence clock was legally stopped by a prior NTA that predated our involvement. Cancellation eligibility not established. Case not taken.",
+    "year": 2023
+  },
+  {
+    "case_type": "wage_theft",
+    "description": "Restaurant worker classified as an independent contractor was denied overtime pay and tips pooled illegally with management-level employees. Worker had no written contract and was scheduled by employer.",
+    "outcome": "won",
+    "outcome_notes": "Applied economic reality test — employer controlled hours, tools, and pricing. Worker reclassified as employee. Recovered 2 years of unpaid overtime plus tip pool violations.",
+    "year": 2022
+  },
+  {
+    "case_type": "wage_theft",
+    "description": "Domestic worker employed full-time for four years was paid below minimum wage and denied any overtime despite regularly working 55-hour weeks. No pay stubs were provided.",
+    "outcome": "won",
+    "outcome_notes": "Reconstructed hours from text messages and employer calendar. Domestic workers covered under state wage law. Recovered $38,000 in back wages plus liquidated damages.",
+    "year": 2023
+  },
+  {
+    "case_type": "wage_theft",
+    "description": "Farmworker crew paid piece-rate wages that fell below minimum wage in weeks with poor harvest conditions. Employer failed to separately compensate rest periods as required by state law.",
+    "outcome": "won",
+    "outcome_notes": "State labor commissioner found violations on both minimum wage floor and rest period compensation. Penalty assessment plus back wages paid to 12 workers in crew.",
+    "year": 2024
+  },
+  {
+    "case_type": "wage_theft",
+    "description": "Construction laborer was not paid final two weeks of wages after being terminated without cause. Employer claimed work was substandard and offset wages against alleged damages.",
+    "outcome": "won",
+    "outcome_notes": "State law prohibits offset of wages against unliquidated tort claims. Final wages due immediately upon termination. Small claims recovery in full plus waiting-time penalties.",
+    "year": 2022
+  },
+  {
+    "case_type": "wage_theft",
+    "description": "Nail salon worker paid a flat weekly salary of $300 regardless of hours worked. Some weeks involved 65-hour schedules. Employer claimed the flat rate covered all hours.",
+    "outcome": "settled",
+    "outcome_notes": "Fluctuating-workweek doctrine does not apply when weekly rate falls below minimum wage floor. Settled for $22,000 covering 3 years of underpayment.",
+    "year": 2024
+  },
+  {
+    "case_type": "wage_theft",
+    "description": "Hotel housekeeper had automatic meal break deductions applied to shifts where breaks were never taken due to staffing shortages. Employer policy did not enforce break compliance.",
+    "outcome": "settled",
+    "outcome_notes": "Employer liability established for non-compliant auto-deduct policy. Settled for one premium pay hour per missed break day for 18-month period.",
+    "year": 2023
+  },
+  {
+    "case_type": "wage_theft",
+    "description": "Delivery driver classified as an independent contractor filed complaint after vehicle expenses reduced net earnings below minimum wage. Employer set all delivery routes and rates.",
+    "outcome": "settled",
+    "outcome_notes": "Misclassification likely under ABC test but litigation risk high. Negotiated settlement of $15,000 covering expense reimbursements and wage differential.",
+    "year": 2022
+  },
+  {
+    "case_type": "wage_theft",
+    "description": "Warehouse worker claims 3 years of unpaid wages. Prior employer has dissolved the LLC and the principals have opened a successor company. No assets identified in dissolved entity.",
+    "outcome": "declined",
+    "outcome_notes": "Successor liability analysis inconclusive. No direct evidence of fraudulent transfer. Case not taken due to low recovery probability against dissolved entity.",
+    "year": 2023
+  },
+  {
+    "case_type": "custody",
+    "description": "Father sought modification of custody after mother relocated 400 miles away without court approval, violating the existing parenting plan's geographic restriction clause.",
+    "outcome": "won",
+    "outcome_notes": "Relocation without notice and consent constituted a material change in circumstances. Court ordered return of child to original jurisdiction and modified custody to primary with father.",
+    "year": 2023
+  },
+  {
+    "case_type": "custody",
+    "description": "Mother filed emergency motion after father failed to return child from scheduled visitation for 72 hours and turned off his phone. Father later claimed miscommunication about schedule.",
+    "outcome": "won",
+    "outcome_notes": "Emergency pick-up order granted within 4 hours. Child returned safely. Family court found pattern of parenting plan violations. Supervised visitation imposed on father.",
+    "year": 2024
+  },
+  {
+    "case_type": "custody",
+    "description": "Grandparent petitioned for third-party visitation rights after parents denied all contact following an acrimonious divorce. Grandparent had been primary caregiver for 3 years.",
+    "outcome": "settled",
+    "outcome_notes": "Mediation resulted in structured visitation schedule for grandparent. Parents retained decision-making authority. No court order needed — agreement signed.",
+    "year": 2022
+  },
+  {
+    "case_type": "custody",
+    "description": "Non-custodial parent filed to reduce child support after job loss. Custodial parent claims income underreporting and requested forensic accounting of new employer's pay structure.",
+    "outcome": "settled",
+    "outcome_notes": "Income documentation produced showed genuine reduction. Support modified downward temporarily with automatic review trigger at 90 days.",
+    "year": 2024
+  },
+  {
+    "case_type": "custody",
+    "description": "Same-sex couple disputing custody after separation where one parent was biological and the other had no legal adoption in place. Non-biological parent sought de facto parent recognition.",
+    "outcome": "settled",
+    "outcome_notes": "De facto parent status recognized under state equitable parentage doctrine given 5-year caregiving role. Joint custody arrangement negotiated in mediation.",
+    "year": 2023
+  },
+  {
+    "case_type": "custody",
+    "description": "Parent with history of domestic violence sought to regain unsupervised visitation. Opposing counsel argued DV findings from prior criminal case should preclude modification.",
+    "outcome": "settled",
+    "outcome_notes": "Agreed to 6 months of professionally supervised visitation with reassessment. DV intervention program completion required before any further modification hearing.",
+    "year": 2022
+  },
+  {
+    "case_type": "custody",
+    "description": "Father filed for sole custody alleging mother's untreated substance abuse posed danger to child. Mother disputed the allegations and accused father of parental alienation.",
+    "outcome": "declined",
+    "outcome_notes": "Both parties had credibility issues and contested factual record. Custody evaluation ordered by court. Declined to take case without clearer facts establishing imminent harm.",
+    "year": 2023
+  }
+]
