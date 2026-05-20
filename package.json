@@ -11,12 +11,14 @@
   },
   "type": "module",
   "dependencies": {
+    "@google-cloud/vertexai": "^1.12.0",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
     "dotenv": "^17.4.2",
     "firebase-admin": "^13.10.0",
     "mongoose": "^9.6.2",
     "next": "14.2.35",
+    "pdf-parse": "^2.4.5",
     "react": "^18",
     "react-dom": "^18"
   },
