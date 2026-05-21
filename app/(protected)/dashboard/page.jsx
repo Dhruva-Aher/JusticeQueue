@@ -25,7 +25,7 @@ function DashboardInner() {
   const [demoLoading, setDemoLoading] = useState(false)
 
   useEffect(() => {
-    if (!authLoading && !user && !isDemo) router.push('/login')
+    if (!authLoading && !user && !isDemo) router.replace('/login')
   }, [user, authLoading, router, isDemo])
 
   useEffect(() => {

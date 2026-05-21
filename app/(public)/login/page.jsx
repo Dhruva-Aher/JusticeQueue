@@ -22,7 +22,9 @@ export default function LoginPage() {
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
-    if (!loading && user) router.push('/dashboard')
+    if (!loading && user) {
+      router.replace('/dashboard')  // replace not push — prevents back-button loop
+    }
   }, [user, loading, router])
 
   function authError(code) {
@@ -45,6 +47,7 @@ export default function LoginPage() {
       const auth = getFirebaseAuth()
       const cred = await signInWithEmailAndPassword(auth, email, password)
       // Record last login — fire and forget, do NOT await
+      // Fire-and-forget profile upsert — do NOT await
       cred.user.getIdToken().then((token) =>
         fetch('/api/auth/register', {
           method: 'POST',
@@ -52,7 +55,7 @@ export default function LoginPage() {
           body: JSON.stringify({ name: cred.user.displayName || email.split('@')[0], provider: 'email' }),
         })
       ).catch(() => {})
-      router.push('/dashboard')
+      // Do NOT router.push here — onAuthStateChanged fires → useEffect below redirects
     } catch (err) {
       setError(authError(err.code))
       setBusy(false)
@@ -63,7 +66,6 @@ export default function LoginPage() {
     setBusy(true); setError('')
     try {
       const cred = await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider())
-      // Upsert profile — fire and forget
       cred.user.getIdToken().then((token) =>
         fetch('/api/auth/register', {
           method: 'POST',
@@ -71,7 +73,7 @@ export default function LoginPage() {
           body: JSON.stringify({ name: cred.user.displayName || cred.user.email.split('@')[0], provider: 'google' }),
         })
       ).catch(() => {})
-      router.push('/dashboard')
+      // Do NOT router.push here — useEffect handles redirect
     } catch (err) {
       if (err.code !== 'auth/popup-closed-by-user') setError(authError(err.code))
       setBusy(false)

@@ -28,7 +28,9 @@ export default function RegisterPage() {
   const [globalError, setGlobalError] = useState('')
 
   useEffect(() => {
-    if (!loading && user) router.push('/dashboard')
+    if (!loading && user) {
+      router.replace('/dashboard')
+    }
   }, [user, loading, router])
 
   function set(field) {
@@ -65,14 +67,13 @@ export default function RegisterPage() {
       // Set display name in Firebase
       await updateProfile(cred.user, { displayName: form.name.trim() })
 
-      // Persist full profile to MongoDB
-      await saveProfile(cred.user, {
+      // Fire-and-forget profile save — do NOT await
+      saveProfile(cred.user, {
         name:     form.name.trim(),
         clinic:   form.clinic.trim(),
         provider: 'email',
-      })
-
-      router.push('/dashboard')
+      }).catch(() => {})
+      // Do NOT router.push — useEffect below handles redirect once auth state updates
     } catch (err) {
       setGlobalError(authError(err.code))
       setBusy(false)
@@ -87,13 +88,8 @@ export default function RegisterPage() {
       const cred = await signInWithPopup(auth, new GoogleAuthProvider())
       const name = cred.user.displayName || cred.user.email.split('@')[0]
 
-      await saveProfile(cred.user, {
-        name,
-        clinic:   '',
-        provider: 'google',
-      })
-
-      router.push('/dashboard')
+      saveProfile(cred.user, { name, clinic: '', provider: 'google' }).catch(() => {})
+      // Do NOT router.push — useEffect handles redirect
     } catch (err) {
       if (err.code !== 'auth/popup-closed-by-user') setGlobalError(authError(err.code))
       setBusy(false)
