@@ -25,14 +25,37 @@ export default function LoginPage() {
     if (!loading && user) router.push('/dashboard')
   }, [user, loading, router])
 
+  function authError(code) {
+    const MAP = {
+      'auth/invalid-credential':      'Incorrect email or password.',
+      'auth/user-not-found':          'No account found with this email.',
+      'auth/wrong-password':          'Incorrect password. Please try again.',
+      'auth/invalid-email':           'Please enter a valid email address.',
+      'auth/user-disabled':           'This account has been disabled. Contact your admin.',
+      'auth/too-many-requests':       'Too many failed attempts. Try again in a few minutes.',
+      'auth/network-request-failed':  'Network error. Check your connection and try again.',
+    }
+    return MAP[code] || 'Sign-in failed. Please check your details and try again.'
+  }
+
   async function handleEmail(e) {
     e.preventDefault()
     setBusy(true); setError('')
     try {
-      await signInWithEmailAndPassword(getFirebaseAuth(), email, password)
+      const auth = getFirebaseAuth()
+      const cred = await signInWithEmailAndPassword(auth, email, password)
+      // Record last login in MongoDB (best-effort)
+      try {
+        const token = await cred.user.getIdToken()
+        await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name: cred.user.displayName || email.split('@')[0], provider: 'email' }),
+        })
+      } catch { /* non-critical */ }
       router.push('/dashboard')
     } catch (err) {
-      setError(err.code === 'auth/invalid-credential' ? 'Invalid email or password.' : err.message)
+      setError(authError(err.code))
       setBusy(false)
     }
   }
@@ -40,10 +63,19 @@ export default function LoginPage() {
   async function handleGoogle() {
     setBusy(true); setError('')
     try {
-      await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider())
+      const cred = await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider())
+      // Upsert profile in MongoDB
+      try {
+        const token = await cred.user.getIdToken()
+        await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ name: cred.user.displayName || cred.user.email.split('@')[0], provider: 'google' }),
+        })
+      } catch { /* non-critical */ }
       router.push('/dashboard')
     } catch (err) {
-      if (err.code !== 'auth/popup-closed-by-user') setError(err.message)
+      if (err.code !== 'auth/popup-closed-by-user') setError(authError(err.code))
       setBusy(false)
     }
   }
@@ -165,9 +197,13 @@ export default function LoginPage() {
             Continue with Google
           </button>
 
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginTop: '1.75rem', textAlign: 'center' }}>
-            Need access?{' '}
-            <a href="mailto:admin@justicequeue.org" style={{ color: 'var(--gold)' }}>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginTop: '1.5rem', textAlign: 'center' }}>
+            Don&apos;t have an account?{' '}
+            <a href="/register" style={{ color: 'var(--gold)', fontWeight: 500 }}>Create one</a>
+          </p>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginTop: '0.5rem', textAlign: 'center' }}>
+            Need help?{' '}
+            <a href="mailto:admin@justicequeue.org" style={{ color: 'var(--text-2)' }}>
               Contact your clinic admin
             </a>
           </p>

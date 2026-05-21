@@ -50,7 +50,7 @@ export default function LandingPage() {
             Live Demo
           </a>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => router.push('/register')}
             style={{
               fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase',
               letterSpacing: '0.07em', background: 'var(--gold)', color: '#000',
@@ -87,7 +87,7 @@ export default function LandingPage() {
 
         <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => router.push('/register')}
             style={{
               fontFamily: 'var(--font-mono)', fontSize: '12px', textTransform: 'uppercase',
               letterSpacing: '0.07em', background: 'var(--gold)', color: '#000',
@@ -183,7 +183,7 @@ export default function LandingPage() {
         </p>
         <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => router.push('/register')}
             style={{
               fontFamily: 'var(--font-mono)', fontSize: '12px', textTransform: 'uppercase',
               letterSpacing: '0.07em', background: 'var(--gold)', color: '#000',

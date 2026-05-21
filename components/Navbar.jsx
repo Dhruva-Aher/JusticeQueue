@@ -5,8 +5,9 @@ function formatDate(d) {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-export default function Navbar({ clinicName = 'Legal Aid Clinic' }) {
-  const { user, signOut } = useAuth()
+export default function Navbar({ clinicName }) {
+  const { user, profile, signOut } = useAuth()
+  const displayClinic = clinicName || profile?.clinic || 'Legal Aid Clinic'
 
   return (
     <nav style={{
@@ -31,7 +32,7 @@ export default function Navbar({ clinicName = 'Legal Aid Clinic' }) {
         </span>
         <div style={{ width: '1px', height: '16px', background: 'var(--border-mid)', margin: '0 0.25rem' }} />
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          {clinicName}
+          {displayClinic}
         </span>
       </div>
 
@@ -43,7 +44,7 @@ export default function Navbar({ clinicName = 'Legal Aid Clinic' }) {
         {user && (
           <>
             <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', fontWeight: 500 }}>
-              {user.email}
+              {profile?.name || user.email}
             </span>
             <button
               onClick={signOut}
