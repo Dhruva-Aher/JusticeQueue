@@ -12,15 +12,17 @@ export async function GET(request) {
     return apiError('Unauthorized', 401)
   }
 
-  await connectDB()
-
-  const batches = await Case.aggregate([
-    { $match: { uid: decoded.uid } },
-    { $group: { _id: '$batch_id', count: { $sum: 1 }, created_at: { $min: '$createdAt' } } },
-    { $sort: { created_at: -1 } },
-    { $limit: 20 },
-    { $project: { _id: 0, batch_id: '$_id', count: 1, created_at: 1 } },
-  ])
-
-  return Response.json({ batches })
+  try {
+    await connectDB()
+    const batches = await Case.aggregate([
+      { $match: { uid: decoded.uid } },
+      { $group: { _id: '$batch_id', count: { $sum: 1 }, created_at: { $min: '$createdAt' } } },
+      { $sort: { created_at: -1 } },
+      { $limit: 20 },
+      { $project: { _id: 0, batch_id: '$_id', count: 1, created_at: 1 } },
+    ])
+    return Response.json({ batches })
+  } catch (err) {
+    return apiError(err.message, 500)
+  }
 }

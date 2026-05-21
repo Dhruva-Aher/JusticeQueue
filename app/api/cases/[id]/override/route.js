@@ -28,25 +28,29 @@ export async function POST(request, { params }) {
     return apiError('new_rank is required and must be a number', 400)
   }
 
-  await connectDB()
-  const doc = await Case.findById(params.id)
-  if (!doc || doc.uid !== decoded.uid) return apiError('Case not found', 404)
+  try {
+    await connectDB()
+    const doc = await Case.findById(params.id)
+    if (!doc || doc.uid !== decoded.uid) return apiError('Case not found', 404)
 
-  await StaffAction.create({
-    case_id: doc._id,
-    staff_uid: decoded.uid,
-    action: 'override',
-    previous_score: doc.priority_score,
-    new_rank,
-    reason: reason.trim(),
-  })
+    await StaffAction.create({
+      case_id:        doc._id,
+      staff_uid:      decoded.uid,
+      action:         'override',
+      previous_score: doc.priority_score,
+      new_rank,
+      reason:         reason.trim(),
+    })
 
-  doc.status = 'overridden'
-  await doc.save()
+    doc.status = 'overridden'
+    await doc.save()
 
-  const plain = doc.toObject()
-  const sanitized = Object.fromEntries(
-    Object.entries(plain).filter(([k]) => !['_id', 'uid', '__v'].includes(k))
-  )
-  return Response.json({ case: { id: plain._id.toString(), ...sanitized } })
+    const plain      = doc.toObject()
+    const sanitized  = Object.fromEntries(
+      Object.entries(plain).filter(([k]) => !['_id', 'uid', '__v'].includes(k))
+    )
+    return Response.json({ case: { id: plain._id.toString(), ...sanitized } })
+  } catch (err) {
+    return apiError(err.message, 500)
+  }
 }
