@@ -33,6 +33,16 @@
   --clear:        #22c97a;
   --clear-subtle: rgba(34,201,122,0.12);
 
+  /* Radius */
+  --radius-sm: 3px;
+  --radius:    5px;
+  --radius-lg: 10px;
+
+  /* Shadows */
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.5), 0 1px 8px rgba(0,0,0,0.3);
+  --shadow-md:    0 4px 20px rgba(0,0,0,0.65);
+  --shadow-panel: -4px 0 40px rgba(0,0,0,0.55);
+
   /* Legacy aliases — keeps existing components working */
   --ink:          var(--text);
   --ink-2:        var(--text-2);
@@ -103,7 +113,7 @@ th {
   letter-spacing: 0.08em;
   color: var(--text-3);
   text-align: left;
-  padding: 10px 14px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-surface);
   font-weight: 500;
@@ -111,10 +121,11 @@ th {
 }
 
 td {
-  font-family: var(--font-mono);
-  font-size: 12px;
+  font-family: var(--font-sans);
+  font-size: 13px;
   color: var(--text-2);
-  padding: 12px 14px;
+  padding: 0 16px;
+  height: 52px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -137,10 +148,32 @@ tr:last-child td { border-bottom: none; }
   to   { opacity: 1; transform: translateY(0); }
 }
 
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+
 /* Score color classes */
 .score-urgent { color: var(--urgent); }
 .score-medium { color: var(--medium); }
 .score-clear  { color: var(--clear);  }
+
+/* Skeleton loading */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-raised) 25%, var(--bg-hover) 50%, var(--bg-raised) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
 
 /* Utility */
 .label {
@@ -149,4 +182,10 @@ tr:last-child td { border-bottom: none; }
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-3);
+}
+
+/* Focus rings */
+*:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }

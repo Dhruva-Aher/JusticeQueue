@@ -3,30 +3,56 @@ import { useCallback, useEffect, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 
 const STAGES = [
-  { label: 'Parsing file', pct: 15 },
-  { label: 'Extracting facts with Gemini', pct: 40 },
-  { label: 'Searching similar cases', pct: 65 },
-  { label: 'Scoring urgency', pct: 85 },
-  { label: 'Finalizing queue', pct: 95 },
+  { label: 'Parsing intake file',                    pct: 15 },
+  { label: 'Extracting case facts with Gemini AI',   pct: 38 },
+  { label: 'Searching similar case precedents',      pct: 60 },
+  { label: 'Scoring urgency across all dimensions',  pct: 82 },
+  { label: 'Finalizing ranked queue',                pct: 96 },
 ]
 
+function UploadIcon({ size = 28, color = 'currentColor' }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  )
+}
+
+function CheckIcon({ size = 16 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
+
 export default function UploadZone({ status, onUpload, error }) {
-  const [stageIdx, setStageIdx] = useState(0)
+  const [stageIdx, setStageIdx]       = useState(0)
+  const [acceptedName, setAcceptedName] = useState('')
 
   useEffect(() => {
     if (status !== 'processing') { setStageIdx(0); return }
-    const t = setInterval(() => setStageIdx((i) => Math.min(i + 1, STAGES.length - 1)), 2200)
+    const t = setInterval(() => setStageIdx((i) => Math.min(i + 1, STAGES.length - 1)), 2400)
     return () => clearInterval(t)
   }, [status])
 
-  const onDrop = useCallback(
-    (accepted) => { if (accepted[0]) onUpload(accepted[0]) },
-    [onUpload]
-  )
+  const onDrop = useCallback((accepted) => {
+    if (!accepted[0]) return
+    setAcceptedName(accepted[0].name)
+    onUpload(accepted[0])
+  }, [onUpload])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { 'text/csv': ['.csv'], 'text/plain': ['.txt'], 'application/pdf': ['.pdf'] },
+    accept: {
+      'text/csv':        ['.csv'],
+      'text/plain':      ['.txt'],
+      'application/pdf': ['.pdf'],
+    },
     maxFiles: 1,
     disabled: status === 'uploading' || status === 'processing',
   })
@@ -34,75 +60,158 @@ export default function UploadZone({ status, onUpload, error }) {
   const isProcessing = status === 'uploading' || status === 'processing'
   const isComplete   = status === 'complete'
   const isError      = status === 'error'
+  const stage        = STAGES[stageIdx]
+  const pct          = isComplete ? 100 : stage?.pct ?? 0
 
-  const stage = STAGES[stageIdx]
+  let borderColor = 'var(--border-mid)'
+  if (isDragActive) borderColor = 'var(--gold)'
+  if (isComplete)   borderColor = 'var(--clear)'
+  if (isError)      borderColor = 'var(--urgent)'
+
+  let bgColor = 'var(--bg-raised)'
+  if (isDragActive) bgColor = 'rgba(233,161,44,0.05)'
+  if (isProcessing) bgColor = 'var(--bg-surface)'
+  if (isComplete)   bgColor = 'rgba(34,201,122,0.04)'
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div
-        {...getRootProps()}
-        style={{
-          border: `1px solid ${isDragActive ? 'var(--gold)' : isError ? 'var(--urgent)' : isComplete ? 'var(--clear)' : 'var(--border-mid)'}`,
-          background: isDragActive
-            ? 'var(--gold-subtle)'
-            : isProcessing
-            ? 'var(--bg-surface)'
-            : 'var(--bg-raised)',
-          padding: '2rem 2.5rem',
-          cursor: isProcessing ? 'default' : 'pointer',
-          transition: 'border-color 150ms, background 150ms',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: '1.5rem',
-          userSelect: 'none',
-        }}
-      >
-        <input {...getInputProps()} />
+    <div
+      {...getRootProps()}
+      style={{
+        border: `1px dashed ${borderColor}`,
+        background: bgColor,
+        borderRadius: 'var(--radius)',
+        padding: isProcessing ? '1.5rem 2rem' : '2rem 2.5rem',
+        cursor: isProcessing ? 'default' : 'pointer',
+        transition: 'border-color 180ms, background 180ms',
+        userSelect: 'none',
+        position: 'relative',
+        overflow: 'hidden',
+      }}
+    >
+      <input {...getInputProps()} />
 
-        {isProcessing ? (
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-              <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--gold)', animation: 'pulse 1.2s ease-in-out infinite' }} />
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text)', fontWeight: 500 }}>
-                {stage.label}
-              </span>
-            </div>
-            <div style={{ height: '2px', background: 'var(--border)', borderRadius: '1px', overflow: 'hidden' }}>
-              <div style={{
-                height: '100%', background: 'var(--gold)',
-                borderRadius: '1px',
-                width: `${stage.pct}%`,
-                transition: 'width 1.8s cubic-bezier(0.4, 0, 0.2, 1)',
-              }} />
-            </div>
-          </div>
-        ) : isComplete ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--clear)' }} />
-            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--clear)', fontWeight: 500 }}>
-              Queue scored — drop a new file to rescore
+      {/* Animated glow border on drag */}
+      {isDragActive && (
+        <div style={{
+          position: 'absolute', inset: 0,
+          background: 'radial-gradient(ellipse at center, rgba(233,161,44,0.08) 0%, transparent 70%)',
+          pointerEvents: 'none',
+        }} />
+      )}
+
+      {isProcessing ? (
+        /* Processing state */
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
+            <div style={{
+              width: '7px', height: '7px', borderRadius: '50%',
+              background: 'var(--gold)', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0,
+            }} />
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text)', fontWeight: 500 }}>
+              {stage.label}
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--gold)', marginLeft: 'auto' }}>
+              {pct}%
             </span>
           </div>
-        ) : isError ? (
-          <div>
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--urgent)', fontWeight: 500, marginBottom: '2px' }}>
-              {error || 'Upload failed'}
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)', letterSpacing: '0.03em' }}>
-              Click or drop to try again
-            </div>
-          </div>
-        ) : (
-          <div>
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', color: isDragActive ? 'var(--gold)' : 'var(--text)', fontWeight: 500, marginBottom: '4px' }}>
-              {isDragActive ? 'Drop to analyze' : 'Upload intake file'}
-            </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)', letterSpacing: '0.03em' }}>
-              CSV · TXT · PDF · Max 10 MB
-            </div>
-          </div>
-        )}
 
-        {!isProcessing && !isError && (
+          {/* Progress bar */}
+          <div style={{ height: '3px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{
+              height: '100%', background: 'linear-gradient(90deg, var(--gold-dim), var(--gold))',
+              borderRadius: '2px',
+              width: `${pct}%`,
+              transition: 'width 2s cubic-bezier(0.4, 0, 0.2, 1)',
+            }} />
+          </div>
+
+          {/* Stage dots */}
+          <div style={{ display: 'flex', gap: '6px', marginTop: '12px' }}>
+            {STAGES.map((_, i) => (
+              <div key={i} style={{
+                width: i <= stageIdx ? '18px' : '6px', height: '3px',
+                borderRadius: '2px',
+                background: i <= stageIdx ? 'var(--gold)' : 'var(--border-mid)',
+                transition: 'all 400ms ease',
+              }} />
+            ))}
+          </div>
+        </div>
+
+      ) : isComplete ? (
+        /* Complete state */
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{
+              width: '32px', height: '32px', borderRadius: '50%',
+              background: 'rgba(34,201,122,0.15)', border: '1px solid rgba(34,201,122,0.3)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              color: 'var(--clear)',
+            }}>
+              <CheckIcon />
+            </div>
+            <div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--clear)', fontWeight: 500, marginBottom: '2px' }}>
+                Queue scored successfully
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.03em' }}>
+                {acceptedName || 'File processed'} · Drop a new file to rescore
+              </div>
+            </div>
+          </div>
+          <div style={{
+            padding: '6px 14px', border: '1px solid var(--border-mid)',
+            fontFamily: 'var(--font-mono)', fontSize: '10px',
+            color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em',
+            borderRadius: 'var(--radius-sm)',
+          }}>
+            Replace
+          </div>
+        </div>
+
+      ) : isError ? (
+        /* Error state */
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--urgent)', fontWeight: 500, marginBottom: '3px' }}>
+              {error || 'Upload failed — please try again'}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.03em' }}>
+              Accepted formats: CSV · TXT · PDF · Max 10 MB
+            </div>
+          </div>
+          <div style={{
+            padding: '6px 14px', border: '1px solid rgba(232,68,68,0.3)',
+            fontFamily: 'var(--font-mono)', fontSize: '10px',
+            color: 'var(--urgent)', textTransform: 'uppercase', letterSpacing: '0.06em',
+            borderRadius: 'var(--radius-sm)', background: 'rgba(232,68,68,0.06)',
+          }}>
+            Retry
+          </div>
+        </div>
+
+      ) : (
+        /* Default / drag state */
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <div style={{
+            width: '52px', height: '52px', borderRadius: '50%',
+            background: isDragActive ? 'rgba(233,161,44,0.15)' : 'var(--bg-hover)',
+            border: `1px solid ${isDragActive ? 'rgba(233,161,44,0.4)' : 'var(--border-mid)'}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: isDragActive ? 'var(--gold)' : 'var(--text-3)',
+            flexShrink: 0, transition: 'all 180ms',
+          }}>
+            <UploadIcon size={22} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', color: isDragActive ? 'var(--gold)' : 'var(--text)', fontWeight: 500, marginBottom: '4px' }}>
+              {isDragActive ? 'Release to analyze' : 'Upload intake batch'}
+            </div>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', lineHeight: 1.5 }}>
+              Drag and drop a client intake file, or click to browse.{' '}
+              <span style={{ color: 'var(--text-3)' }}>CSV · TXT · PDF · Max 10 MB</span>
+            </div>
+          </div>
           <div style={{
             flexShrink: 0, padding: '8px 18px',
             background: isDragActive ? 'var(--gold)' : 'transparent',
@@ -110,13 +219,14 @@ export default function UploadZone({ status, onUpload, error }) {
             fontFamily: 'var(--font-mono)', fontSize: '11px',
             color: isDragActive ? '#000' : 'var(--text-3)',
             textTransform: 'uppercase', letterSpacing: '0.06em',
-            transition: 'all 150ms',
+            borderRadius: 'var(--radius-sm)',
+            transition: 'all 180ms',
             pointerEvents: 'none',
           }}>
-            {isComplete ? 'Replace' : 'Browse'}
+            Browse
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }

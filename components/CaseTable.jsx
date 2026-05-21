@@ -1,25 +1,50 @@
 'use client'
 import StatusBadge from './StatusBadge.jsx'
 
-function scoreColor(s) {
-  if (s >= 80) return '#e84444'
-  if (s >= 50) return '#f0a030'
-  return '#22c97a'
+function ScorePill({ score }) {
+  let bg, color, border
+  if (score >= 80) {
+    bg = 'rgba(232,68,68,0.15)'; color = '#e84444'; border = 'rgba(232,68,68,0.3)'
+  } else if (score >= 50) {
+    bg = 'rgba(240,160,48,0.15)'; color = '#f0a030'; border = 'rgba(240,160,48,0.3)'
+  } else {
+    bg = 'rgba(34,201,122,0.12)'; color = '#22c97a'; border = 'rgba(34,201,122,0.25)'
+  }
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      minWidth: '46px', padding: '4px 8px',
+      background: bg, color, border: `1px solid ${border}`,
+      borderRadius: '4px',
+      fontFamily: 'var(--font-mono)', fontSize: '13px', fontWeight: 700,
+      letterSpacing: '0.02em',
+    }}>
+      {score}
+    </span>
+  )
 }
 
-function deadlineColor(d) {
-  if (d == null) return 'var(--text-3)'
-  if (d <= 3) return '#e84444'
-  if (d <= 7) return '#f0a030'
-  return '#22c97a'
+function DeadlineCell({ days }) {
+  if (days == null) return <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--text-3)' }}>—</span>
+  let color = '#22c97a'
+  let icon  = null
+  if (days <= 3)       { color = '#e84444'; icon = '⚑' }
+  else if (days <= 7)  { color = '#f0a030'; icon = '⚐' }
+
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontFamily: 'var(--font-mono)', fontSize: '12px', color, fontWeight: 500 }}>
+      {icon && <span style={{ fontSize: '10px' }}>{icon}</span>}
+      {days}d
+    </span>
+  )
 }
 
 function flagBadges(flags) {
   if (!flags) return []
   const out = []
-  if (flags.minor_children)  out.push({ label: 'Children', variant: 'warn' })
-  if (flags.language_barrier) out.push({ label: 'Language', variant: 'neutral' })
+  if (flags.minor_children)   out.push({ label: 'Minor', variant: 'warn' })
   if (flags.medical_condition) out.push({ label: 'Medical', variant: 'danger' })
+  if (flags.language_barrier)  out.push({ label: 'Lang', variant: 'neutral' })
   return out
 }
 
@@ -31,20 +56,40 @@ function statusVariant(s) {
 }
 
 const TYPE_LABELS = {
-  eviction: 'Eviction', immigration: 'Immigration',
-  wage_theft: 'Wage Theft', custody: 'Custody',
-  employment: 'Employment', other: 'Other',
+  eviction:   'Eviction',
+  immigration:'Immigration',
+  wage_theft: 'Wage Theft',
+  custody:    'Custody',
+  employment: 'Employment',
+  other:      'Other',
+}
+
+const TYPE_COLORS = {
+  eviction:   '#e84444',
+  immigration:'#4f8ef7',
+  wage_theft: '#f0a030',
+  custody:    '#9b6ef7',
+  employment: '#22c97a',
+  other:      '#6e8fa8',
 }
 
 export default function CaseTable({ cases = [], selectedId, onSelectCase }) {
   if (cases.length === 0) {
     return (
       <div style={{ padding: '4rem 2rem', textAlign: 'center' }}>
-        <div style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--text-3)', marginBottom: '8px' }}>
+        <div style={{
+          width: '48px', height: '48px', borderRadius: '50%',
+          background: 'var(--bg-raised)', border: '1px solid var(--border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          margin: '0 auto 1rem', fontSize: '20px',
+        }}>
+          📋
+        </div>
+        <div style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', color: 'var(--text-2)', fontWeight: 500, marginBottom: '6px' }}>
           No cases in queue
         </div>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)', letterSpacing: '0.04em' }}>
-          Upload an intake file to begin triage
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', lineHeight: 1.6 }}>
+          Upload an intake file above to generate a scored, ranked priority queue.
         </p>
       </div>
     )
@@ -55,89 +100,107 @@ export default function CaseTable({ cases = [], selectedId, onSelectCase }) {
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>
         <thead>
           <tr>
-            {['#', 'Score', 'Client', 'Type', 'Deadline', 'Flags', 'Status'].map((h) => (
-              <th key={h} style={{
-                fontFamily: 'var(--font-mono)', fontSize: '10px',
-                textTransform: 'uppercase', letterSpacing: '0.07em',
-                color: 'var(--text-3)', textAlign: 'left',
-                padding: '10px 14px', fontWeight: 400,
-                borderBottom: '1px solid var(--border)',
-                background: 'var(--bg-surface)',
-                whiteSpace: 'nowrap',
-              }}>
-                {h}
+            {[
+              { label: '#',         w: '48px'  },
+              { label: 'Score',     w: '80px'  },
+              { label: 'Client',    w: null    },
+              { label: 'Type',      w: '120px' },
+              { label: 'Deadline',  w: '100px' },
+              { label: 'Flags',     w: '160px' },
+              { label: 'Status',    w: '100px' },
+            ].map(({ label, w }) => (
+              <th key={label} style={{ width: w || undefined }}>
+                {label}
               </th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {cases.map((c) => {
+          {cases.map((c, idx) => {
             const selected = c.id === selectedId
-            const flags = flagBadges(c.vulnerability_flags)
+            const flags    = flagBadges(c.vulnerability_flags)
+            const typeColor = TYPE_COLORS[c.case_type] || 'var(--text-3)'
+
             return (
               <tr
                 key={c.id}
                 onClick={() => onSelectCase(c.id)}
                 style={{
                   cursor: 'pointer',
-                  background: selected ? 'var(--bg-hover)' : 'transparent',
+                  background: selected
+                    ? 'linear-gradient(90deg, rgba(233,161,44,0.06) 0%, rgba(233,161,44,0.02) 100%)'
+                    : 'transparent',
                   borderBottom: '1px solid var(--border)',
-                  borderLeft: selected ? '2px solid var(--gold)' : '2px solid transparent',
-                  transition: 'background 120ms',
+                  borderLeft: selected ? '3px solid var(--gold)' : '3px solid transparent',
+                  transition: 'background 100ms',
+                  animation: `fadeIn 200ms ease ${idx * 30}ms both`,
                 }}
-                onMouseEnter={(e) => { if (!selected) e.currentTarget.style.background = 'var(--bg-raised)' }}
-                onMouseLeave={(e) => { if (!selected) e.currentTarget.style.background = 'transparent' }}
+                onMouseEnter={(e) => {
+                  if (!selected) e.currentTarget.style.background = 'var(--bg-raised)'
+                }}
+                onMouseLeave={(e) => {
+                  if (!selected) e.currentTarget.style.background = 'transparent'
+                }}
               >
                 {/* Rank */}
-                <td style={{ padding: '13px 14px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)', width: '40px' }}>
-                  {c.rank}
+                <td style={{ paddingLeft: selected ? '13px' : '16px' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)' }}>
+                    {c.rank ?? idx + 1}
+                  </span>
                 </td>
 
                 {/* Score */}
-                <td style={{ padding: '13px 14px', width: '70px' }}>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
-                    <span style={{ fontFamily: 'var(--font-serif)', fontSize: '26px', color: scoreColor(c.priority_score), lineHeight: 1 }}>
-                      {c.priority_score}
-                    </span>
-                  </div>
+                <td>
+                  <ScorePill score={c.priority_score} />
                 </td>
 
-                {/* Name */}
-                <td style={{ padding: '13px 14px' }}>
+                {/* Client name + summary */}
+                <td>
                   <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text)', fontWeight: 500 }}>
                     {c.client_name}
                   </div>
                   {c.summary && (
-                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', marginTop: '2px', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <div style={{
+                      fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)',
+                      marginTop: '2px', maxWidth: '300px',
+                      overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                    }}>
                       {c.summary}
                     </div>
                   )}
                 </td>
 
                 {/* Type */}
-                <td style={{ padding: '13px 14px', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', fontWeight: 500 }}>
-                    {TYPE_LABELS[c.case_type] || c.case_type}
+                <td>
+                  <span style={{
+                    fontFamily: 'var(--font-sans)', fontSize: '12px', color: typeColor, fontWeight: 500,
+                  }}>
+                    {TYPE_LABELS[c.case_type] || c.case_type || '—'}
                   </span>
                 </td>
 
                 {/* Deadline */}
-                <td style={{ padding: '13px 14px', whiteSpace: 'nowrap' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: deadlineColor(c.deadline_days), fontWeight: 500 }}>
-                    {c.deadline_days != null ? `${c.deadline_days}d` : '—'}
-                  </span>
+                <td>
+                  <DeadlineCell days={c.deadline_days} />
                 </td>
 
                 {/* Flags */}
-                <td style={{ padding: '13px 14px' }}>
+                <td>
                   <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                    {flags.map((f) => <StatusBadge key={f.label} label={f.label} variant={f.variant} />)}
+                    {flags.length > 0
+                      ? flags.map((f) => <StatusBadge key={f.label} label={f.label} variant={f.variant} />)
+                      : <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>—</span>
+                    }
                   </div>
                 </td>
 
                 {/* Status */}
-                <td style={{ padding: '13px 14px' }}>
-                  <StatusBadge label={c.status || 'Pending'} variant={statusVariant(c.status)} />
+                <td>
+                  <StatusBadge
+                    label={c.status ? c.status.charAt(0).toUpperCase() + c.status.slice(1) : 'Pending'}
+                    variant={statusVariant(c.status)}
+                    dot
+                  />
                 </td>
               </tr>
             )
