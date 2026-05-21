@@ -14,25 +14,20 @@ export function AuthProvider({ children }) {
     const auth = getFirebaseAuth()
     if (!auth) { setLoading(false); return }
 
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsub = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser)
-      if (firebaseUser) {
-        try {
-          const token = await firebaseUser.getIdToken()
-          const res = await fetch('/api/auth/me', {
-            headers: { Authorization: `Bearer ${token}` },
-          })
-          if (res.ok) {
-            const data = await res.json()
-            setProfile(data.user)
-          }
-        } catch {
-          // non-critical — auth still works without profile
-        }
-      } else {
-        setProfile(null)
-      }
-      setLoading(false)
+      setLoading(false)  // unblock the UI immediately — don't wait for profile fetch
+
+      if (!firebaseUser) { setProfile(null); return }
+
+      // Load MongoDB profile in background — non-blocking
+      firebaseUser.getIdToken().then((token) =>
+        fetch('/api/auth/me', { headers: { Authorization: `Bearer ${token}` } })
+      ).then((res) => {
+        if (res.ok) return res.json()
+      }).then((data) => {
+        if (data?.user) setProfile(data.user)
+      }).catch(() => { /* profile is optional */ })
     })
 
     return unsub

@@ -44,15 +44,14 @@ export default function LoginPage() {
     try {
       const auth = getFirebaseAuth()
       const cred = await signInWithEmailAndPassword(auth, email, password)
-      // Record last login in MongoDB (best-effort)
-      try {
-        const token = await cred.user.getIdToken()
-        await fetch('/api/auth/register', {
+      // Record last login — fire and forget, do NOT await
+      cred.user.getIdToken().then((token) =>
+        fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ name: cred.user.displayName || email.split('@')[0], provider: 'email' }),
         })
-      } catch { /* non-critical */ }
+      ).catch(() => {})
       router.push('/dashboard')
     } catch (err) {
       setError(authError(err.code))
@@ -64,15 +63,14 @@ export default function LoginPage() {
     setBusy(true); setError('')
     try {
       const cred = await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider())
-      // Upsert profile in MongoDB
-      try {
-        const token = await cred.user.getIdToken()
-        await fetch('/api/auth/register', {
+      // Upsert profile — fire and forget
+      cred.user.getIdToken().then((token) =>
+        fetch('/api/auth/register', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ name: cred.user.displayName || cred.user.email.split('@')[0], provider: 'google' }),
         })
-      } catch { /* non-critical */ }
+      ).catch(() => {})
       router.push('/dashboard')
     } catch (err) {
       if (err.code !== 'auth/popup-closed-by-user') setError(authError(err.code))
