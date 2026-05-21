@@ -1,24 +1,55 @@
-/* Global CSS variables, reset, and typography — the single source of truth for all visual tokens */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+/* JusticeQueue — Midnight Legal design system */
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap');
 
 :root {
-  --bg:           #f0ece3;
-  --bg-raised:    #e8e3d8;
-  --bg-inset:     #ddd7ca;
-  --ink:          #1a1714;
-  --ink-2:        #4a4540;
-  --ink-3:        #8a837a;
-  --border:       #c8c1b4;
-  --border-dark:  #9a9187;
-  --stamp:        #8b1a1a;
-  --stamp-light:  #f5e8e8;
-  --ochre:        #7a5c1e;
-  --ochre-light:  #f5eddb;
-  --forest:       #2a4a2e;
-  --forest-light: #e0ebe1;
+  /* Backgrounds */
+  --bg:           #080c14;
+  --bg-surface:   #0d1420;
+  --bg-raised:    #121b2a;
+  --bg-hover:     #182232;
+  --bg-input:     #0f1826;
+
+  /* Borders */
+  --border:       #1c2d42;
+  --border-mid:   #243c56;
+  --border-strong:#2e4d6a;
+
+  /* Text */
+  --text:         #dde6f0;
+  --text-2:       #6e8fa8;
+  --text-3:       #384f62;
+
+  /* Gold — primary accent */
+  --gold:         #e9a12c;
+  --gold-dim:     #b87a1a;
+  --gold-glow:    rgba(233,161,44,0.10);
+  --gold-subtle:  rgba(233,161,44,0.06);
+
+  /* Urgency colors */
+  --urgent:       #e84444;
+  --urgent-subtle:rgba(232,68,68,0.12);
+  --medium:       #f0a030;
+  --medium-subtle:rgba(240,160,48,0.12);
+  --clear:        #22c97a;
+  --clear-subtle: rgba(34,201,122,0.12);
+
+  /* Legacy aliases — keeps existing components working */
+  --ink:          var(--text);
+  --ink-2:        var(--text-2);
+  --ink-3:        var(--text-3);
+  --stamp:        var(--urgent);
+  --stamp-light:  var(--urgent-subtle);
+  --ochre:        var(--medium);
+  --ochre-light:  var(--medium-subtle);
+  --forest:       var(--clear);
+  --forest-light: var(--clear-subtle);
+  --bg-inset:     var(--bg-input);
+  --border-dark:  var(--border-mid);
+
+  /* Typography */
   --font-serif:   'Instrument Serif', serif;
   --font-mono:    'IBM Plex Mono', monospace;
-  --font-sans:    'IBM Plex Sans', sans-serif;
+  --font-sans:    'Inter', sans-serif;
 }
 
 *, *::before, *::after {
@@ -27,13 +58,16 @@
   padding: 0;
 }
 
+html { color-scheme: dark; }
+
 body {
   background: var(--bg);
-  color: var(--ink);
+  color: var(--text);
   font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button {
@@ -45,7 +79,7 @@ button {
 
 input, textarea, select {
   font-family: inherit;
-  color: var(--ink);
+  color: var(--text);
 }
 
 a {
@@ -53,144 +87,66 @@ a {
   text-decoration: none;
 }
 
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
 /* Table base */
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
+table { width: 100%; border-collapse: collapse; }
 
 th {
   font-family: var(--font-mono);
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--ink-3);
+  color: var(--text-3);
   text-align: left;
-  padding: 8px 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-raised);
+  background: var(--bg-surface);
   font-weight: 500;
+  white-space: nowrap;
 }
 
 td {
   font-family: var(--font-mono);
   font-size: 12px;
-  color: var(--ink-2);
-  padding: 10px 12px;
+  color: var(--text-2);
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
 
-tr:last-child td {
-  border-bottom: none;
-}
+tr:last-child td { border-bottom: none; }
 
-/* Section label */
-.section-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--ink-3);
-}
-
-/* Stat number */
-.stat-number {
-  font-family: var(--font-serif);
-  font-size: 36px;
-  color: var(--ink);
-  line-height: 1;
-}
-
-.stat-label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--ink-3);
-  margin-top: 4px;
-}
-
-/* Input base */
-.input-base {
-  width: 100%;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  background: var(--bg-raised);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 10px 12px;
-  color: var(--ink);
-  outline: none;
-  transition: border-color 150ms ease;
-}
-
-.input-base:focus {
-  border-color: var(--border-dark);
-}
-
-/* Button base */
-.btn-primary {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: var(--stamp);
-  color: #fff;
-  border: none;
-  border-radius: 0;
-  padding: 11px 20px;
-  cursor: pointer;
-  transition: opacity 150ms ease;
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.btn-secondary {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  background: var(--bg-raised);
-  color: var(--ink);
-  border: 1px solid var(--border);
-  border-radius: 0;
-  padding: 10px 20px;
-  cursor: pointer;
-  transition: border-color 150ms ease;
-}
-
-.btn-secondary:hover {
-  border-color: var(--border-dark);
-}
-
-/* Progress bar animation */
+/* Animations */
 @keyframes progress-slide {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
 }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50%       { opacity: 0.35; }
 }
 
-/* Score pill */
-.score-high { color: var(--stamp); }
-.score-mid  { color: var(--ochre); }
-.score-low  { color: var(--forest); }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 
-/* Tag */
-.tag {
-  display: inline-block;
+/* Score color classes */
+.score-urgent { color: var(--urgent); }
+.score-medium { color: var(--medium); }
+.score-clear  { color: var(--clear);  }
+
+/* Utility */
+.label {
   font-family: var(--font-mono);
   font-size: 10px;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  padding: 2px 6px;
-  border: 1px solid var(--border);
-  color: var(--ink-3);
+  letter-spacing: 0.08em;
+  color: var(--text-3);
 }

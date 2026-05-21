@@ -1,39 +1,51 @@
-// 4-row breakdown of scoring points by category
 'use client'
 
 const ROWS = [
-  { key: 'deadline_points',       label: 'Deadline' },
-  { key: 'vulnerability_points',  label: 'Vulnerability' },
-  { key: 'case_type_points',      label: 'Case Type' },
-  { key: 'similarity_points',     label: 'Precedent' },
+  { key: 'deadline_points',      label: 'Deadline',      max: 40 },
+  { key: 'vulnerability_points', label: 'Vulnerability', max: 25 },
+  { key: 'case_type_points',     label: 'Case Type',     max: 20 },
+  { key: 'similarity_points',    label: 'Precedent',     max: 15 },
 ]
+
+function barColor(pct) {
+  if (pct >= 0.75) return '#e84444'
+  if (pct >= 0.40) return '#f0a030'
+  return '#22c97a'
+}
 
 export default function UrgencyBreakdown({ breakdown }) {
   if (!breakdown) return null
   return (
     <div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--ink-3)', marginBottom: '0.75rem' }}>
-        Scoring Breakdown
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: '1rem' }}>
+        Score Breakdown
       </p>
-      {ROWS.map(({ key, label }) => {
-        const pts = breakdown[key] ?? 0
-        return (
-          <div
-            key={key}
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'baseline',
-              padding: '6px 0',
-              borderBottom: '1px solid var(--border)',
-              opacity: pts === 0 ? 0.4 : 1,
-            }}
-          >
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--ink-2)' }}>{label}</span>
-            <span style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--ink)' }}>+{pts}</span>
-          </div>
-        )
-      })}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+        {ROWS.map(({ key, label, max }) => {
+          const pts = breakdown[key] ?? 0
+          const pct = max > 0 ? pts / max : 0
+          const color = barColor(pct)
+          return (
+            <div key={key}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: pts > 0 ? 'var(--text-2)' : 'var(--text-3)', fontWeight: 500 }}>
+                  {label}
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: pts > 0 ? color : 'var(--text-3)' }}>
+                  +{pts} <span style={{ color: 'var(--text-3)' }}>/ {max}</span>
+                </span>
+              </div>
+              <div style={{ height: '3px', background: 'var(--bg-raised)', borderRadius: '2px', overflow: 'hidden' }}>
+                <div style={{
+                  height: '100%', width: `${Math.round(pct * 100)}%`,
+                  background: pts > 0 ? color : 'transparent',
+                  borderRadius: '2px', transition: 'width 600ms ease',
+                }} />
+              </div>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

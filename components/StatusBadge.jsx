@@ -1,31 +1,26 @@
-// Rubber-stamp style badge — danger | warn | clear | neutral variants
 'use client'
 
 const VARIANTS = {
-  danger:  { background: 'var(--stamp-light)',  color: 'var(--stamp)',  border: '#d4a0a0' },
-  warn:    { background: 'var(--ochre-light)',  color: 'var(--ochre)',  border: '#c4aa80' },
-  clear:   { background: 'var(--forest-light)', color: 'var(--forest)', border: '#90b894' },
-  neutral: { background: 'var(--bg-inset)',     color: 'var(--ink-3)',  border: 'var(--border)' },
+  danger:  { bg: 'rgba(232,68,68,0.12)',    color: '#e84444', border: 'rgba(232,68,68,0.25)' },
+  warn:    { bg: 'rgba(240,160,48,0.12)',   color: '#f0a030', border: 'rgba(240,160,48,0.25)' },
+  clear:   { bg: 'rgba(34,201,122,0.12)',   color: '#22c97a', border: 'rgba(34,201,122,0.25)' },
+  gold:    { bg: 'rgba(233,161,44,0.12)',   color: '#e9a12c', border: 'rgba(233,161,44,0.25)' },
+  neutral: { bg: 'rgba(255,255,255,0.04)',  color: '#6e8fa8', border: 'rgba(255,255,255,0.08)' },
 }
 
 export default function StatusBadge({ label, variant = 'neutral' }) {
-  const style = VARIANTS[variant] ?? VARIANTS.neutral
+  const s = VARIANTS[variant] ?? VARIANTS.neutral
   return (
-    <span
-      style={{
-        display: 'inline-block',
-        fontFamily: 'var(--font-mono)',
-        fontSize: '11px',
-        textTransform: 'uppercase',
-        letterSpacing: '0.08em',
-        padding: '2px 6px',
-        borderRadius: 0,
-        border: `1px solid ${style.border}`,
-        background: style.background,
-        color: style.color,
-        whiteSpace: 'nowrap',
-      }}
-    >
+    <span style={{
+      display: 'inline-flex', alignItems: 'center',
+      fontFamily: 'var(--font-mono)', fontSize: '10px',
+      textTransform: 'uppercase', letterSpacing: '0.07em',
+      padding: '2px 7px',
+      background: s.bg, color: s.color,
+      border: `1px solid ${s.border}`,
+      borderRadius: '2px',
+      whiteSpace: 'nowrap', fontWeight: 500,
+    }}>
       {label}
     </span>
   )
