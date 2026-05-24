@@ -46,7 +46,11 @@ export function useUpload() {
       setStage(null)
       setStatus('complete')
     } catch (err) {
-      const msg = err.response?.data?.error || err.message || 'Upload failed'
+      const raw = err.response?.data?.error
+             ?? err.response?.data?.message
+             ?? err.message
+             ?? 'Upload failed'
+      const msg = typeof raw === 'string' ? raw : JSON.stringify(raw)
       setError(msg)
       setStage(null)
       setStatus('error')
