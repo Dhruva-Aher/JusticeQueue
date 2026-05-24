@@ -1,38 +1,72 @@
-# Dependencies
-node_modules/
-
-# Environment files — never commit secrets
+# ─── Environment variables ───────────────────────────────────────────
+# NEVER commit these — rotate any key that was ever committed
 .env
 .env.local
-.env.*.local
+.env.development
+.env.production
+.env.staging
+.env*.local
+.env*.development
+.env*.production
 
-# Google service account JSON key files
-*-key.json
-*serviceAccount*.json
+# ─── Service account and credential files ───────────────────────────
+*-service-account.json
+*-sa.json
+service-account*.json
+google-credentials*.json
 firebase-adminsdk*.json
+gcp-key*.json
+*.key.json
+credentials.json
+token.json
+oauth-token.json
 
-# Next.js build output
+# ─── Next.js ─────────────────────────────────────────────────────────
 .next/
-/out/
-/build
-dist/
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# IDE
-.vscode/
-.idea/
-
-# Vercel
-.vercel
-
-# TypeScript
-*.tsbuildinfo
+out/
 next-env.d.ts
 
-# Logs
+# ─── Dependencies ────────────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Vercel ──────────────────────────────────────────────────────────
+.vercel/
+
+# ─── OS ──────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ─── Logs ────────────────────────────────────────────────────────────
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.pnpm-debug.log*
+
+# ─── Editor ──────────────────────────────────────────────────────────
+.vscode/settings.json
+.vscode/*.code-workspace
+.idea/
+*.swp
+*.swo
+*~
+
+# ─── Test and coverage ───────────────────────────────────────────────
+coverage/
+.nyc_output/
+*.lcov
+
+# ─── Build artifacts ─────────────────────────────────────────────────
+dist/
+build/
+
+# ─── Debug ───────────────────────────────────────────────────────────
+.clinic/
+.0x/
