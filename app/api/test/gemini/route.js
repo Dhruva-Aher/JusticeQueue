@@ -43,7 +43,7 @@ export async function GET() {
 
   for (const loc of regions) {
     for (const model of models) {
-      for (const ver of ['v1', 'v1beta']) {
+      for (const ver of ['v1', 'v1beta', 'v1beta1']) {
         const key = `[${loc}][${ver}] ${model}`
         const host = loc === 'global'
           ? `aiplatform.googleapis.com`
