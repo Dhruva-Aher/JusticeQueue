@@ -144,7 +144,8 @@ function AgentTrace({ trace }) {
   )
 }
 
-export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelectCase }) {
+export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelectCase, overrideData = null }) {
+  const isDemo = overrideData !== null
   const [caseData,       setCaseData]       = useState(null)
   const [loading,        setLoading]        = useState(false)
   const [overrideReason, setOverrideReason] = useState('')
@@ -158,6 +159,13 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
 
   useEffect(() => {
     if (!caseId) { setCaseData(null); return }
+    // Demo mode — use data passed directly, no API call needed
+    if (overrideData) {
+      setCaseData(overrideData)
+      setLoading(false)
+      setActionStatus(null)
+      return
+    }
     setLoading(true)
     setCaseData(null)
     setActionStatus(null)
@@ -165,7 +173,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
       .then((r) => setCaseData(r.data.case))
       .catch(() => setCaseData(null))
       .finally(() => setLoading(false))
-  }, [caseId])
+  }, [caseId, overrideData])
 
   async function handleStatusChange(newStatus) {
     setActionStatus({ type: newStatus, state: 'saving' })
@@ -328,8 +336,8 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
               </div>
             )}
 
-            {/* Action buttons */}
-            {status !== 'closed' && (
+            {/* Action buttons — hidden in demo mode */}
+            {!isDemo && status !== 'closed' && (
               <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
                 {status !== 'reviewed' ? (
                   <button
@@ -379,7 +387,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
               </div>
             )}
 
-            {status === 'closed' && (
+            {!isDemo && status === 'closed' && (
               <div style={{
                 padding: '10px 14px', background: 'var(--bg-raised)',
                 border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
@@ -495,52 +503,56 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
               </>
             )}
 
-            <Divider />
+            {!isDemo && <Divider />}
 
-            {/* Override ranking */}
-            <SectionLabel>Override Ranking</SectionLabel>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginBottom: '12px', lineHeight: 1.5 }}>
-              Manually reposition this case in the queue. All overrides are logged with your reason for audit purposes.
-            </p>
-            <input
-              type="number" min={1} placeholder="New rank position (e.g. 1)"
-              value={overrideRank}
-              onChange={(e) => setOverrideRank(e.target.value)}
-              style={{ ...inputStyle, marginBottom: '8px' }}
-              onFocus={(e) => e.currentTarget.style.borderColor = 'var(--border-mid)'}
-              onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-            />
-            <textarea
-              rows={3}
-              placeholder="Reason for override (required for audit trail)"
-              value={overrideReason}
-              onChange={(e) => setOverrideReason(e.target.value)}
-              style={{ ...inputStyle, resize: 'vertical', marginBottom: '10px', lineHeight: 1.55 }}
-              onFocus={(e) => e.currentTarget.style.borderColor = 'var(--border-mid)'}
-              onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-            />
-            <button
-              onClick={handleOverride}
-              disabled={!overrideReason.trim() || !overrideRank || overrideStatus === 'saving'}
-              style={{
-                width: '100%', fontFamily: 'var(--font-mono)', fontSize: '11px',
-                textTransform: 'uppercase', letterSpacing: '0.06em',
-                background: overrideStatus === 'done' ? 'var(--clear)' : 'var(--gold)',
-                color: '#000', border: 'none',
-                borderRadius: 'var(--radius-sm)', padding: '11px',
-                cursor: 'pointer', fontWeight: 700,
-                opacity: (!overrideReason.trim() || !overrideRank) ? 0.4 : 1,
-                transition: 'background 200ms, opacity 150ms',
-              }}
-            >
-              {overrideStatus === 'saving' ? 'Saving…'
-                : overrideStatus === 'done' ? '✓ Override Recorded'
-                : 'Save Override'}
-            </button>
-            {overrideStatus === 'error' && (
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--urgent)', marginTop: '8px', textAlign: 'center' }}>
-                Failed to save — please try again
-              </p>
+            {/* Override ranking — hidden in demo mode */}
+            {!isDemo && (
+              <>
+                <SectionLabel>Override Ranking</SectionLabel>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginBottom: '12px', lineHeight: 1.5 }}>
+                  Manually reposition this case in the queue. All overrides are logged with your reason for audit purposes.
+                </p>
+                <input
+                  type="number" min={1} placeholder="New rank position (e.g. 1)"
+                  value={overrideRank}
+                  onChange={(e) => setOverrideRank(e.target.value)}
+                  style={{ ...inputStyle, marginBottom: '8px' }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = 'var(--border-mid)'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+                />
+                <textarea
+                  rows={3}
+                  placeholder="Reason for override (required for audit trail)"
+                  value={overrideReason}
+                  onChange={(e) => setOverrideReason(e.target.value)}
+                  style={{ ...inputStyle, resize: 'vertical', marginBottom: '10px', lineHeight: 1.55 }}
+                  onFocus={(e) => e.currentTarget.style.borderColor = 'var(--border-mid)'}
+                  onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+                />
+                <button
+                  onClick={handleOverride}
+                  disabled={!overrideReason.trim() || !overrideRank || overrideStatus === 'saving'}
+                  style={{
+                    width: '100%', fontFamily: 'var(--font-mono)', fontSize: '11px',
+                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    background: overrideStatus === 'done' ? 'var(--clear)' : 'var(--gold)',
+                    color: '#000', border: 'none',
+                    borderRadius: 'var(--radius-sm)', padding: '11px',
+                    cursor: 'pointer', fontWeight: 700,
+                    opacity: (!overrideReason.trim() || !overrideRank) ? 0.4 : 1,
+                    transition: 'background 200ms, opacity 150ms',
+                  }}
+                >
+                  {overrideStatus === 'saving' ? 'Saving…'
+                    : overrideStatus === 'done' ? '✓ Override Recorded'
+                    : 'Save Override'}
+                </button>
+                {overrideStatus === 'error' && (
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--urgent)', marginTop: '8px', textAlign: 'center' }}>
+                    Failed to save — please try again
+                  </p>
+                )}
+              </>
             )}
 
             {/* Bottom padding */}

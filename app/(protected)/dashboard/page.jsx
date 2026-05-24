@@ -348,6 +348,7 @@ function DashboardInner() {
         caseIds={displayCases.map((c) => c.id)}
         onClose={() => setSelectedId(null)}
         onSelectCase={setSelectedId}
+        overrideData={isDemo ? (demoCases.find((c) => c.id === selectedId) ?? null) : null}
       />
     </div>
   )

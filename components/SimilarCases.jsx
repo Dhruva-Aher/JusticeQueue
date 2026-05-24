@@ -15,9 +15,14 @@ export default function SimilarCases({ cases = [] }) {
         <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: '0.75rem' }}>
           Similar Past Cases
         </p>
-        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', padding: '12px 0' }}>
-          No similar cases found in the case history database.
-        </p>
+        <div style={{ padding: '14px 0' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-3)', marginBottom: '6px' }}>
+            No Similar Cases Found
+          </p>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', lineHeight: 1.6 }}>
+            Upload more cases to build your clinic&apos;s case history.
+          </p>
+        </div>
       </div>
     )
   }
