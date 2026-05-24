@@ -448,6 +448,45 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
               </>
             )}
 
+            {/* MongoDB / MCP badge */}
+            {caseData.mongodb_via && (
+              <>
+                <Divider />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {caseData.mongodb_via === 'mcp' ? (
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '10px',
+                        textTransform: 'uppercase', letterSpacing: '0.07em',
+                        padding: '3px 8px',
+                        background: 'rgba(34,201,122,0.12)',
+                        border: '1px solid rgba(34,201,122,0.35)',
+                        color: 'var(--clear)',
+                        borderRadius: '3px',
+                      }}>
+                        ● MongoDB via MCP
+                      </span>
+                    ) : (
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '10px',
+                        textTransform: 'uppercase', letterSpacing: '0.07em',
+                        padding: '3px 8px',
+                        background: 'rgba(240,160,48,0.12)',
+                        border: '1px solid rgba(240,160,48,0.35)',
+                        color: 'var(--medium)',
+                        borderRadius: '3px',
+                      }}>
+                        ○ MongoDB Direct
+                      </span>
+                    )}
+                  </div>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.04em' }}>
+                    MCP config: .mcp.json · @mongodb-js/mongodb-mcp-server
+                  </p>
+                </div>
+              </>
+            )}
+
             {/* Agent trace */}
             {caseData.agent_trace?.length > 0 && (
               <>
