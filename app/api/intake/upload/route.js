@@ -36,7 +36,7 @@ export async function POST(request) {
   let decoded
   try {
     decoded = await verifyToken(request)
-  } catch (err) {
+  } catch {
     return apiError('Unauthorized', 401)
   }
 
