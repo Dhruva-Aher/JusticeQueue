@@ -16,7 +16,7 @@ const ALLOWED_TYPES = [
   'application/vnd.ms-excel',
 ]
 const MAX_SIZE       = 10 * 1024 * 1024   // 10 MB
-const CHUNK_SIZE     = 10                 // cases processed in parallel per batch
+const CHUNK_SIZE     = 20                 // cases processed in parallel per batch
 
 // Process items in sequential chunks so we stay within Vercel's concurrency
 // limits and Gemini/Voyage rate limits, but still parallelise within each chunk.
