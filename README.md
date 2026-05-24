@@ -2,8 +2,8 @@
 
 AI triage agent for legal aid clinics. Upload a CSV, TXT, or PDF of pending intake cases — Gemini 3.1 Flash Lite extracts structured facts, MongoDB Atlas vector search finds similar past case outcomes, and a scoring engine ranks every case by urgency so the most critical clients are never buried under paperwork.
 
-**Live:** https://hackathonlive.vercel.app  
-**Demo (no login required):** https://hackathonlive.vercel.app/dashboard?demo=true
+**Live:** https://justicequeuelive.vercel.app  
+**Demo (no login required):** https://justicequeuelive.vercel.app/dashboard?demo=true
 
 Built for the **Google Cloud Rapid Agent Hackathon 2026 — MongoDB track**.
 
@@ -97,8 +97,8 @@ Score ≥ 80 → Critical (red) · Score ≥ 50 → Elevated (amber) · Score < 
 ## Setup
 
 ```bash
-git clone https://github.com/Dhruva-Aher/hackathonlive
-cd hackathonlive
+git clone https://github.com/Dhruva-Aher/JusticeQueue
+cd JusticeQueue
 npm install
 cp .env.example .env.local
 # Fill all values in .env.local (see comments in the file)
@@ -169,5 +169,5 @@ Case: Terminated after reporting OSHA violations. Employer refused final paychec
 ## Hackathon
 
 Google Cloud Rapid Agent Hackathon 2026 — MongoDB track  
-Repository: https://github.com/Dhruva-Aher/hackathonlive  
+Repository: https://github.com/Dhruva-Aher/JusticeQueue  
 License: MIT

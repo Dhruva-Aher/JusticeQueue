@@ -109,6 +109,6 @@ that cannot afford to get it wrong.
 - Upstash Redis — rate limiting
 
 ## Links
-- Live: https://hackathonlive.vercel.app
-- Demo (no login): https://hackathonlive.vercel.app/dashboard?demo=true
-- Repo: https://github.com/Dhruva-Aher/hackathonlive
+- Live: https://justicequeuelive.vercel.app
+- Demo (no login): https://justicequeuelive.vercel.app/dashboard?demo=true
+- Repo: https://github.com/Dhruva-Aher/JusticeQueue
