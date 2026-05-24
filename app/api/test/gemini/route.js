@@ -1,62 +1,53 @@
-// GET /api/test/gemini — diagnostic: test Vertex AI connectivity (no auth required)
-// Returns the raw error so we can debug credential issues
-import { VertexAI, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai'
+// GET /api/test/gemini — diagnostic: test Vertex AI connectivity via REST + OAuth
+import { UserRefreshClient } from 'google-auth-library'
 
 export async function GET() {
   const project      = process.env.GOOGLE_CLOUD_PROJECT_ID
   const clientId     = process.env.GOOGLE_OAUTH_CLIENT_ID
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
   const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN
+  const location     = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1'
 
   const envCheck = {
-    GOOGLE_CLOUD_PROJECT_ID:     project      ? '✓ set' : '✗ MISSING',
-    GOOGLE_OAUTH_CLIENT_ID:      clientId     ? '✓ set' : '✗ MISSING',
-    GOOGLE_OAUTH_CLIENT_SECRET:  clientSecret ? '✓ set' : '✗ MISSING',
-    GOOGLE_OAUTH_REFRESH_TOKEN:  refreshToken ? '✓ set' : '✗ MISSING',
+    GOOGLE_CLOUD_PROJECT_ID:    project      ? '✓ set' : '✗ MISSING',
+    GOOGLE_OAUTH_CLIENT_ID:     clientId     ? '✓ set' : '✗ MISSING',
+    GOOGLE_OAUTH_CLIENT_SECRET: clientSecret ? '✓ set' : '✗ MISSING',
+    GOOGLE_OAUTH_REFRESH_TOKEN: refreshToken ? '✓ set' : '✗ MISSING',
   }
 
   if (!project || !clientId || !clientSecret || !refreshToken) {
     return Response.json({ ok: false, stage: 'env_check', env: envCheck }, { status: 500 })
   }
 
-  let vertex
+  // Step 1 — get access token
+  let token
   try {
-    vertex = new VertexAI({
-      project,
-      location: process.env.GOOGLE_CLOUD_LOCATION || 'us-central1',
-      googleAuthOptions: {
-        credentials: {
-          type:          'authorized_user',
-          client_id:     clientId,
-          client_secret: clientSecret,
-          refresh_token: refreshToken,
-        },
-        scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-      },
-    })
+    const authClient = new UserRefreshClient({ clientId, clientSecret, refreshToken })
+    const result = await authClient.getAccessToken()
+    token = result.token
+    if (!token) throw new Error('getAccessToken returned null token')
   } catch (err) {
-    return Response.json({ ok: false, stage: 'vertexai_init', error: err.message, env: envCheck }, { status: 500 })
+    return Response.json({ ok: false, stage: 'get_access_token', error: err.message, env: envCheck }, { status: 500 })
   }
 
+  // Step 2 — call Vertex AI REST API
   try {
-    const model = vertex.getGenerativeModel({
-      model: 'gemini-2.0-flash-001',
-      safetySettings: [
-        { category: HarmCategory.HARM_CATEGORY_HARASSMENT,  threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
-      ],
+    const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/gemini-2.0-flash-001:generateContent`
+    const res = await fetch(url, {
+      method:  'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: OK' }] }],
+      }),
     })
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: OK' }] }],
-    })
-    const text = result.response.candidates[0].content.parts[0].text
-    return Response.json({ ok: true, response: text.trim(), env: envCheck })
+    if (!res.ok) {
+      const errText = await res.text()
+      return Response.json({ ok: false, stage: 'vertex_api', status: res.status, error: errText, env: envCheck }, { status: 500 })
+    }
+    const data = await res.json()
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+    return Response.json({ ok: true, response: text?.trim(), env: envCheck })
   } catch (err) {
-    return Response.json({
-      ok: false,
-      stage: 'generate_content',
-      error: err.message,
-      stack: err.stack?.split('\n').slice(0, 5),
-      env: envCheck,
-    }, { status: 500 })
+    return Response.json({ ok: false, stage: 'fetch', error: err.message, env: envCheck }, { status: 500 })
   }
 }
