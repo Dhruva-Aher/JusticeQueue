@@ -87,6 +87,7 @@ function DashboardInner() {
   const [selectedId,   setSelectedId]   = useState(null)
   const [demoCases,    setDemoCases]    = useState([])
   const [demoLoading,  setDemoLoading]  = useState(false)
+  const [demoError,    setDemoError]    = useState(false)
   const [clearing,     setClearing]     = useState(false)
 
   async function clearQueue() {
@@ -114,13 +115,19 @@ function DashboardInner() {
     if (!isDemo) return
     setDemoLoading(true)
     fetch('/api/demo/queue')
-      .then((r) => r.json())
+      .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
       .then((data) => setDemoCases(data.cases || []))
-      .catch(() => {})
+      .catch(() => setDemoError(true))
       .finally(() => setDemoLoading(false))
   }, [isDemo])
 
-  if (authLoading && !isDemo) return null
+  if (authLoading && !isDemo) return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+        Loading…
+      </span>
+    </div>
+  )
 
   const displayCases = isDemo
     ? demoCases
@@ -141,8 +148,40 @@ function DashboardInner() {
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       <Navbar caseCount={displayCases.length > 0 ? displayCases.length : undefined} />
 
+      {/* Tech stack strip */}
+      <div style={{
+        background: 'var(--bg-raised)',
+        borderBottom: '1px solid var(--border)',
+        padding: '5px 2rem',
+        display: 'flex', alignItems: 'center', gap: '6px',
+        overflowX: 'auto',
+      }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
+          Powered by
+        </span>
+        {[
+          'Google Cloud Agent Builder',
+          'Gemini 3.1 Flash Lite',
+          'MongoDB Atlas',
+          'MongoDB MCP Server',
+        ].map((tech, i, arr) => (
+          <span key={tech} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: '9px',
+              color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.07em',
+              whiteSpace: 'nowrap',
+            }}>
+              {tech}
+            </span>
+            {i < arr.length - 1 && (
+              <span style={{ color: 'var(--border-mid)', fontSize: '9px' }}>·</span>
+            )}
+          </span>
+        ))}
+      </div>
+
       {/* Demo banner */}
-      {isDemo && (
+      {isDemo && !demoError && (
         <div style={{
           background: 'var(--medium)', padding: '8px 2rem',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -166,6 +205,35 @@ function DashboardInner() {
             }}
           >
             Create free account →
+          </a>
+        </div>
+      )}
+
+      {/* Demo error banner */}
+      {isDemo && demoError && (
+        <div style={{
+          background: 'var(--urgent)', padding: '12px 2rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: '1rem',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{
+              width: '7px', height: '7px', borderRadius: '50%',
+              background: '#fff', opacity: 0.8, flexShrink: 0,
+            }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#fff' }}>
+              Demo Unavailable — Try Signing In
+            </span>
+          </div>
+          <a
+            href="/login"
+            style={{
+              fontFamily: 'var(--font-mono)', fontSize: '11px',
+              textTransform: 'uppercase', letterSpacing: '0.06em',
+              color: '#fff', textDecoration: 'underline', whiteSpace: 'nowrap',
+            }}
+          >
+            Sign in →
           </a>
         </div>
       )}
@@ -285,9 +353,22 @@ function DashboardInner() {
   )
 }
 
+function DashboardFallback() {
+  return (
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{
+        fontFamily: 'var(--font-mono)', fontSize: '11px',
+        color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em',
+      }}>
+        Loading…
+      </span>
+    </div>
+  )
+}
+
 export default function DashboardPage() {
   return (
-    <Suspense fallback={null}>
+    <Suspense fallback={<DashboardFallback />}>
       <DashboardInner />
     </Suspense>
   )
