@@ -1,6 +1,4 @@
 // GET /api/test/gemini — diagnostic: test Vertex AI connectivity via REST + OAuth
-import { UserRefreshClient } from 'google-auth-library'
-
 export async function GET() {
   const project      = process.env.GOOGLE_CLOUD_PROJECT_ID
   const clientId     = process.env.GOOGLE_OAUTH_CLIENT_ID
@@ -19,13 +17,32 @@ export async function GET() {
     return Response.json({ ok: false, stage: 'env_check', env: envCheck }, { status: 500 })
   }
 
-  // Step 1 — get access token
+  // Step 1 — exchange refresh token for access token via Google token endpoint directly
   let token
   try {
-    const authClient = new UserRefreshClient({ clientId, clientSecret, refreshToken })
-    const result = await authClient.getAccessToken()
-    token = result.token
-    if (!token) throw new Error('getAccessToken returned null token')
+    const res = await fetch('https://oauth2.googleapis.com/token', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id:     clientId,
+        client_secret: clientSecret,
+        refresh_token: refreshToken,
+        grant_type:    'refresh_token',
+      }),
+    })
+    const data = await res.json()
+    if (!res.ok) {
+      return Response.json({
+        ok: false,
+        stage: 'get_access_token',
+        error: data.error,
+        error_description: data.error_description,
+        hint: 'Check that client_id/client_secret match the OAuth client used to generate the refresh token',
+        env: envCheck,
+      }, { status: 500 })
+    }
+    token = data.access_token
+    if (!token) throw new Error('No access_token returned')
   } catch (err) {
     return Response.json({ ok: false, stage: 'get_access_token', error: err.message, env: envCheck }, { status: 500 })
   }
