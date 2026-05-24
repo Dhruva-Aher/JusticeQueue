@@ -1,13 +1,16 @@
-// GET /api/test/gemini — diagnostic: OAuth token + generativelanguage.googleapis.com
+// GET /api/test/gemini — diagnostic: tries every known Vertex AI endpoint + model combo
 export async function GET() {
   const clientId     = process.env.GOOGLE_OAUTH_CLIENT_ID
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
   const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN
+  const project      = process.env.GOOGLE_CLOUD_PROJECT_ID || 'justice-queue-497013'
+  const location     = process.env.GOOGLE_CLOUD_LOCATION   || 'us-central1'
 
   const envCheck = {
     GOOGLE_OAUTH_CLIENT_ID:     clientId     ? '✓ set' : '✗ MISSING',
     GOOGLE_OAUTH_CLIENT_SECRET: clientSecret ? '✓ set' : '✗ MISSING',
     GOOGLE_OAUTH_REFRESH_TOKEN: refreshToken ? '✓ set' : '✗ MISSING',
+    GOOGLE_CLOUD_PROJECT_ID:    project,
   }
 
   if (!clientId || !clientSecret || !refreshToken) {
@@ -21,50 +24,47 @@ export async function GET() {
       method:  'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id:     clientId,
-        client_secret: clientSecret,
-        refresh_token: refreshToken,
-        grant_type:    'refresh_token',
+        client_id: clientId, client_secret: clientSecret,
+        refresh_token: refreshToken, grant_type: 'refresh_token',
       }),
     })
     const data = await res.json()
-    if (!res.ok) {
-      return Response.json({ ok: false, stage: 'get_access_token', error: data.error, error_description: data.error_description, env: envCheck }, { status: 500 })
-    }
+    if (!res.ok) return Response.json({ ok: false, stage: 'get_access_token', error: data.error, error_description: data.error_description }, { status: 500 })
     token = data.access_token
   } catch (err) {
-    return Response.json({ ok: false, stage: 'get_access_token', error: err.message, env: envCheck }, { status: 500 })
+    return Response.json({ ok: false, stage: 'get_access_token', error: err.message }, { status: 500 })
   }
 
-  // Step 2 — try Gemini 3.1 models via Vertex AI REST API with Bearer token
-  // Requires Vertex AI API to be enabled: console.cloud.google.com/apis/library → "Vertex AI API"
-  const project  = process.env.GOOGLE_CLOUD_PROJECT_ID || 'justice-queue-497013'
-  const location = process.env.GOOGLE_CLOUD_LOCATION  || 'us-central1'
-  const candidates = ['gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-2.0-flash', 'gemini-1.5-flash-001']
   const results = {}
 
-  for (const modelId of candidates) {
-    const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${modelId}:generateContent`
+  // Try Vertex AI v1beta (preview models) and v1 (stable models)
+  const vertexCandidates = [
+    { version: 'v1beta', model: 'gemini-3.1-flash-lite' },
+    { version: 'v1beta', model: 'gemini-3.1-pro-preview' },
+    { version: 'v1beta', model: 'gemini-3.1-flash-lite-001' },
+    { version: 'v1beta', model: 'gemini-2.0-flash' },
+    { version: 'v1beta', model: 'gemini-2.0-flash-001' },
+    { version: 'v1',     model: 'gemini-2.0-flash-001' },
+    { version: 'v1',     model: 'gemini-1.5-flash-001' },
+    { version: 'v1',     model: 'gemini-1.5-pro-001' },
+  ]
+
+  for (const { version, model } of vertexCandidates) {
+    const key = `[${version}] ${model}`
+    const url = `https://${location}-aiplatform.googleapis.com/${version}/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`
     try {
       const res = await fetch(url, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: OK' }] }],
-        }),
+        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: OK' }] }] }),
       })
-      if (!res.ok) {
-        const t = await res.text()
-        results[modelId] = `${res.status}: ${t.slice(0, 200)}`
-        continue
-      }
+      if (res.status === 404) { results[key] = '404'; continue }
+      if (!res.ok) { const t = await res.text(); results[key] = `${res.status}: ${t.slice(0, 120)}`; continue }
       const data = await res.json()
       const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
-      return Response.json({ ok: true, working_model: modelId, response: text?.trim(), env: envCheck })
-    } catch (err) {
-      results[modelId] = err.message
-    }
+      return Response.json({ ok: true, working_model: model, working_version: version, response: text?.trim(), all_results: results })
+    } catch (err) { results[key] = err.message }
   }
 
-  return Response.json({ ok: false, message: 'No models worked', results, env: envCheck }, { status: 500 })
+  return Response.json({ ok: false, message: 'No models worked', results }, { status: 500 })
 }
