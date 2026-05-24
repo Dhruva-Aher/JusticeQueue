@@ -37,34 +37,30 @@ export async function GET() {
 
   const results = {}
 
-  // Try Vertex AI v1beta (preview models) and v1 (stable models)
-  const vertexCandidates = [
-    { version: 'v1beta', model: 'gemini-3.1-flash-lite' },
-    { version: 'v1beta', model: 'gemini-3.1-pro-preview' },
-    { version: 'v1beta', model: 'gemini-3.1-flash-lite-001' },
-    { version: 'v1beta', model: 'gemini-2.0-flash' },
-    { version: 'v1beta', model: 'gemini-2.0-flash-001' },
-    { version: 'v1',     model: 'gemini-2.0-flash-001' },
-    { version: 'v1',     model: 'gemini-1.5-flash-001' },
-    { version: 'v1',     model: 'gemini-1.5-pro-001' },
-  ]
+  // Try multiple regions × models — find what this project actually has access to
+  const regions = ['us-central1', 'us-east4', 'us-west1', 'europe-west1', 'asia-northeast1']
+  const models  = ['gemini-3.1-flash-lite', 'gemini-2.0-flash-001', 'gemini-1.5-flash-001']
 
-  for (const { version, model } of vertexCandidates) {
-    const key = `[${version}] ${model}`
-    const url = `https://${location}-aiplatform.googleapis.com/${version}/projects/${project}/locations/${location}/publishers/google/models/${model}:generateContent`
-    try {
-      const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: OK' }] }] }),
-      })
-      if (res.status === 404) { results[key] = '404'; continue }
-      if (!res.ok) { const t = await res.text(); results[key] = `${res.status}: ${t.slice(0, 120)}`; continue }
-      const data = await res.json()
-      const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
-      return Response.json({ ok: true, working_model: model, working_version: version, response: text?.trim(), all_results: results })
-    } catch (err) { results[key] = err.message }
+  for (const loc of regions) {
+    for (const model of models) {
+      for (const ver of ['v1', 'v1beta']) {
+        const key = `[${loc}][${ver}] ${model}`
+        const url = `https://${loc}-aiplatform.googleapis.com/${ver}/projects/${project}/locations/${loc}/publishers/google/models/${model}:generateContent`
+        try {
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'Reply with exactly: OK' }] }] }),
+          })
+          if (res.status === 404) { results[key] = '404'; continue }
+          if (!res.ok) { const t = await res.text(); results[key] = `${res.status}: ${t.slice(0, 100)}`; continue }
+          const data = await res.json()
+          const text = data?.candidates?.[0]?.content?.parts?.[0]?.text
+          return Response.json({ ok: true, working_model: model, working_version: ver, working_location: loc, response: text?.trim(), all_results: results })
+        } catch (err) { results[key] = err.message }
+      }
+    }
   }
 
-  return Response.json({ ok: false, message: 'No models worked', results }, { status: 500 })
+  return Response.json({ ok: false, message: 'No region/model combo worked', results }, { status: 500 })
 }
