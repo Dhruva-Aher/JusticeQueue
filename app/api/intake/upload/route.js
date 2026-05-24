@@ -37,7 +37,7 @@ export async function POST(request) {
   try {
     decoded = await verifyToken(request)
   } catch (err) {
-    return apiError(`Unauthorized: ${err.message}`, 401)
+    return apiError('Unauthorized', 401)
   }
 
   // ── Rate limit ───────────────────────────────────────────────────────────
@@ -71,7 +71,10 @@ export async function POST(request) {
   // ── Parse intake records ─────────────────────────────────────────────────
   let intakeTexts
   try { intakeTexts = await parseFile(buffer, effectiveMime) }
-  catch (err) { return apiError(`Failed to parse file: ${err.message}`, 422) }
+  catch (err) {
+    console.error('[upload] Parse error:', err.message)
+    return apiError('Failed to parse file — check the format (CSV, TXT, or PDF) and try again', 422)
+  }
 
   if (!intakeTexts?.length) {
     return apiError('No intake records found. Separate records with blank lines.', 400)
@@ -130,7 +133,8 @@ export async function POST(request) {
   try {
     settled = await chunkPromiseAll(textsToProcess, runIntakeAgent, CHUNK_SIZE)
   } catch (err) {
-    return apiError(`Agent pipeline failed: ${err.message}`, 500)
+    console.error('[upload] Agent pipeline failed:', err.message)
+    return apiError('Agent pipeline failed — please try again', 500)
   }
 
   // ── Build new case documents ──────────────────────────────────────────────
@@ -175,7 +179,7 @@ export async function POST(request) {
     inserted = await Case.insertMany(caseDocs, { ordered: false })
   } catch (err) {
     console.error('[upload] MongoDB error:', err.message)
-    return apiError(`Database error: ${err.message}`, 500)
+    return apiError('Database error — please try again', 500)
   }
 
   // ── Build full queue (new + existing processed) ───────────────────────────

@@ -25,7 +25,8 @@ export async function GET(request, { params }) {
     )
     return Response.json({ case: { id: doc._id.toString(), ...sanitized } })
   } catch (err) {
-    return apiError(err.message, 500)
+    console.error('[cases/id GET]', err.message)
+    return apiError('Internal server error', 500)
   }
 }
 
@@ -64,6 +65,7 @@ export async function PATCH(request, { params }) {
     )
     return Response.json({ case: { id: doc._id.toString(), ...sanitized } })
   } catch (err) {
-    return apiError(err.message, 500)
+    console.error('[cases/id PATCH]', err.message)
+    return apiError('Internal server error', 500)
   }
 }

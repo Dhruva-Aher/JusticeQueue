@@ -17,6 +17,7 @@ export async function DELETE(request) {
     const result = await Case.deleteMany({ uid: decoded.uid })
     return Response.json({ deleted: result.deletedCount })
   } catch (err) {
-    return apiError(err.message, 500)
+    console.error('[cases/clear]', err.message)
+    return apiError('Internal server error', 500)
   }
 }

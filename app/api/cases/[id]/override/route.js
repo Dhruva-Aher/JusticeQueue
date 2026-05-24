@@ -51,6 +51,7 @@ export async function POST(request, { params }) {
     )
     return Response.json({ case: { id: plain._id.toString(), ...sanitized } })
   } catch (err) {
-    return apiError(err.message, 500)
+    console.error('[cases/override]', err.message)
+    return apiError('Internal server error', 500)
   }
 }

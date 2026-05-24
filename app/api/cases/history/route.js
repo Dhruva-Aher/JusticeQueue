@@ -23,6 +23,7 @@ export async function GET(request) {
     ])
     return Response.json({ batches })
   } catch (err) {
-    return apiError(err.message, 500)
+    console.error('[cases/history]', err.message)
+    return apiError('Internal server error', 500)
   }
 }

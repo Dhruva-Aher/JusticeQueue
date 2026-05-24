@@ -43,6 +43,7 @@ export async function GET(request) {
       },
     })
   } catch (err) {
-    return apiError(err.message, 500)
+    console.error('[auth/me]', err.message)
+    return apiError('Internal server error', 500)
   }
 }
