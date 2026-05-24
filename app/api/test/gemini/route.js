@@ -36,12 +36,15 @@ export async function GET() {
     return Response.json({ ok: false, stage: 'get_access_token', error: err.message, env: envCheck }, { status: 500 })
   }
 
-  // Step 2 — try Gemini 3.1 models via generativelanguage.googleapis.com with Bearer token
+  // Step 2 — try Gemini 3.1 models via Vertex AI REST API with Bearer token
+  // Requires Vertex AI API to be enabled: console.cloud.google.com/apis/library → "Vertex AI API"
+  const project  = process.env.GOOGLE_CLOUD_PROJECT_ID || 'justice-queue-497013'
+  const location = process.env.GOOGLE_CLOUD_LOCATION  || 'us-central1'
   const candidates = ['gemini-3.1-flash-lite', 'gemini-3.1-pro-preview', 'gemini-2.0-flash', 'gemini-1.5-flash-001']
   const results = {}
 
   for (const modelId of candidates) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent`
+    const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${modelId}:generateContent`
     try {
       const res = await fetch(url, {
         method:  'POST',
