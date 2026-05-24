@@ -4,7 +4,6 @@ export async function GET() {
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET
   const refreshToken = process.env.GOOGLE_OAUTH_REFRESH_TOKEN
   const project      = process.env.GOOGLE_CLOUD_PROJECT_ID || 'justice-queue-497013'
-  const location     = process.env.GOOGLE_CLOUD_LOCATION   || 'us-central1'
 
   const envCheck = {
     GOOGLE_OAUTH_CLIENT_ID:     clientId     ? '✓ set' : '✗ MISSING',
