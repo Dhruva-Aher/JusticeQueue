@@ -12,10 +12,10 @@ const MOCK_QUEUE = [
 ]
 
 const STATS = [
-  { n: '< 30s',  label: 'Intake batch to ranked queue'       },
-  { n: '100%',   label: 'Transparent — every point explained' },
-  { n: '4+',     label: 'Legal case types scored'            },
-  { n: 'Free',   label: 'For qualifying legal aid orgs'      },
+  { n: '900+',  label: 'Legal aid orgs in the US'          },
+  { n: '~80%',  label: 'Of eligible clients turned away'   },
+  { n: '72hrs', label: 'Average time before a family loses their home' },
+  { n: '< 30s', label: 'Intake batch to ranked queue'      },
 ]
 
 const STEPS = [
@@ -25,7 +25,7 @@ const STEPS = [
   },
   {
     n: '02', title: 'AI extracts facts and scores',
-    body: 'Gemini AI extracts key facts from every record. Atlas vector search finds similar past cases. A transparent algorithm scores each case 0–100 across four dimensions.',
+    body: 'Gemini AI extracts key facts from every record. Atlas vector search finds similar past cases. A transparent algorithm scores each case 0–100 across four dimensions. The agent searches your clinic\'s entire case history for similar situations — and surfaces what worked before. Your institutional knowledge becomes part of every decision.',
   },
   {
     n: '03', title: 'Act on your ranked queue',
@@ -247,47 +247,51 @@ export default function LandingPage() {
             </div>
 
             <h1 style={{
-              fontFamily: 'var(--font-serif)', fontSize: 'clamp(36px, 4.5vw, 56px)',
-              color: 'var(--text)', lineHeight: 1.1, marginBottom: '1.25rem', letterSpacing: '-0.02em',
+              fontFamily: 'var(--font-serif)', fontSize: 'clamp(28px, 3.8vw, 48px)',
+              color: 'var(--text)', lineHeight: 1.15, marginBottom: '1.25rem', letterSpacing: '-0.02em',
             }}>
-              The right client,<br />seen at the{' '}
-              <span style={{ color: 'var(--gold)' }}>right time.</span>
+              Families lose their homes not because no lawyer existed —{' '}
+              <span style={{ color: 'var(--gold)' }}>but because the right case never reached the right lawyer in time.</span>
             </h1>
 
             <p style={{
               fontFamily: 'var(--font-sans)', fontSize: '15px', color: 'var(--text-2)',
               lineHeight: 1.75, marginBottom: '2.25rem', fontWeight: 400,
             }}>
-              JusticeQueue ranks your intake queue by legal urgency in under 30 seconds.
-              Upload a batch of client files and get a scored, fully explained priority
-              queue — backed by Gemini AI and your clinic&apos;s own case history.
+              JusticeQueue reads every intake submission, searches your clinic&apos;s case
+              history for similar situations, and tells your team who needs help first —
+              in under 30 seconds.
             </p>
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
-              <button
-                onClick={() => router.push('/register')}
+              <a
+                href="/dashboard?demo=true"
                 style={{
                   fontFamily: 'var(--font-mono)', fontSize: '12px', textTransform: 'uppercase',
                   letterSpacing: '0.07em', background: 'var(--gold)', color: '#000',
                   border: 'none', padding: '13px 28px', cursor: 'pointer', fontWeight: 700, borderRadius: '5px',
-                  transition: 'opacity 150ms',
+                  transition: 'opacity 150ms', display: 'inline-flex', alignItems: 'center',
+                  textDecoration: 'none',
                 }}
                 onMouseEnter={(e) => e.currentTarget.style.opacity = '0.9'}
                 onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
               >
-                Get Started Free →
-              </button>
-              <a href="/dashboard?demo=true" style={{
-                fontFamily: 'var(--font-mono)', fontSize: '12px', textTransform: 'uppercase',
-                letterSpacing: '0.07em', color: 'var(--text-2)',
-                border: '1px solid var(--border-mid)', padding: '13px 28px',
-                display: 'inline-flex', alignItems: 'center',
-                borderRadius: '5px', transition: 'border-color 150ms, color 150ms',
-              }}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-mid)'; e.currentTarget.style.color = 'var(--text-2)' }}>
-                View Live Demo
+                See it working →
               </a>
+              <button
+                onClick={() => router.push('/register')}
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: '12px', textTransform: 'uppercase',
+                  letterSpacing: '0.07em', color: 'var(--text-2)',
+                  background: 'transparent',
+                  border: '1px solid var(--border-mid)', padding: '13px 28px',
+                  cursor: 'pointer', borderRadius: '5px', transition: 'border-color 150ms, color 150ms',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-mid)'; e.currentTarget.style.color = 'var(--text-2)' }}
+              >
+                Get Started Free
+              </button>
             </div>
 
             {/* Trust signals */}
