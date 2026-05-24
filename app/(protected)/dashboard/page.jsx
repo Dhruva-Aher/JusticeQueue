@@ -7,6 +7,8 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { useCases } from '../../../hooks/useCases.js'
 import { useUpload } from '../../../hooks/useUpload.js'
+import axiosClient from '../../../lib/axiosClient.js'
+import { getFirebaseAuth } from '../../../lib/firebase.js'
 import Navbar from '../../../components/Navbar.jsx'
 import UploadZone from '../../../components/UploadZone.jsx'
 import CaseTable from '../../../components/CaseTable.jsx'
@@ -85,6 +87,20 @@ function DashboardInner() {
   const [selectedId,   setSelectedId]   = useState(null)
   const [demoCases,    setDemoCases]    = useState([])
   const [demoLoading,  setDemoLoading]  = useState(false)
+  const [clearing,     setClearing]     = useState(false)
+
+  async function clearQueue() {
+    if (!confirm('Delete all cases in your queue? This cannot be undone.')) return
+    setClearing(true)
+    try {
+      const auth  = getFirebaseAuth()
+      const token = await auth?.currentUser?.getIdToken()
+      await axiosClient.delete('/api/cases/clear', { headers: { Authorization: `Bearer ${token}` } })
+      reset()
+      refetch()
+    } catch { /* ignore */ }
+    finally { setClearing(false) }
+  }
 
   useEffect(() => {
     if (!authLoading && !user && !isDemo) router.replace('/login')
@@ -202,12 +218,28 @@ function DashboardInner() {
                   textTransform: 'uppercase', letterSpacing: '0.05em',
                   color: 'var(--text-3)', padding: '4px 10px',
                   border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                  transition: 'color 150ms, border-color 150ms',
+                  transition: 'color 150ms, border-color 150ms', background: 'transparent', cursor: 'pointer',
                 }}
                 onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border-mid)' }}
                 onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'var(--border)' }}
               >
                 Clear upload
+              </button>
+            )}
+            {!isDemo && displayCases.length > 0 && (
+              <button
+                onClick={clearQueue}
+                disabled={clearing}
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: '10px',
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                  color: 'var(--urgent)', padding: '4px 10px',
+                  border: '1px solid var(--urgent)', borderRadius: 'var(--radius-sm)',
+                  opacity: clearing ? 0.5 : 1, background: 'transparent', cursor: 'pointer',
+                  transition: 'opacity 150ms',
+                }}
+              >
+                {clearing ? 'Clearing…' : 'Clear Queue'}
               </button>
             )}
           </div>

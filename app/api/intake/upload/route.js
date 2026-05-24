@@ -146,6 +146,8 @@ export async function POST(request) {
   let inserted
   try {
     await connectDB()
+    // Clear previous cases before inserting new batch — ensures a fresh queue
+    await Case.deleteMany({ uid: decoded.uid })
     inserted = await Case.insertMany(caseDocs, { ordered: false })
   } catch (err) {
     console.error('[upload] MongoDB error:', err.message)
