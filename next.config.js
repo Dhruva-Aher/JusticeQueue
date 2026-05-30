@@ -13,6 +13,7 @@ const nextConfig = {
       [
         "connect-src 'self'",
         'https://oauth2.googleapis.com',
+        'https://accounts.google.com',
         'https://aiplatform.googleapis.com',
         'https://gmail.googleapis.com',
         'https://www.googleapis.com',
