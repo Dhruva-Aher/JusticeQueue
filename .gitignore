@@ -72,3 +72,4 @@ build/
 .0x/
 test-intake-10cases.txt
 *.txt
+sample.py
