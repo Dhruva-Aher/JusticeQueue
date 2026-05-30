@@ -36,6 +36,9 @@ export default function LoginPage() {
       'auth/user-disabled':           'This account has been disabled. Contact your admin.',
       'auth/too-many-requests':       'Too many failed attempts. Try again in a few minutes.',
       'auth/network-request-failed':  'Network error. Check your connection and try again.',
+      'auth/operation-not-allowed':   'This sign-in method is not enabled. Contact your admin.',
+      'auth/unauthorized-domain':     'Sign-in is not authorised from this domain. Contact your admin.',
+      'auth/popup-blocked':           'Pop-up was blocked by your browser. Allow pop-ups and try again.',
     }
     return MAP[code] || 'Sign-in failed. Please check your details and try again.'
   }

@@ -14,7 +14,9 @@ function authError(code) {
     'auth/weak-password':           'Password must be at least 6 characters.',
     'auth/too-many-requests':       'Too many attempts. Please try again later.',
     'auth/network-request-failed':  'Network error. Check your connection.',
-    'auth/operation-not-allowed':   'Email sign-up is not enabled. Contact your admin.',
+    'auth/operation-not-allowed':   'This sign-in method is not enabled. Contact your admin.',
+    'auth/unauthorized-domain':     'Sign-in is not authorised from this domain. Contact your admin.',
+    'auth/popup-blocked':           'Pop-up was blocked by your browser. Allow pop-ups and try again.',
   }
   return MAP[code] || 'Something went wrong. Please try again.'
 }
