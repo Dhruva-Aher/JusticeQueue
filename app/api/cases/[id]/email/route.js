@@ -7,6 +7,7 @@ import { connectDB }       from '../../../../../lib/mongodb.js'
 import Case                from '../../../../../lib/models/Case.js'
 import { createGmailDraft, sendGmailDraft } from '../../../../../lib/gmail.js'
 import { assertObjectId }  from '../../../../../lib/validate.js'
+import { rateLimitEmail }  from '../../../../../lib/ratelimit.js'
 
 export async function GET(request, { params }) {
   try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
@@ -33,6 +34,11 @@ export async function POST(request, { params }) {
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }
+
+  try {
+    const { success } = await rateLimitEmail(decoded.uid)
+    if (!success) return apiError('Rate limit exceeded. Try again later.', 429)
+  } catch { /* fail-closed already handled in rateLimitEmail */ }
 
   let body
   try { body = await request.json() }
@@ -72,6 +78,11 @@ export async function PATCH(request, { params }) {
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }
+
+  try {
+    const { success } = await rateLimitEmail(decoded.uid)
+    if (!success) return apiError('Rate limit exceeded. Try again later.', 429)
+  } catch { /* fail-closed already handled in rateLimitEmail */ }
 
   try {
     await connectDB()

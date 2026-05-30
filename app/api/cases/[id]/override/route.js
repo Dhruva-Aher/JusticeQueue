@@ -5,6 +5,7 @@ import { connectDB }    from '../../../../../lib/mongodb.js'
 import Case             from '../../../../../lib/models/Case.js'
 import StaffAction      from '../../../../../lib/models/StaffAction.js'
 import { assertObjectId, sanitizeString } from '../../../../../lib/validate.js'
+import { rateLimitOverride } from '../../../../../lib/ratelimit.js'
 
 export async function POST(request, { params }) {
   try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
@@ -15,6 +16,11 @@ export async function POST(request, { params }) {
   } catch {
     return apiError('Unauthorized', 401)
   }
+
+  try {
+    const { success } = await rateLimitOverride(decoded.uid)
+    if (!success) return apiError('Rate limit exceeded. Try again later.', 429)
+  } catch { /* fail-closed already handled in rateLimitOverride */ }
 
   let body
   try {

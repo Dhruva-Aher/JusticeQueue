@@ -6,6 +6,7 @@ import { connectDB }          from '../../../../../lib/mongodb.js'
 import Case                   from '../../../../../lib/models/Case.js'
 import { createCalendarEvent, deleteCalendarEvent } from '../../../../../lib/calendar.js'
 import { assertObjectId }     from '../../../../../lib/validate.js'
+import { rateLimitCalendar }  from '../../../../../lib/ratelimit.js'
 
 export async function DELETE(request, { params }) {
   try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
@@ -13,6 +14,11 @@ export async function DELETE(request, { params }) {
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }
+
+  try {
+    const { success } = await rateLimitCalendar(decoded.uid)
+    if (!success) return apiError('Rate limit exceeded. Try again later.', 429)
+  } catch { /* fail-closed already handled in rateLimitCalendar */ }
 
   try {
     await connectDB()
@@ -35,6 +41,11 @@ export async function POST(request, { params }) {
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }
+
+  try {
+    const { success } = await rateLimitCalendar(decoded.uid)
+    if (!success) return apiError('Rate limit exceeded. Try again later.', 429)
+  } catch { /* fail-closed already handled in rateLimitCalendar */ }
 
   let body
   try { body = await request.json() }
