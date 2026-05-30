@@ -556,6 +556,76 @@ function RunDetail({ run }) {
         </div>
       )}
 
+      {/* Human Oversight panel */}
+      {result?.action_items && result.action_items.filter((i) => i.priority === 'critical').length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>
+              Requires Human Review
+            </p>
+            <span style={{
+              fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+              color: '#C2710C', padding: '2px 8px',
+              background: 'rgba(194,113,12,0.07)', border: '1px solid rgba(194,113,12,0.18)',
+              borderRadius: '3px',
+            }}>
+              {result.action_items.filter((i) => i.priority === 'critical').length} pending authorization
+            </span>
+          </div>
+          <div style={{
+            padding: '12px 16px',
+            background: 'var(--bg-surface)',
+            border: '1px solid rgba(194,113,12,0.18)',
+            borderRadius: 'var(--radius)',
+            marginBottom: '10px',
+          }}>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.6 }}>
+              The agent has flagged these matters as requiring attorney authorization before any action is taken.
+              No high-risk legal filing is executed autonomously.
+            </p>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {result.action_items.filter((i) => i.priority === 'critical').map((item, i) => (
+              <div key={i} style={{
+                background: 'var(--bg-surface)',
+                border: '1px solid rgba(194,113,12,0.15)',
+                borderRadius: 'var(--radius)',
+                padding: '12px 16px',
+                display: 'flex', gap: '12px', alignItems: 'flex-start',
+              }}>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', color: 'var(--border-strong)', lineHeight: '20px', flexShrink: 0 }}>□</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px', flexWrap: 'wrap' }}>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+                      {item.client_name}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
+                      {item.case_type}
+                    </span>
+                    <span style={{
+                      fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+                      color: '#C2710C', padding: '1px 7px',
+                      background: 'rgba(194,113,12,0.07)', border: '1px solid rgba(194,113,12,0.18)',
+                      borderRadius: '3px',
+                    }}>
+                      Awaiting authorization
+                    </span>
+                  </div>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                    {item.action}
+                  </p>
+                  {item.deadline_warning && (
+                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#DC2626', marginTop: '3px', fontWeight: 500 }}>
+                      ⚑ {item.deadline_warning}
+                    </p>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Legal precedents */}
       {result?.court_opinions && result.court_opinions.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
@@ -604,6 +674,39 @@ function RunDetail({ run }) {
                     {op.snippet}
                   </p>
                 )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Verification Complete */}
+      {run.status === 'complete' && result && (
+        <div style={{ marginBottom: '2rem' }}>
+          <p style={{
+            fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
+            color: 'var(--text-3)', letterSpacing: '0.08em', marginBottom: '12px',
+          }}>
+            AGENT VERIFICATION
+          </p>
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)', overflow: 'hidden',
+          }}>
+            {[
+              `${result.cases_reviewed ?? 0} cases analyzed and ranked by urgency, vulnerability, and deadline`,
+              `${result.recommendations_count ?? 0} attorney recommendations generated with supporting evidence`,
+              `Executive brief compiled with full operational action plan`,
+              `Execution trace persisted to MongoDB Atlas (Run #${run.run_id})`,
+              `${result.action_items?.filter((i) => i.priority === 'critical').length ?? 0} high-risk decisions flagged for human review before action`,
+            ].map((text, i, arr) => (
+              <div key={i} style={{
+                display: 'flex', alignItems: 'flex-start', gap: '12px',
+                padding: '11px 16px',
+                borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+              }}>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 700, color: '#16A34A', lineHeight: '20px', flexShrink: 0 }}>✓</span>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>{text}</span>
               </div>
             ))}
           </div>

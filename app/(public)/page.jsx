@@ -119,6 +119,16 @@ export default function HomePage() {
           </span>
         </a>
         <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <a href="/judge" style={{
+            fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600,
+            color: 'var(--accent)',
+            padding: '6px 12px', borderRadius: 'var(--radius-sm)',
+            border: '1px solid rgba(67,56,202,0.2)',
+            background: 'rgba(67,56,202,0.04)',
+            textDecoration: 'none', display: 'inline-block',
+          }}>
+            Judge Mode
+          </a>
           <a href="/dashboard?demo=true" style={{
             fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)',
             padding: '6px 12px', borderRadius: 'var(--radius-sm)',

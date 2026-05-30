@@ -423,6 +423,38 @@ function DashboardInner() {
           <StatsBar cases={displayCases} loading={loading && displayCases.length === 0} />
         )}
 
+        {/* Agent action prompt — visible when queue has cases */}
+        {!isDemo && displayCases.length > 0 && !showUpload && (
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '9px 16px',
+            background: 'rgba(67,56,202,0.04)',
+            border: '1px solid rgba(67,56,202,0.12)',
+            borderTop: 'none',
+            borderRadius: '0',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--accent)', fontWeight: 500 }}>
+                {displayCases.length} cases in queue
+              </span>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
+                · Run the autonomous agent to analyze urgency, retrieve precedents, and prepare tomorrow&apos;s docket
+              </span>
+            </div>
+            <button
+              onClick={prepareDocket}
+              disabled={runningDocket}
+              style={{
+                fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600,
+                color: 'var(--accent)', background: 'transparent', border: 'none',
+                cursor: runningDocket ? 'wait' : 'pointer', padding: 0, whiteSpace: 'nowrap',
+              }}
+            >
+              {runningDocket ? 'Running…' : 'Prepare docket →'}
+            </button>
+          </div>
+        )}
+
         {/* Queue header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
