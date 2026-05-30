@@ -1,12 +1,12 @@
 'use client'
 
 const VARIANTS = {
-  danger:   { bg: 'rgba(232,68,68,0.12)',    color: '#e84444', border: 'rgba(232,68,68,0.25)' },
-  warn:     { bg: 'rgba(240,160,48,0.12)',   color: '#f0a030', border: 'rgba(240,160,48,0.25)' },
-  clear:    { bg: 'rgba(34,201,122,0.12)',   color: '#22c97a', border: 'rgba(34,201,122,0.25)' },
-  gold:     { bg: 'rgba(91,110,247,0.10)',   color: '#7b8ef9', border: 'rgba(91,110,247,0.25)' },
-  neutral:  { bg: 'rgba(255,255,255,0.04)',  color: '#8E8EA0', border: 'rgba(255,255,255,0.08)' },
-  blue:     { bg: 'rgba(91,110,247,0.12)',   color: '#7b8ef9', border: 'rgba(91,110,247,0.25)' },
+  danger:  { bg: 'rgba(220,38,38,0.08)',   color: '#DC2626', border: 'rgba(220,38,38,0.18)'  },
+  warn:    { bg: 'rgba(194,113,12,0.08)',  color: '#C2710C', border: 'rgba(194,113,12,0.18)' },
+  clear:   { bg: 'rgba(22,163,74,0.08)',   color: '#16A34A', border: 'rgba(22,163,74,0.18)'  },
+  gold:    { bg: 'rgba(67,56,202,0.07)',   color: '#4338CA', border: 'rgba(67,56,202,0.18)'  },
+  neutral: { bg: 'rgba(0,0,0,0.04)',       color: '#78716C', border: 'rgba(0,0,0,0.10)'      },
+  blue:    { bg: 'rgba(37,99,235,0.07)',   color: '#2563EB', border: 'rgba(37,99,235,0.18)'  },
 }
 
 export default function StatusBadge({ label, variant = 'neutral', dot = false }) {

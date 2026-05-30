@@ -1,58 +1,35 @@
-/* JusticeQueue — Professional design system */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* JusticeQueue — Institutional Legal Operations Platform */
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;1,14..32,400&display=swap');
 
 :root {
-  /* Backgrounds — warm dark, like aged leather */
-  --bg:           #0C0B09;
-  --bg-surface:   #131210;
-  --bg-raised:    #1B1916;
-  --bg-hover:     #232018;
-  --bg-input:     #100F0D;
+  /* Backgrounds — warm institutional white */
+  --bg:           #F7F6F3;
+  --bg-surface:   #FFFFFF;
+  --bg-raised:    #F2F0EC;
+  --bg-hover:     #EBEBE6;
+  --bg-input:     #FFFFFF;
 
-  /* Borders — warm, almost invisible */
-  --border:       #262421;
-  --border-mid:   #32302A;
-  --border-strong:#403C35;
+  /* Borders */
+  --border:       #E5E0D8;
+  --border-mid:   #D2CCC4;
+  --border-strong:#A09890;
 
-  /* Text — warm cream */
-  --text:         #EDE8E0;
-  --text-2:       #968E84;
-  --text-3:       #5C554D;
+  /* Text — deep charcoal */
+  --text:         #1C1917;
+  --text-2:       #57534E;
+  --text-3:       #A8A29E;
 
-  /* ONE accent — burnished cognac (use sparingly, <5% surface area) */
-  --accent:       #C8823A;
-  --accent-dim:   #A0641E;
-  --accent-glow:  rgba(200,130,58,0.10);
-  --accent-subtle:rgba(200,130,58,0.06);
+  /* Accent — deep indigo (use sparingly, <5% surface) */
+  --accent:       #4338CA;
+  --accent-dim:   #3730A3;
+  --accent-glow:  rgba(67,56,202,0.10);
+  --accent-subtle:rgba(67,56,202,0.06);
 
-  /* Legacy aliases — keep these so existing components don't break */
+  /* Legacy aliases — keep so existing components don't break */
   --gold:         var(--accent);
   --gold-dim:     var(--accent-dim);
   --gold-glow:    var(--accent-glow);
   --gold-subtle:  var(--accent-subtle);
-
-  /* Urgency — unchanged (these carry meaning, not branding) */
-  --urgent:       #E84444;
-  --urgent-subtle:rgba(232,68,68,0.12);
-  --medium:       #E8962A;
-  --medium-subtle:rgba(232,150,42,0.12);
-  --clear:        #22C97A;
-  --clear-subtle: rgba(34,201,122,0.12);
-
-  /* Radius — larger, more polished */
-  --radius-sm: 4px;
-  --radius:    6px;
-  --radius-lg: 12px;
-
-  /* Shadows — very restrained */
-  --shadow-sm:    0 1px 4px rgba(0,0,0,0.5);
-  --shadow-md:    0 4px 20px rgba(0,0,0,0.6);
-  --shadow-panel: -2px 0 24px rgba(0,0,0,0.5);
-
-  /* Legacy aliases */
-  --ink:          var(--text);
-  --ink-2:        var(--text-2);
-  --ink-3:        var(--text-3);
   --stamp:        var(--urgent);
   --stamp-light:  var(--urgent-subtle);
   --ochre:        var(--medium);
@@ -61,11 +38,32 @@
   --forest-light: var(--clear-subtle);
   --bg-inset:     var(--bg-input);
   --border-dark:  var(--border-mid);
+  --ink:          var(--text);
+  --ink-2:        var(--text-2);
+  --ink-3:        var(--text-3);
 
-  /* Typography — Inter only */
-  --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-serif:   'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono:    ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+  /* Status colors — semantic only, never for branding */
+  --urgent:        #DC2626;
+  --urgent-subtle: rgba(220,38,38,0.08);
+  --medium:        #C2710C;
+  --medium-subtle: rgba(194,113,12,0.08);
+  --clear:         #16A34A;
+  --clear-subtle:  rgba(22,163,74,0.08);
+
+  /* Radius */
+  --radius-sm: 4px;
+  --radius:    6px;
+  --radius-lg: 10px;
+
+  /* Shadows — light mode, very restrained */
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:    0 4px 16px rgba(0,0,0,0.08), 0 2px 6px rgba(0,0,0,0.05);
+  --shadow-panel: -1px 0 0 var(--border), -4px 0 24px rgba(0,0,0,0.07);
+
+  /* Typography */
+  --font-sans:  'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-serif: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono:  ui-monospace, 'SF Mono', 'Menlo', 'Consolas', monospace;
 }
 
 *, *::before, *::after {
@@ -74,7 +72,7 @@
   padding: 0;
 }
 
-html { color-scheme: dark; }
+html { color-scheme: light; }
 
 body {
   background: var(--bg);
@@ -132,7 +130,7 @@ td {
   font-size: 13px;
   color: var(--text-2);
   padding: 0 16px;
-  height: 40px;
+  height: 44px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -147,16 +145,16 @@ tr:last-child td { border-bottom: none; }
 
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.35; }
+  50%       { opacity: 0.4; }
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(4px); }
+  from { opacity: 0; transform: translateY(3px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes slideUp {
-  from { opacity: 0; transform: translateY(12px); }
+  from { opacity: 0; transform: translateY(10px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -165,20 +163,15 @@ tr:last-child td { border-bottom: none; }
 }
 
 @keyframes shimmer {
-  0%   { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
 }
-
-/* Score color classes */
-.score-urgent { color: var(--urgent); }
-.score-medium { color: var(--medium); }
-.score-clear  { color: var(--clear);  }
 
 /* Skeleton loading */
 .skeleton {
   background: linear-gradient(90deg, var(--bg-raised) 25%, var(--bg-hover) 50%, var(--bg-raised) 75%);
   background-size: 800px 100%;
-  animation: shimmer 1.6s ease-in-out infinite;
+  animation: shimmer 1.8s ease-in-out infinite;
   border-radius: var(--radius-sm);
 }
 

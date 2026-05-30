@@ -1,211 +1,328 @@
 'use client'
+export const dynamic = 'force-dynamic'
 
-// Mock queue shown in the product section — reflects what the real app produces
 const MOCK_QUEUE = [
-  { rank: 1, score: 94, name: 'Maria R.',  type: 'Eviction',    deadline: 2,  flags: ['Critical'] },
-  { rank: 2, score: 81, name: 'James C.',  type: 'Wage Theft',  deadline: 5,  flags: ['Urgent']   },
-  { rank: 3, score: 67, name: 'Aisha P.',  type: 'Immigration', deadline: 12, flags: []           },
-  { rank: 4, score: 45, name: 'Tom W.',    type: 'Custody',     deadline: 18, flags: []           },
-  { rank: 5, score: 29, name: 'Sarah J.',  type: 'Employment',  deadline: 26, flags: []           },
+  { rank: 1, score: 94, name: 'Maria Santos',   type: 'Eviction',    deadline: 2,  status: 'pending',  flags: ['Minor'] },
+  { rank: 2, score: 87, name: 'James Okafor',   type: 'Immigration', deadline: 5,  status: 'pending',  flags: [] },
+  { rank: 3, score: 71, name: 'Sarah Chen',     type: 'Custody',     deadline: 9,  status: 'reviewed', flags: ['Medical'] },
+  { rank: 4, score: 58, name: 'David Kim',      type: 'Wage Theft',  deadline: 14, status: 'pending',  flags: ['Lang'] },
+  { rank: 5, score: 31, name: 'Alex Rivera',    type: 'Employment',  deadline: 22, status: 'closed',   flags: [] },
 ]
 
-const STATS = [
-  { n: '900+',  label: 'Legal aid organizations in the US' },
-  { n: '~80%',  label: 'Of eligible clients turned away each year' },
-  { n: '72hrs', label: 'Average time before a family loses their home' },
-  { n: '< 30s', label: 'Intake batch to ranked queue' },
+const SCORE_STEPS = [
+  { label: 'Deadline urgency',   pts: '40 pts', desc: 'Days until the legal deadline' },
+  { label: 'Vulnerability',      pts: '25 pts', desc: 'Minor children, medical needs, language' },
+  { label: 'Case severity',      pts: '20 pts', desc: 'Type of legal issue and complexity' },
+  { label: 'Precedent match',    pts: '15 pts', desc: 'Similarity to prior resolved cases' },
 ]
 
-const STEPS = [
-  {
-    n: '01',
-    title: 'Upload your intake batch',
-    body: 'Drop a CSV, TXT, or PDF of client intake notes. JusticeQueue handles any volume and format without manual reformatting.',
-  },
-  {
-    n: '02',
-    title: 'AI scores and ranks every case',
-    body: 'Gemini extracts key facts. Atlas vector search finds similar past cases. A transparent algorithm scores 0–100 across four dimensions.',
-  },
-  {
-    n: '03',
-    title: 'Act on the ranked queue',
-    body: 'Cases surface by urgency — deadline, vulnerability, case type, and precedent. Click any row for the full breakdown. Override any score with a logged reason.',
-  },
+const WORKFLOW = [
+  { n: '01', label: 'Intake',  desc: 'Upload batch CSV, PDF, or plain-text intake files. Every record is parsed and structured automatically.' },
+  { n: '02', label: 'Triage',  desc: 'Each case is scored across four weighted dimensions. Urgency, vulnerability, severity, and precedent — combined into a single priority rank.' },
+  { n: '03', label: 'Review',  desc: 'Attorneys review the ranked queue and drill into any case. Override a score with a documented reason. Every decision is logged.' },
+  { n: '04', label: 'Act',     desc: 'Send outreach emails, block calendar time, and generate one-page attorney briefs — all from the queue, without leaving the platform.' },
 ]
 
-function scoreColor(s) {
-  if (s >= 80) return '#E84444'
-  if (s >= 50) return '#E8962A'
-  return '#22C97A'
-}
-
-function deadlineColor(d) {
-  if (d <= 3) return '#E84444'
-  if (d <= 7) return '#E8962A'
-  return null
-}
-
-function PrimaryButton({ href, onClick, children }) {
-  const style = {
-    fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600,
-    letterSpacing: '-0.01em',
-    background: 'var(--text)',
-    color: 'var(--bg)',
-    border: 'none',
-    borderRadius: 'var(--radius-sm)', padding: '12px 24px',
-    cursor: 'pointer',
-    display: 'inline-flex', alignItems: 'center',
-    transition: 'opacity 180ms',
-    textDecoration: 'none',
-  }
-  const handleEnter = (e) => { e.currentTarget.style.opacity = '0.85' }
-  const handleLeave = (e) => { e.currentTarget.style.opacity = '1' }
-
-  if (href) {
-    return (
-      <a href={href} style={style} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-        {children}
-      </a>
-    )
-  }
+function ScoreDot({ score }) {
+  const color = score >= 80 ? '#DC2626' : score >= 50 ? '#C2710C' : '#16A34A'
+  const bg    = score >= 80 ? 'rgba(220,38,38,0.08)' : score >= 50 ? 'rgba(194,113,12,0.08)' : 'rgba(22,163,74,0.08)'
+  const br    = score >= 80 ? 'rgba(220,38,38,0.18)' : score >= 50 ? 'rgba(194,113,12,0.18)' : 'rgba(22,163,74,0.18)'
   return (
-    <button onClick={onClick} style={style} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-      {children}
-    </button>
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+      minWidth: '38px', padding: '2px 6px',
+      background: bg, color, border: `1px solid ${br}`,
+      borderRadius: '3px',
+      fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '12px', fontWeight: 700,
+    }}>
+      {score}
+    </span>
   )
 }
 
-function SecondaryButton({ href, onClick, children }) {
-  const style = {
-    fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500,
-    color: 'var(--text-2)',
-    background: 'transparent',
-    border: '1px solid var(--border-mid)',
-    borderRadius: 'var(--radius-sm)', padding: '12px 24px',
-    cursor: 'pointer',
-    display: 'inline-flex', alignItems: 'center',
-    transition: 'border-color 150ms, color 150ms',
-    textDecoration: 'none',
-  }
-  const handleEnter = (e) => {
-    e.currentTarget.style.borderColor = 'var(--border-strong)'
-    e.currentTarget.style.color = 'var(--text)'
-  }
-  const handleLeave = (e) => {
-    e.currentTarget.style.borderColor = 'var(--border-mid)'
-    e.currentTarget.style.color = 'var(--text-2)'
-  }
+const TYPE_COLORS = {
+  'Eviction':    '#DC2626',
+  'Immigration': '#2563EB',
+  'Custody':     '#7C3AED',
+  'Wage Theft':  '#C2710C',
+  'Employment':  '#16A34A',
+}
 
-  if (href) {
-    return (
-      <a href={href} style={style} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-        {children}
-      </a>
-    )
-  }
+function DeadlineDot({ days }) {
+  const color = days <= 3 ? '#DC2626' : days <= 7 ? '#C2710C' : '#A8A29E'
   return (
-    <button onClick={onClick} style={style} onMouseEnter={handleEnter} onMouseLeave={handleLeave}>
-      {children}
-    </button>
+    <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '11px', color, fontWeight: 500 }}>
+      {days <= 7 && <span style={{ marginRight: '3px', fontSize: '8px' }}>●</span>}
+      {days}d
+    </span>
   )
 }
 
-function NavLink({ href, children }) {
+function StatusPill({ status }) {
+  const s = status === 'reviewed'
+    ? { bg: 'rgba(22,163,74,0.08)', color: '#16A34A', border: 'rgba(22,163,74,0.18)', label: 'Reviewed' }
+    : status === 'closed'
+    ? { bg: 'rgba(0,0,0,0.04)', color: '#78716C', border: 'rgba(0,0,0,0.10)', label: 'Closed' }
+    : { bg: 'rgba(0,0,0,0.04)', color: '#78716C', border: 'rgba(0,0,0,0.10)', label: 'Pending' }
   return (
-    <a
-      href={href}
-      style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)', fontWeight: 500, transition: 'color 150ms', textDecoration: 'none' }}
-      onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)' }}
-      onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-2)' }}
-    >
-      {children}
-    </a>
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: '4px',
+      fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500,
+      padding: '2px 6px', background: s.bg, color: s.color,
+      border: `1px solid ${s.border}`, borderRadius: '3px',
+    }}>
+      <span style={{ width: '5px', height: '5px', borderRadius: '50%', background: s.color }} />
+      {s.label}
+    </span>
   )
 }
 
-export default function LandingPage() {
+function FlagChip({ label }) {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', color: 'var(--text)' }}>
+    <span style={{
+      fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+      padding: '1px 5px',
+      background: 'rgba(194,113,12,0.08)', color: '#C2710C',
+      border: '1px solid rgba(194,113,12,0.18)', borderRadius: '3px',
+    }}>
+      {label}
+    </span>
+  )
+}
 
-      {/* Nav */}
-      <nav style={{
-        position: 'sticky', top: 0, zIndex: 100,
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        height: '60px', background: 'var(--bg)',
-        borderBottom: '1px solid var(--border)', padding: '0 2.5rem',
+export default function HomePage() {
+  return (
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
+
+      {/* Navigation */}
+      <header style={{
+        position: 'sticky', top: 0, zIndex: 50,
+        height: '56px',
+        background: 'rgba(247,246,243,0.92)',
+        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center',
+        padding: '0 2rem',
+        justifyContent: 'space-between',
       }}>
-        <a href="/" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
-          <span style={{ fontSize: '17px', lineHeight: 1 }}>⚖</span>
-          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+          <span style={{ fontSize: '16px', lineHeight: 1 }}>⚖</span>
+          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>
             JusticeQueue
           </span>
         </a>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.75rem' }}>
-          <NavLink href="/dashboard?demo=true">Demo</NavLink>
-          <NavLink href="/login">Sign in</NavLink>
-          <PrimaryButton href="/register">Get started →</PrimaryButton>
-        </div>
-      </nav>
+        <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <a href="/dashboard?demo=true" style={{
+            fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)',
+            padding: '6px 12px', borderRadius: 'var(--radius-sm)',
+            transition: 'color 150ms',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-2)' }}
+          >
+            Demo
+          </a>
+          <a href="/login" style={{
+            fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)',
+            padding: '6px 12px', borderRadius: 'var(--radius-sm)',
+            transition: 'color 150ms',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text)' }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-2)' }}
+          >
+            Sign in
+          </a>
+          <a href="/register" style={{
+            fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500,
+            color: '#FFFFFF',
+            background: 'var(--text)',
+            padding: '6px 14px', borderRadius: 'var(--radius-sm)',
+            transition: 'opacity 150ms', display: 'inline-block',
+          }}
+          onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85' }}
+          onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
+          >
+            Get access
+          </a>
+        </nav>
+      </header>
 
       {/* Hero */}
-      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '9rem 2.5rem 8rem' }}>
-        <p style={{
-          fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
-          marginBottom: '2rem', letterSpacing: 0,
+      <section style={{
+        maxWidth: '1200px', margin: '0 auto',
+        padding: 'clamp(4rem,8vw,7rem) 2rem clamp(3rem,6vw,5rem)',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: '4rem',
+        alignItems: 'center',
+      }}>
+        {/* Left — headline */}
+        <div>
+          <p style={{
+            fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
+            color: 'var(--accent)', letterSpacing: '0.04em',
+            marginBottom: '1.25rem',
+          }}>
+            Legal Aid Triage Platform
+          </p>
+          <h1 style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'clamp(36px,5vw,58px)',
+            fontWeight: 700,
+            color: 'var(--text)',
+            lineHeight: 1.1,
+            letterSpacing: '-0.03em',
+            marginBottom: '1.5rem',
+          }}>
+            Every critical case,
+            <br />ranked automatically.
+          </h1>
+          <p style={{
+            fontFamily: 'var(--font-sans)', fontSize: '17px',
+            color: 'var(--text-2)', lineHeight: 1.65,
+            marginBottom: '2.5rem',
+            maxWidth: '440px',
+          }}>
+            JusticeQueue scores every intake across urgency, vulnerability, case severity,
+            and legal deadline — so your team sees the highest-risk cases first, every morning.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            <a href="/register" style={{
+              fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600,
+              background: 'var(--text)', color: '#F7F6F3',
+              padding: '12px 24px', borderRadius: 'var(--radius-sm)',
+              transition: 'opacity 150ms', display: 'inline-block',
+              letterSpacing: '-0.01em',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85' }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
+            >
+              Start free →
+            </a>
+            <a href="/dashboard?demo=true" style={{
+              fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 500,
+              background: 'transparent',
+              color: 'var(--text-2)',
+              border: '1px solid var(--border-mid)',
+              padding: '12px 24px', borderRadius: 'var(--radius-sm)',
+              transition: 'border-color 150ms, color 150ms', display: 'inline-block',
+              letterSpacing: '-0.01em',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-mid)'; e.currentTarget.style.color = 'var(--text-2)' }}
+            >
+              View demo
+            </a>
+          </div>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginTop: '1.25rem' }}>
+            No configuration required. Upload an intake file — scored in under 60 seconds.
+          </p>
+        </div>
+
+        {/* Right — product preview */}
+        <div style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)',
+          overflow: 'hidden',
         }}>
-          Legal aid triage infrastructure
-        </p>
-        <h1 style={{
-          fontFamily: 'var(--font-sans)',
-          fontSize: 'clamp(52px, 7vw, 80px)',
-          fontWeight: 700,
-          letterSpacing: '-0.04em',
-          lineHeight: 1.0,
-          color: 'var(--text)',
-          marginBottom: '2rem',
-          maxWidth: '800px',
-        }}>
-          Modern judicial<br />infrastructure.
-        </h1>
-        <p style={{
-          fontFamily: 'var(--font-sans)', fontSize: '18px', color: 'var(--text-2)',
-          lineHeight: 1.65, maxWidth: '480px', marginBottom: '3rem', fontWeight: 400,
-        }}>
-          JusticeQueue reads every intake record, scores urgency across four dimensions, and ranks your queue in under 30 seconds.
-        </p>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          <PrimaryButton href="/dashboard?demo=true">See it working →</PrimaryButton>
-          <SecondaryButton href="/register">Get started free</SecondaryButton>
+          {/* Preview header */}
+          <div style={{
+            height: '44px',
+            background: 'var(--bg-raised)',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: '0 16px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>
+                Case Queue
+              </span>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
+                5 cases · Today
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              {['#DC2626','#C2710C','#16A34A'].map((c, i) => (
+                <span key={i} style={{ width: '8px', height: '8px', borderRadius: '50%', background: c, opacity: 0.5 }} />
+              ))}
+            </div>
+          </div>
+          {/* Table header */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '32px 50px 1fr 90px 60px 80px',
+            padding: '0 14px',
+            height: '32px',
+            alignItems: 'center',
+            borderBottom: '1px solid var(--border)',
+            background: 'var(--bg-surface)',
+          }}>
+            {['#', 'Score', 'Client', 'Type', 'Due', 'Status'].map((h) => (
+              <span key={h} style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500, color: 'var(--text-3)' }}>{h}</span>
+            ))}
+          </div>
+          {/* Mock rows */}
+          {MOCK_QUEUE.map((row, i) => (
+            <div key={row.rank} style={{
+              display: 'grid',
+              gridTemplateColumns: '32px 50px 1fr 90px 60px 80px',
+              padding: '0 14px',
+              height: '44px',
+              alignItems: 'center',
+              borderBottom: i < MOCK_QUEUE.length - 1 ? '1px solid var(--border)' : 'none',
+              background: row.rank === 1 ? 'rgba(220,38,38,0.02)' : 'transparent',
+            }}>
+              <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '11px', color: 'var(--text-3)' }}>
+                {row.rank}
+              </span>
+              <ScoreDot score={row.score} />
+              <div>
+                <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: row.rank === 1 ? '#DC2626' : 'var(--text)', lineHeight: 1.2 }}>
+                  {row.name}
+                </div>
+                {row.flags.length > 0 && (
+                  <div style={{ marginTop: '2px', display: 'flex', gap: '3px' }}>
+                    {row.flags.map((f) => <FlagChip key={f} label={f} />)}
+                  </div>
+                )}
+              </div>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: TYPE_COLORS[row.type] || 'var(--text-3)', fontWeight: 500 }}>
+                {row.type}
+              </span>
+              <DeadlineDot days={row.deadline} />
+              <StatusPill status={row.status} />
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Divider */}
-      <div style={{ borderBottom: '1px solid var(--border)' }} />
-
-      {/* Stats */}
-      <section style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)' }}>
-          {STATS.map(({ n, label }, i) => (
+      {/* Stats strip */}
+      <section style={{ borderTop: '1px solid var(--border)', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
+        <div style={{
+          maxWidth: '1200px', margin: '0 auto', padding: '0 2rem',
+          display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '0',
+        }}>
+          {[
+            { n: '< 60s',  label: 'Intake processing time' },
+            { n: '4',      label: 'Scoring dimensions' },
+            { n: '100',    label: 'Point priority scale' },
+            { n: '100%',   label: 'Override auditability' },
+          ].map(({ n, label }, i) => (
             <div key={label} style={{
-              padding: '3rem',
+              padding: '2.5rem 2rem',
               borderRight: i < 3 ? '1px solid var(--border)' : 'none',
             }}>
               <div style={{
-                fontFamily: 'var(--font-sans)',
-                fontSize: 'clamp(36px, 5vw, 56px)',
-                fontWeight: 700,
-                letterSpacing: '-0.04em',
-                color: 'var(--text)',
-                lineHeight: 1,
-                marginBottom: '10px',
+                fontFamily: 'var(--font-sans)', fontSize: 'clamp(28px,4vw,40px)',
+                fontWeight: 700, color: 'var(--text)',
+                letterSpacing: '-0.03em', lineHeight: 1, marginBottom: '8px',
               }}>
                 {n}
               </div>
-              <div style={{
-                fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-3)',
-                lineHeight: 1.5, maxWidth: '140px',
-              }}>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-3)' }}>
                 {label}
               </div>
             </div>
@@ -213,253 +330,199 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Product section */}
-      <section style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '7rem 2.5rem' }}>
-          <p style={{
-            fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
-            marginBottom: '1.5rem',
-          }}>
-            The queue
-          </p>
+      {/* Workflow */}
+      <section style={{ maxWidth: '1200px', margin: '0 auto', padding: 'clamp(4rem,8vw,6rem) 2rem' }}>
+        <div style={{ marginBottom: '3.5rem' }}>
           <h2 style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: 'clamp(28px, 4vw, 44px)',
-            fontWeight: 700,
-            letterSpacing: '-0.03em',
-            color: 'var(--text)',
-            marginBottom: '1.25rem',
-            lineHeight: 1.1,
+            fontFamily: 'var(--font-sans)', fontSize: 'clamp(24px,3.5vw,36px)',
+            fontWeight: 700, color: 'var(--text)',
+            letterSpacing: '-0.025em', marginBottom: '12px',
           }}>
-            Every case scored and ranked automatically.
+            How it works
           </h2>
-          <p style={{
-            fontFamily: 'var(--font-sans)', fontSize: '16px', color: 'var(--text-2)',
-            lineHeight: 1.7, maxWidth: '520px', marginBottom: '3rem',
-          }}>
-            Upload a batch of intake notes. Within seconds your team sees every case ranked by urgency, with a transparent breakdown of why each score was assigned.
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', color: 'var(--text-2)', maxWidth: '520px', lineHeight: 1.6 }}>
+            From a raw intake file to a fully ranked, annotated queue — in under a minute.
           </p>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2rem' }}>
+          {WORKFLOW.map(({ n, label, desc }) => (
+            <div key={n}>
+              <div style={{
+                fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '11px',
+                color: 'var(--accent)', fontWeight: 600, marginBottom: '12px',
+                letterSpacing: '0.05em',
+              }}>
+                {n}
+              </div>
+              <h3 style={{
+                fontFamily: 'var(--font-sans)', fontSize: '17px', fontWeight: 600,
+                color: 'var(--text)', letterSpacing: '-0.015em', marginBottom: '10px',
+              }}>
+                {label}
+              </h3>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.7 }}>
+                {desc}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-          {/* Case preview table */}
-          <div style={{
-            border: '1px solid var(--border)',
-            borderRadius: '8px',
-            overflow: 'hidden',
-          }}>
-            {/* Table header */}
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '44px 72px 1fr 120px 80px 100px',
-              background: 'var(--bg-surface)',
-              borderBottom: '1px solid var(--border)',
+      {/* Divider */}
+      <div style={{ borderTop: '1px solid var(--border)', maxWidth: '1200px', margin: '0 auto' }} />
+
+      {/* Scoring transparency */}
+      <section style={{ maxWidth: '1200px', margin: '0 auto', padding: 'clamp(4rem,8vw,6rem) 2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '5rem', alignItems: 'start' }}>
+          <div>
+            <h2 style={{
+              fontFamily: 'var(--font-sans)', fontSize: 'clamp(24px,3.5vw,36px)',
+              fontWeight: 700, color: 'var(--text)',
+              letterSpacing: '-0.025em', marginBottom: '16px',
             }}>
-              {['rank', 'score', 'client', 'type', 'deadline', 'flags'].map((h) => (
-                <div key={h} style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500,
-                  color: 'var(--text-3)', height: '36px',
-                  padding: '0 16px', display: 'flex', alignItems: 'center',
+              Transparent by design.
+            </h2>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', color: 'var(--text-2)', lineHeight: 1.7, marginBottom: '1.5rem' }}>
+              Every priority score is explained. Attorneys see exactly how each case was ranked —
+              and can override any score with a documented reason. Every decision is logged for audit.
+            </p>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', color: 'var(--text-2)', lineHeight: 1.7 }}>
+              The algorithm doesn&apos;t replace attorney judgment. It ensures nothing falls through the cracks.
+            </p>
+          </div>
+          <div>
+            <div style={{
+              background: 'var(--bg-surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              overflow: 'hidden',
+            }}>
+              <div style={{
+                padding: '12px 16px', borderBottom: '1px solid var(--border)',
+                fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600,
+                color: 'var(--text-3)',
+              }}>
+                Priority Score Breakdown · 100 points
+              </div>
+              {SCORE_STEPS.map(({ label, pts, desc }, i) => (
+                <div key={label} style={{
+                  display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+                  padding: '14px 16px',
+                  borderBottom: i < SCORE_STEPS.length - 1 ? '1px solid var(--border)' : 'none',
+                  gap: '12px',
                 }}>
-                  {h}
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: 'var(--text)', marginBottom: '2px' }}>
+                      {label}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
+                      {desc}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '12px',
+                    fontWeight: 700, color: 'var(--accent)', whiteSpace: 'nowrap', flexShrink: 0,
+                  }}>
+                    {pts}
+                  </span>
                 </div>
               ))}
             </div>
-
-            {/* Table rows */}
-            {MOCK_QUEUE.map((c, i) => {
-              const sc = scoreColor(c.score)
-              const dc = deadlineColor(c.deadline)
-              return (
-                <div
-                  key={c.rank}
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '44px 72px 1fr 120px 80px 100px',
-                    alignItems: 'center',
-                    height: '40px',
-                    background: i === 0 ? 'rgba(200,130,58,0.04)' : 'var(--bg)',
-                    borderLeft: i === 0 ? '2px solid var(--accent)' : '2px solid transparent',
-                    borderBottom: i < MOCK_QUEUE.length - 1 ? '1px solid var(--border)' : 'none',
-                    cursor: 'default',
-                  }}
-                >
-                  {/* Rank */}
-                  <div style={{ padding: '0 16px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)' }}>
-                    {c.rank}
-                  </div>
-                  {/* Score pill */}
-                  <div style={{ padding: '0 16px' }}>
-                    <span style={{
-                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                      minWidth: '36px', padding: '2px 6px',
-                      background: `${sc}18`,
-                      border: `1px solid ${sc}40`,
-                      borderRadius: '4px',
-                      fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700,
-                      color: sc,
-                    }}>
-                      {c.score}
-                    </span>
-                  </div>
-                  {/* Client name */}
-                  <div style={{ padding: '0 16px', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text)', fontWeight: 500 }}>
-                    {c.name}
-                  </div>
-                  {/* Type */}
-                  <div style={{ padding: '0 16px', fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)' }}>
-                    {c.type}
-                  </div>
-                  {/* Deadline */}
-                  <div style={{ padding: '0 16px', fontFamily: 'var(--font-mono)', fontSize: '12px', color: dc || 'var(--text-3)' }}>
-                    {c.deadline}d
-                  </div>
-                  {/* Flags */}
-                  <div style={{ padding: '0 16px' }}>
-                    {c.flags.map((f) => (
-                      <span key={f} style={{
-                        display: 'inline-flex', alignItems: 'center',
-                        padding: '2px 7px',
-                        borderRadius: '4px',
-                        fontSize: '11px', fontFamily: 'var(--font-sans)', fontWeight: 500,
-                        background: f === 'Critical' ? 'rgba(232,68,68,0.10)' : 'rgba(232,150,42,0.10)',
-                        color: f === 'Critical' ? '#E84444' : '#E8962A',
-                        border: f === 'Critical' ? '1px solid rgba(232,68,68,0.25)' : '1px solid rgba(232,150,42,0.25)',
-                      }}>
-                        {f}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-
-            {/* Footer row */}
-            <div style={{
-              padding: '10px 16px',
-              background: 'var(--bg-surface)',
-              borderTop: '1px solid var(--border)',
-              fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
-            }}>
-              5 cases · scored in 18s · Click any row for the AI breakdown
-            </div>
           </div>
         </div>
       </section>
 
-      {/* How it works */}
-      <section style={{ background: 'var(--bg-surface)', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '7rem 2.5rem' }}>
+      {/* CTA */}
+      <section style={{
+        borderTop: '1px solid var(--border)',
+        background: 'var(--bg-surface)',
+      }}>
+        <div style={{
+          maxWidth: '1200px', margin: '0 auto',
+          padding: 'clamp(5rem,10vw,8rem) 2rem',
+          textAlign: 'center',
+        }}>
+          <h2 style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: 'clamp(30px,5vw,52px)',
+            fontWeight: 700, color: 'var(--text)',
+            letterSpacing: '-0.03em', lineHeight: 1.1,
+            margin: '0 auto 1.5rem',
+            maxWidth: '700px',
+          }}>
+            Every intake record deserves a decision.
+          </h2>
           <p style={{
-            fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
-            marginBottom: '1.5rem',
+            fontFamily: 'var(--font-sans)', fontSize: '17px', color: 'var(--text-2)',
+            marginBottom: '2.5rem', lineHeight: 1.6,
           }}>
-            How it works
+            Set up your clinic&apos;s queue in minutes.
           </p>
-          <h2 style={{
-            fontFamily: 'var(--font-sans)', fontSize: '40px', fontWeight: 700,
-            letterSpacing: '-0.03em', color: 'var(--text)',
-            marginBottom: '4rem', lineHeight: 1.1,
-          }}>
-            From intake file to ranked queue<br />in three steps.
-          </h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '3rem' }}>
-            {STEPS.map(({ n, title, body }) => (
-              <div key={n}>
-                <div style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--text-3)',
-                  marginBottom: '1.5rem',
-                }}>
-                  {n}
-                </div>
-                <h3 style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '18px', fontWeight: 600,
-                  letterSpacing: '-0.02em', color: 'var(--text)',
-                  marginBottom: '1rem', lineHeight: 1.3,
-                }}>
-                  {title}
-                </h3>
-                <p style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '14px', color: 'var(--text-2)',
-                  lineHeight: 1.7,
-                }}>
-                  {body}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Quote */}
-      <section style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-        <div style={{ maxWidth: '720px', margin: '0 auto', padding: '8rem 2.5rem', textAlign: 'center' }}>
-          <blockquote style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: 'clamp(20px, 3vw, 28px)',
-            fontWeight: 400,
-            lineHeight: 1.55,
-            color: 'var(--text)',
-            letterSpacing: '-0.01em',
-            marginBottom: '1.5rem',
-          }}>
-            &ldquo;The difference between seeing a client on Monday and seeing them on Friday is often the difference between keeping their home and losing it.&rdquo;
-          </blockquote>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-3)' }}>
-            — Legal Aid Director, Northeast US
-          </p>
-        </div>
-      </section>
-
-      {/* Final CTA */}
-      <section style={{ borderBottom: '1px solid var(--border)', background: 'var(--bg)' }}>
-        <div style={{ maxWidth: '560px', margin: '0 auto', padding: '9rem 2.5rem', textAlign: 'center' }}>
-          <h2 style={{
-            fontFamily: 'var(--font-sans)',
-            fontSize: 'clamp(36px, 6vw, 64px)',
-            fontWeight: 700,
-            letterSpacing: '-0.04em',
-            lineHeight: 1.05,
-            color: 'var(--text)',
-            marginBottom: '2rem',
-          }}>
-            Every intake record<br />deserves a decision.
-          </h2>
-          <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-            <PrimaryButton href="/register">Create free account →</PrimaryButton>
-            <SecondaryButton href="/dashboard?demo=true">View live demo</SecondaryButton>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <a href="/register" style={{
+              fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600,
+              background: 'var(--text)', color: '#F7F6F3',
+              padding: '14px 32px', borderRadius: 'var(--radius-sm)',
+              transition: 'opacity 150ms', display: 'inline-block',
+              letterSpacing: '-0.01em',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.85' }}
+            onMouseLeave={(e) => { e.currentTarget.style.opacity = '1' }}
+            >
+              Create free account
+            </a>
+            <a href="/dashboard?demo=true" style={{
+              fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 500,
+              color: 'var(--text-2)',
+              border: '1px solid var(--border-mid)',
+              background: 'transparent',
+              padding: '14px 32px', borderRadius: 'var(--radius-sm)',
+              transition: 'border-color 150ms, color 150ms', display: 'inline-block',
+              letterSpacing: '-0.01em',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-strong)'; e.currentTarget.style.color = 'var(--text)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border-mid)'; e.currentTarget.style.color = 'var(--text-2)' }}
+            >
+              Explore demo
+            </a>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer style={{ padding: '1.5rem 2.5rem', borderTop: '1px solid var(--border)' }}>
+      <footer style={{
+        borderTop: '1px solid var(--border)',
+        background: 'var(--bg)',
+        padding: '1.5rem 2rem',
+      }}>
         <div style={{
-          maxWidth: '1100px', margin: '0 auto',
+          maxWidth: '1200px', margin: '0 auto',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           flexWrap: 'wrap', gap: '1rem',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px', lineHeight: 1 }}>⚖</span>
-            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
-              JusticeQueue © {new Date().getFullYear()}
+            <span style={{ fontSize: '14px' }}>⚖</span>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-3)' }}>
+              JusticeQueue · Built for legal aid clinics
             </span>
           </div>
-          <div style={{ display: 'flex', gap: '2rem' }}>
+          <nav style={{ display: 'flex', gap: '1.5rem' }}>
             {[
-              { label: 'Demo', href: '/dashboard?demo=true' },
+              { label: 'Dashboard', href: '/dashboard?demo=true' },
               { label: 'Sign in', href: '/login' },
-              { label: 'Contact', href: 'mailto:admin@justicequeue.org' },
+              { label: 'Register', href: '/register' },
             ].map(({ label, href }) => (
-              <a
-                key={label}
-                href={href}
-                style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', transition: 'color 150ms' }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-2)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)' }}
+              <a key={label} href={href} style={{
+                fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
+                transition: 'color 150ms',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-2)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)' }}
               >
                 {label}
               </a>
             ))}
-          </div>
+          </nav>
         </div>
       </footer>
     </div>

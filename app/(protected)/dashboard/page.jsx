@@ -1,4 +1,3 @@
-// Dashboard — protected route with stats summary + upload + ranked case table
 'use client'
 export const dynamic = 'force-dynamic'
 import { Suspense } from 'react'
@@ -18,7 +17,7 @@ function StatCard({ label, value, sub, accent, loading }) {
   return (
     <div style={{
       background: 'var(--bg-surface)',
-      padding: '1rem 1.25rem',
+      padding: '1.25rem 1.5rem',
       borderRight: '1px solid var(--border)',
     }}>
       {loading ? (
@@ -29,20 +28,17 @@ function StatCard({ label, value, sub, accent, loading }) {
       ) : (
         <>
           <div style={{
-            fontFamily: 'var(--font-sans)', fontSize: '26px', fontWeight: 700,
-            color: accent || 'var(--text)', lineHeight: 1, marginBottom: '5px',
-            letterSpacing: '-0.03em', transition: 'color 300ms',
+            fontFamily: 'var(--font-sans)', fontSize: '28px', fontWeight: 700,
+            color: accent || 'var(--text)', lineHeight: 1, marginBottom: '6px',
+            letterSpacing: '-0.035em',
           }}>
             {value ?? '—'}
           </div>
-          <div style={{
-            fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)',
-            fontWeight: 500, marginBottom: sub ? '2px' : 0,
-          }}>
+          <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)', fontWeight: 500 }}>
             {label}
           </div>
           {sub && (
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)', marginTop: '2px' }}>
               {sub}
             </div>
           )}
@@ -53,10 +49,10 @@ function StatCard({ label, value, sub, accent, loading }) {
 }
 
 function StatsBar({ cases, loading }) {
-  const total      = cases.length
-  const critical   = cases.filter((c) => (c.priority_score ?? 0) >= 80).length
-  const avg        = total > 0 ? Math.round(cases.reduce((s, c) => s + (c.priority_score ?? 0), 0) / total) : null
-  const overridden = cases.filter((c) => c.status === 'overridden').length
+  const total    = cases.length
+  const critical = cases.filter((c) => (c.priority_score ?? 0) >= 80).length
+  const dueWeek  = cases.filter((c) => c.deadline_days != null && c.deadline_days <= 7).length
+  const avg      = total > 0 ? Math.round(cases.reduce((s, c) => s + (c.priority_score ?? 0), 0) / total) : null
 
   return (
     <div style={{
@@ -68,13 +64,13 @@ function StatsBar({ cases, loading }) {
       borderRadius: 'var(--radius) var(--radius) 0 0',
       overflow: 'hidden',
     }}>
-      <StatCard label="Total Cases"    value={total}     sub="in current queue" loading={loading} />
-      <StatCard label="Critical"       value={critical}  sub="score ≥ 80"       loading={loading}
+      <StatCard label="Active Cases"   value={total}    sub="in queue"         loading={loading} />
+      <StatCard label="Critical"       value={critical} sub="score ≥ 80"       loading={loading}
         accent={critical > 0 ? 'var(--urgent)' : undefined} />
-      <StatCard label="Average Score"  value={avg}       sub="urgency index"    loading={loading}
-        accent={avg != null && avg >= 70 ? 'var(--medium)' : avg != null && avg >= 50 ? 'var(--accent)' : undefined} />
-      <StatCard label="Overridden"     value={overridden} sub="manual adjustments" loading={loading}
-        accent={overridden > 0 ? 'var(--accent)' : undefined} />
+      <StatCard label="Due This Week"  value={dueWeek}  sub="within 7 days"    loading={loading}
+        accent={dueWeek > 0 ? 'var(--medium)' : undefined} />
+      <StatCard label="Average Score"  value={avg}      sub="urgency index"    loading={loading}
+        accent={avg != null && avg >= 70 ? 'var(--medium)' : undefined} />
     </div>
   )
 }
@@ -87,12 +83,13 @@ function DashboardInner() {
 
   const { cases: dbCases, loading: casesLoading, refetch } = useCases()
   const { status, cases: uploadedCases, stats: uploadStats, agentStats, error: uploadError, upload, reset } = useUpload()
-  const [selectedId,  setSelectedId]  = useState(null)
-  const [demoCases,   setDemoCases]   = useState([])
-  const [demoLoading, setDemoLoading] = useState(false)
-  const [demoError,   setDemoError]   = useState(false)
-  const [clearing,    setClearing]    = useState(false)
-  const [showStrip,   setShowStrip]   = useState(false)
+  const [selectedId,   setSelectedId]   = useState(null)
+  const [demoCases,    setDemoCases]    = useState([])
+  const [demoLoading,  setDemoLoading]  = useState(false)
+  const [demoError,    setDemoError]    = useState(false)
+  const [clearing,     setClearing]     = useState(false)
+  const [showStrip,    setShowStrip]    = useState(false)
+  const [showUpload,   setShowUpload]   = useState(false)
 
   async function clearQueue() {
     if (!confirm('Delete all cases in your queue? This cannot be undone.')) return
@@ -112,8 +109,15 @@ function DashboardInner() {
   }, [user, authLoading, router, isDemo])
 
   useEffect(() => {
-    if (status === 'complete') { refetch(); setShowStrip(true) }
+    if (status === 'complete') { refetch(); setShowStrip(true); setShowUpload(false) }
   }, [status, refetch])
+
+  // Auto-show upload zone when queue is empty
+  useEffect(() => {
+    if (!isDemo && !casesLoading && dbCases.length === 0 && uploadedCases.length === 0) {
+      setShowUpload(true)
+    }
+  }, [isDemo, casesLoading, dbCases.length, uploadedCases.length])
 
   useEffect(() => {
     if (!isDemo) return
@@ -127,22 +131,17 @@ function DashboardInner() {
 
   if (authLoading && !isDemo) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
-        Loading…
-      </span>
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>Loading…</span>
     </div>
   )
 
   const displayCases = isDemo
     ? demoCases
-    : uploadedCases.length > 0
-    ? uploadedCases
-    : dbCases
+    : uploadedCases.length > 0 ? uploadedCases : dbCases
 
   const loading = isDemo ? demoLoading : casesLoading
 
-  // Queue heading
-  let queueHeading = isDemo ? 'Demo Priority Queue' : 'Priority Queue'
+  let queueHeading = isDemo ? 'Demo Queue' : 'Case Queue'
   if (status === 'complete') {
     queueHeading = `${displayCases.length} case${displayCases.length !== 1 ? 's' : ''} scored`
     if (uploadStats?.failed) queueHeading += ` · ${uploadStats.failed} failed`
@@ -151,75 +150,129 @@ function DashboardInner() {
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
 
-      {/* Demo banner — subtle, no bright background */}
+      {/* Demo banner */}
       {isDemo && !demoError && (
         <div style={{
           background: 'var(--bg-surface)',
           borderBottom: '1px solid var(--border)',
           padding: '9px 1.5rem',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: '1rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{
-              display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
-              background: 'var(--accent)', flexShrink: 0,
-            }} />
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', display: 'inline-block', flexShrink: 0 }} />
             <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)' }}>
-              Demo mode — sample data only, no account required
+              Demo mode — sample data, no account required
             </span>
           </div>
-          <a
-            href="/register"
-            style={{
-              fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
-              color: 'var(--accent)', whiteSpace: 'nowrap',
-            }}
-          >
+          <a href="/register" style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--accent)', whiteSpace: 'nowrap' }}>
             Create free account →
           </a>
         </div>
       )}
 
-      {/* Demo error banner */}
+      {/* Demo error */}
       {isDemo && demoError && (
         <div style={{
           background: 'var(--bg-surface)',
-          borderBottom: '1px solid rgba(232,68,68,0.2)',
+          borderBottom: '1px solid rgba(220,38,38,0.2)',
           padding: '9px 1.5rem',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: '1rem',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{
-              display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
-              background: 'var(--urgent)', flexShrink: 0,
-            }} />
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--urgent)', display: 'inline-block', flexShrink: 0 }} />
             <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)' }}>
               Demo unavailable — please try signing in
             </span>
           </div>
-          <a
-            href="/login"
-            style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap' }}
-          >
+          <a href="/login" style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>
             Sign in →
           </a>
         </div>
       )}
 
+      {/* Page header */}
+      <div style={{
+        height: '52px', padding: '0 2rem',
+        background: 'var(--bg-surface)',
+        borderBottom: '1px solid var(--border)',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        position: 'sticky', top: 0, zIndex: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <h1 style={{
+            fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600,
+            color: 'var(--text)', letterSpacing: '-0.015em',
+          }}>
+            {isDemo ? 'Demo Queue' : 'Case Queue'}
+          </h1>
+          {(status === 'processing' || status === 'uploading') && (
+            <span style={{
+              fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
+              animation: 'pulse 1.4s ease-in-out infinite',
+            }}>
+              Analyzing…
+            </span>
+          )}
+        </div>
+        {!isDemo && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {uploadedCases.length > 0 && (
+              <button
+                onClick={reset}
+                style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
+                  padding: '5px 12px', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', background: 'transparent',
+                  transition: 'color 150ms, border-color 150ms',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border-mid)' }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+              >
+                Clear upload
+              </button>
+            )}
+            {displayCases.length > 0 && (
+              <button
+                onClick={clearQueue}
+                disabled={clearing}
+                style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--urgent)',
+                  padding: '5px 12px', border: '1px solid rgba(220,38,38,0.25)',
+                  borderRadius: 'var(--radius-sm)', background: 'transparent',
+                  opacity: clearing ? 0.5 : 1, transition: 'opacity 150ms',
+                }}
+              >
+                {clearing ? 'Clearing…' : 'Clear Queue'}
+              </button>
+            )}
+            <button
+              onClick={() => setShowUpload((v) => !v)}
+              disabled={status === 'uploading' || status === 'processing'}
+              style={{
+                fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
+                color: showUpload ? 'var(--text)' : 'var(--text-2)',
+                padding: '5px 14px',
+                background: showUpload ? 'var(--bg-raised)' : 'transparent',
+                border: '1px solid var(--border-mid)',
+                borderRadius: 'var(--radius-sm)',
+                transition: 'all 150ms',
+                opacity: (status === 'uploading' || status === 'processing') ? 0.5 : 1,
+              }}
+              onMouseEnter={(e) => { if (!showUpload) { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-strong)' } }}
+              onMouseLeave={(e) => { if (!showUpload) { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border-mid)' } }}
+            >
+              {status === 'uploading' || status === 'processing' ? 'Processing…' : 'Import Cases'}
+            </button>
+          </div>
+        )}
+      </div>
+
       <main style={{ padding: '1.5rem 2rem 4rem' }}>
 
-        {/* Agent summary strip — real upload */}
+        {/* Agent summary strip */}
         {!isDemo && showStrip && agentStats && (
-          <AgentSummaryStrip
-            stats={agentStats}
-            onDismiss={() => setShowStrip(false)}
-            isDemo={false}
-          />
+          <AgentSummaryStrip stats={agentStats} onDismiss={() => setShowStrip(false)} isDemo={false} />
         )}
-
-        {/* Agent summary strip — demo mode (always visible, hardcoded) */}
         {isDemo && !demoLoading && !demoError && (
           <AgentSummaryStrip
             stats={{ cases_scored: 5, emails_drafted: 5, calendar_blocks_created: 3, briefs_generated: 2, duration_ms: 8300 }}
@@ -228,14 +281,14 @@ function DashboardInner() {
           />
         )}
 
-        {/* Upload zone — only for authenticated users */}
-        {!isDemo && (
-          <div style={{ marginBottom: '1.75rem' }}>
+        {/* Upload zone — collapsible */}
+        {!isDemo && showUpload && (
+          <div style={{ marginBottom: '1.5rem' }}>
             <UploadZone status={status} onUpload={upload} error={uploadError} />
           </div>
         )}
 
-        {/* Stats bar — only show when there are cases */}
+        {/* Stats bar */}
         {(displayCases.length > 0 || loading) && (
           <StatsBar cases={displayCases} loading={loading && displayCases.length === 0} />
         )}
@@ -244,59 +297,17 @@ function DashboardInner() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0 16px',
-          height: '44px',
+          height: '40px',
           background: 'var(--bg-surface)',
           border: '1px solid var(--border)',
           borderTop: displayCases.length > 0 || loading ? 'none' : '1px solid var(--border)',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h2 style={{
-              fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600,
-              color: 'var(--text)', letterSpacing: '-0.01em',
-            }}>
-              {queueHeading}
-            </h2>
-            {(status === 'processing' || status === 'uploading') && (
-              <span style={{
-                fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)',
-                animation: 'pulse 1.4s ease-in-out infinite',
-              }}>
-                Analyzing…
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            {uploadedCases.length > 0 && !isDemo && (
-              <button
-                onClick={reset}
-                style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '11px',
-                  color: 'var(--text-3)', padding: '3px 10px',
-                  border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
-                  transition: 'color 150ms, border-color 150ms', background: 'transparent', cursor: 'pointer',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border-mid)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-              >
-                Clear upload
-              </button>
-            )}
-            {!isDemo && displayCases.length > 0 && (
-              <button
-                onClick={clearQueue}
-                disabled={clearing}
-                style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '11px',
-                  color: 'var(--urgent)', padding: '3px 10px',
-                  border: '1px solid rgba(232,68,68,0.3)', borderRadius: 'var(--radius-sm)',
-                  opacity: clearing ? 0.5 : 1, background: 'transparent', cursor: 'pointer',
-                  transition: 'opacity 150ms',
-                }}
-              >
-                {clearing ? 'Clearing…' : 'Clear Queue'}
-              </button>
-            )}
-          </div>
+          <h2 style={{
+            fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600,
+            color: 'var(--text-3)', letterSpacing: '0',
+          }}>
+            {queueHeading}
+          </h2>
         </div>
 
         {/* Cases table */}
@@ -326,7 +337,6 @@ function DashboardInner() {
             <CaseTable cases={displayCases} selectedId={selectedId} onSelectCase={setSelectedId} />
           )}
         </div>
-
       </main>
 
       <CaseDetailPanel
@@ -343,9 +353,7 @@ function DashboardInner() {
 function DashboardFallback() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
-        Loading…
-      </span>
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>Loading…</span>
     </div>
   )
 }

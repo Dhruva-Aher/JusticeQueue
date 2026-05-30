@@ -69,7 +69,7 @@ export default function UploadZone({ status, onUpload, error }) {
   if (isError)      borderColor = 'var(--urgent)'
 
   let bgColor = 'var(--bg-raised)'
-  if (isDragActive) bgColor = 'rgba(91,110,247,0.05)'
+  if (isDragActive) bgColor = 'rgba(67,56,202,0.04)'
   if (isProcessing) bgColor = 'var(--bg-surface)'
   if (isComplete)   bgColor = 'rgba(34,201,122,0.04)'
 
@@ -94,7 +94,7 @@ export default function UploadZone({ status, onUpload, error }) {
       {isDragActive && (
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse at center, rgba(91,110,247,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse at center, rgba(67,56,202,0.06) 0%, transparent 70%)',
           pointerEvents: 'none',
         }} />
       )}
@@ -154,15 +154,15 @@ export default function UploadZone({ status, onUpload, error }) {
               <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--clear)', fontWeight: 500, marginBottom: '2px' }}>
                 Queue scored successfully
               </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.03em' }}>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
                 {acceptedName || 'File processed'} · Drop a new file to rescore
               </div>
             </div>
           </div>
           <div style={{
             padding: '6px 14px', border: '1px solid var(--border-mid)',
-            fontFamily: 'var(--font-mono)', fontSize: '10px',
-            color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em',
+            fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
+            color: 'var(--text-3)',
             borderRadius: 'var(--radius-sm)',
           }}>
             Replace
@@ -176,15 +176,15 @@ export default function UploadZone({ status, onUpload, error }) {
             <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--urgent)', fontWeight: 500, marginBottom: '3px' }}>
               {error || 'Upload failed — please try again'}
             </div>
-            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.03em' }}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
               Accepted formats: CSV · TXT · PDF · Max 10 MB
             </div>
           </div>
           <div style={{
-            padding: '6px 14px', border: '1px solid rgba(232,68,68,0.3)',
-            fontFamily: 'var(--font-mono)', fontSize: '10px',
-            color: 'var(--urgent)', textTransform: 'uppercase', letterSpacing: '0.06em',
-            borderRadius: 'var(--radius-sm)', background: 'rgba(232,68,68,0.06)',
+            padding: '6px 14px', border: '1px solid rgba(220,38,38,0.25)',
+            fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
+            color: 'var(--urgent)',
+            borderRadius: 'var(--radius-sm)', background: 'rgba(220,38,38,0.06)',
           }}>
             Retry
           </div>
@@ -195,8 +195,8 @@ export default function UploadZone({ status, onUpload, error }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div style={{
             width: '44px', height: '44px', borderRadius: 'var(--radius)',
-            background: isDragActive ? 'rgba(91,110,247,0.12)' : 'var(--bg-hover)',
-            border: `1px solid ${isDragActive ? 'rgba(91,110,247,0.4)' : 'var(--border-mid)'}`,
+            background: isDragActive ? 'rgba(67,56,202,0.10)' : 'var(--bg-hover)',
+            border: `1px solid ${isDragActive ? 'rgba(67,56,202,0.35)' : 'var(--border-mid)'}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             color: isDragActive ? 'var(--accent)' : 'var(--text-3)',
             flexShrink: 0, transition: 'all 180ms',

@@ -57,7 +57,7 @@ export default function AgentSummaryStrip({ stats, onDismiss, isDemo = false }) 
         <Dot />
         <StatItem n={stats.calendar_blocks_created} label=" Calendar Blocks"    color="var(--medium)" />
         <Dot />
-        <StatItem n={stats.briefs_generated}        label=" Case Briefs Ready"  color="var(--stamp)" />
+        <StatItem n={stats.briefs_generated}        label=" Case Briefs Ready"  color="var(--accent)" />
       </div>
 
       {/* Right — duration + dismiss */}
@@ -72,7 +72,7 @@ export default function AgentSummaryStrip({ stats, onDismiss, isDemo = false }) 
           <button
             onClick={() => { setVisible(false); setTimeout(onDismiss, 400) }}
             style={{
-              fontFamily: 'var(--font-mono)', fontSize: '13px',
+              fontFamily: 'var(--font-sans)', fontSize: '13px',
               color: 'var(--text-3)', background: 'none', border: 'none',
               cursor: 'pointer', padding: '0 4px', lineHeight: 1,
               transition: 'color 150ms',
@@ -91,7 +91,7 @@ export default function AgentSummaryStrip({ stats, onDismiss, isDemo = false }) 
 function Dot() {
   return (
     <span style={{
-      fontFamily: 'var(--font-mono)', fontSize: '12px',
+      fontFamily: 'var(--font-sans)', fontSize: '12px',
       color: 'var(--border-mid)', margin: '0 10px',
     }}>·</span>
   )
