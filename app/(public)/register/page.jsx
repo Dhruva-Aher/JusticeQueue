@@ -111,11 +111,9 @@ export default function RegisterPage() {
       <div style={{ width: '100%', maxWidth: '440px' }}>
 
         {/* Logo */}
-        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', marginBottom: '2.5rem', textDecoration: 'none' }}>
-          <div style={{ width: '28px', height: '28px', background: 'var(--accent)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: '14px', color: '#fff' }}>⚖</span>
-          </div>
-          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>JusticeQueue</span>
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '2.5rem', textDecoration: 'none' }}>
+          <span style={{ fontSize: '17px', lineHeight: 1 }}>⚖</span>
+          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>JusticeQueue</span>
         </a>
 
         {/* Card */}
@@ -137,7 +135,7 @@ export default function RegisterPage() {
 
             {/* Name */}
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-3)', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, color: 'var(--text-3)', marginBottom: '6px' }}>
                 Full name
               </label>
               <input
@@ -152,7 +150,7 @@ export default function RegisterPage() {
 
             {/* Email */}
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-3)', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, color: 'var(--text-3)', marginBottom: '6px' }}>
                 Email address
               </label>
               <input
@@ -167,7 +165,7 @@ export default function RegisterPage() {
 
             {/* Clinic */}
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-3)', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, color: 'var(--text-3)', marginBottom: '6px' }}>
                 Clinic name <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>(optional)</span>
               </label>
               <input
@@ -181,7 +179,7 @@ export default function RegisterPage() {
 
             {/* Password */}
             <div style={{ marginBottom: '14px' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-3)', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, color: 'var(--text-3)', marginBottom: '6px' }}>
                 Password
               </label>
               <input
@@ -196,7 +194,7 @@ export default function RegisterPage() {
 
             {/* Confirm password */}
             <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-3)', marginBottom: '6px' }}>
+              <label style={{ display: 'block', fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500, color: 'var(--text-3)', marginBottom: '6px' }}>
                 Confirm password
               </label>
               <input
@@ -214,7 +212,7 @@ export default function RegisterPage() {
               style={{
                 width: '100%', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
                 letterSpacing: '-0.01em',
-                background: 'var(--accent)', color: '#fff',
+                background: 'var(--text)', color: 'var(--bg)',
                 border: 'none', borderRadius: 'var(--radius-sm)', padding: '11px',
                 cursor: busy ? 'not-allowed' : 'pointer',
                 opacity: busy ? 0.65 : 1, transition: 'opacity 150ms',
@@ -226,7 +224,7 @@ export default function RegisterPage() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1.25rem 0' }}>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.06em' }}>OR</span>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>or</span>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
           </div>
 

@@ -12,14 +12,14 @@ export default function SimilarCases({ cases = [] }) {
   if (cases.length === 0) {
     return (
       <div>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: '0.75rem' }}>
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', marginBottom: '0.75rem' }}>
           Similar Past Cases
         </p>
         <div style={{ padding: '14px 0' }}>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-3)', marginBottom: '6px' }}>
-            No Similar Cases Found
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', marginBottom: '6px' }}>
+            No similar cases found
           </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', lineHeight: 1.6 }}>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)', lineHeight: 1.6 }}>
             Upload more cases to build your clinic&apos;s case history.
           </p>
         </div>
@@ -29,9 +29,9 @@ export default function SimilarCases({ cases = [] }) {
 
   return (
     <div>
-      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)', marginBottom: '0.75rem' }}>
+      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', marginBottom: '0.75rem' }}>
         Similar Past Cases
-        <span style={{ color: 'var(--text-3)', fontWeight: 400, textTransform: 'none', letterSpacing: 0, marginLeft: '6px', fontSize: '10px' }}>
+        <span style={{ color: 'var(--text-3)', fontWeight: 400, marginLeft: '6px', fontSize: '10px' }}>
           · {cases.length} found
         </span>
       </p>
@@ -54,7 +54,7 @@ export default function SimilarCases({ cases = [] }) {
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: '14px', color: pctColor, fontWeight: 600, lineHeight: 1 }}>
                   {pct != null ? `${pct}%` : '—'}
                 </div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>
+                <div style={{ fontFamily: 'var(--font-sans)', fontSize: '9px', color: 'var(--text-3)', marginTop: '2px' }}>
                   match
                 </div>
               </div>

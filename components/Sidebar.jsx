@@ -37,19 +37,8 @@ export default function Sidebar() {
 
       {/* Logo */}
       <div style={{ padding: '18px 16px 14px', borderBottom: '1px solid var(--border)' }}>
-        <a
-          href="/dashboard"
-          style={{ display: 'flex', alignItems: 'center', gap: '9px', textDecoration: 'none' }}
-        >
-          <div style={{
-            width: '26px', height: '26px',
-            background: 'var(--accent)',
-            borderRadius: '6px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-          }}>
-            <span style={{ fontSize: '13px', color: '#fff', lineHeight: 1 }}>⚖</span>
-          </div>
+        <a href="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+          <span style={{ fontSize: '16px', lineHeight: 1, color: 'var(--text)' }}>⚖</span>
           <span style={{
             fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600,
             color: 'var(--text)', letterSpacing: '-0.02em',

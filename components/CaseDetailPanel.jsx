@@ -31,7 +31,7 @@ const Divider = () => (
 
 const SectionLabel = ({ children, action }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-    <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-3)' }}>
+    <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>
       {children}
     </p>
     {action}
@@ -94,8 +94,8 @@ function AgentTrace({ trace }) {
         onClick={() => setOpen((v) => !v)}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px', width: '100%',
-          fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase',
-          letterSpacing: '0.07em', color: 'var(--text-3)', background: 'none', border: 'none',
+          fontFamily: 'var(--font-sans)', fontSize: '11px',
+          color: 'var(--text-3)', background: 'none', border: 'none',
           cursor: 'pointer', padding: 0, textAlign: 'left',
         }}
       >
@@ -320,7 +320,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
     }}>
       {/* Header bar */}
       <div style={{
-        padding: '0 1.25rem', height: '52px',
+        padding: '0 1.25rem', height: '48px',
         borderBottom: '1px solid var(--border)',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         background: 'var(--bg-raised)', position: 'sticky', top: 0, zIndex: 10,
@@ -394,7 +394,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                   {caseData.client_name}
                 </h2>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--text-3)' }}>
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
                     {TYPE_LABELS[caseData.case_type] || caseData.case_type}
                   </span>
                   {status && status !== 'pending' && (
@@ -413,7 +413,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
             {caseData.priority_reason && (
               <div style={{
                 padding: '10px 14px', background: 'var(--bg-raised)',
-                borderLeft: '3px solid var(--gold)',
+                borderLeft: '2px solid var(--border-mid)',
                 borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
                 marginBottom: '1rem',
               }}>
@@ -431,8 +431,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                     onClick={() => handleStatusChange('reviewed')}
                     disabled={actionStatus?.state === 'saving'}
                     style={{
-                      flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
-                      textTransform: 'uppercase', letterSpacing: '0.06em',
+                      flex: 1, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
                       padding: '8px 12px', border: '1px solid rgba(34,201,122,0.3)',
                       background: 'rgba(34,201,122,0.08)', color: 'var(--clear)',
                       borderRadius: 'var(--radius-sm)', transition: 'all 150ms',
@@ -446,8 +445,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                 ) : (
                   <div style={{
                     flex: 1, padding: '8px 12px',
-                    fontFamily: 'var(--font-mono)', fontSize: '10px',
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
                     color: 'var(--clear)', background: 'rgba(34,201,122,0.08)',
                     border: '1px solid rgba(34,201,122,0.25)', borderRadius: 'var(--radius-sm)',
                     textAlign: 'center',
@@ -459,8 +457,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                   onClick={() => handleStatusChange('closed')}
                   disabled={actionStatus?.state === 'saving'}
                   style={{
-                    flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    flex: 1, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
                     padding: '8px 12px', border: '1px solid var(--border)',
                     background: 'var(--bg-hover)', color: 'var(--text-3)',
                     borderRadius: 'var(--radius-sm)', transition: 'all 150ms',
@@ -487,9 +484,8 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                 <button
                   onClick={() => handleStatusChange('pending')}
                   style={{
-                    fontFamily: 'var(--font-mono)', fontSize: '10px',
-                    textTransform: 'uppercase', letterSpacing: '0.05em',
-                    color: 'var(--gold)', background: 'none', border: 'none',
+                    fontFamily: 'var(--font-sans)', fontSize: '12px',
+                    color: 'var(--text-2)', background: 'none', border: 'none',
                     cursor: 'pointer', padding: 0,
                   }}
                 >
@@ -537,7 +533,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                     {caseData.recommendation}
                   </p>
                 </div>
-                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.04em' }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
                   AI-generated · Always verify before taking action
                 </p>
               </>
@@ -551,7 +547,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                 {(emailSent || caseData.outreach?.status === 'sent') ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <StatusBadge label="Email Sent" variant="clear" dot />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
                       {emailSentAt ? new Date(emailSentAt).toLocaleString() : caseData.outreach?.sent_at ? new Date(caseData.outreach.sent_at).toLocaleString() : ''}
                     </span>
                   </div>
@@ -571,7 +567,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                       {caseData.outreach?.body}
                     </div>
                     {isDemo ? (
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.04em' }}>
+                      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
                         Demo mode — sign in to send
                       </p>
                     ) : (
@@ -580,11 +576,10 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                           onClick={handleSaveDraft}
                           disabled={emailStatus === 'saving' || emailStatus === 'sending'}
                           style={{
-                            flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
-                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                            flex: 1, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
                             padding: '8px', border: '1px solid var(--border)',
                             background: 'var(--bg-hover)', color: 'var(--text-2)',
-                            borderRadius: 0, cursor: 'pointer',
+                            borderRadius: 'var(--radius-sm)', cursor: 'pointer',
                             opacity: emailStatus === 'saving' ? 0.6 : 1,
                           }}
                         >
@@ -594,13 +589,12 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                           onClick={handleSendEmail}
                           disabled={emailStatus === 'saving' || emailStatus === 'sending'}
                           style={{
-                            flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
-                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                            flex: 1, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
                             padding: '8px',
                             border: emailStatus === 'error' ? '1px solid var(--urgent)' : '1px solid rgba(232,68,68,0.4)',
                             background: emailStatus === 'error' ? 'rgba(232,68,68,0.15)' : 'rgba(232,68,68,0.08)',
-                            color: emailStatus === 'error' ? 'var(--urgent)' : 'var(--stamp)',
-                            borderRadius: 0, cursor: 'pointer',
+                            color: emailStatus === 'error' ? 'var(--urgent)' : 'var(--urgent)',
+                            borderRadius: 'var(--radius-sm)', cursor: 'pointer',
                             opacity: emailStatus === 'sending' ? 0.6 : 1,
                           }}
                         >
@@ -609,7 +603,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                       </div>
                     )}
                     {emailDraftId && !emailSent && (
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', marginTop: '6px', letterSpacing: '0.04em' }}>
+                      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)', marginTop: '6px' }}>
                         Draft ID: {emailDraftId}
                       </p>
                     )}
@@ -627,7 +621,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
                       <StatusBadge label="Scheduled" variant="clear" dot />
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-2)' }}>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)' }}>
                         Tomorrow · 9:00–10:00 AM
                       </span>
                     </div>
@@ -638,15 +632,15 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                         rel="noopener noreferrer"
                         style={{
                           display: 'block', marginBottom: '10px',
-                          fontFamily: 'var(--font-mono)', fontSize: '11px',
-                          color: 'var(--stamp)', textDecoration: 'underline',
+                          fontFamily: 'var(--font-sans)', fontSize: '12px',
+                          color: 'var(--accent)', textDecoration: 'underline',
                         }}
                       >
                         View in Google Calendar →
                       </a>
                     )}
                     {isDemo ? (
-                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.04em' }}>
+                      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
                         Demo mode — sign in to manage
                       </p>
                     ) : (
@@ -656,11 +650,11 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                             onClick={handleCancelCalendar}
                             disabled={calAction !== 'idle'}
                             style={{
-                              flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
-                              textTransform: 'uppercase', letterSpacing: '0.06em',
+                              flex: 1, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
                               padding: '7px', border: '1px solid var(--border)',
                               background: 'var(--bg-hover)', color: 'var(--text-3)',
-                              borderRadius: 0, cursor: 'pointer',
+                              borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                              transition: 'color 150ms',
                             }}
                           >
                             {calAction === 'cancelling' ? 'Cancelling…' : 'Cancel Block'}
@@ -669,11 +663,11 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                             onClick={() => setShowReschedule((v) => !v)}
                             disabled={calAction !== 'idle'}
                             style={{
-                              flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
-                              textTransform: 'uppercase', letterSpacing: '0.06em',
+                              flex: 1, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
                               padding: '7px', border: '1px solid var(--border)',
                               background: 'var(--bg-hover)', color: 'var(--text-2)',
-                              borderRadius: 0, cursor: 'pointer',
+                              borderRadius: 'var(--radius-sm)', cursor: 'pointer',
+                              transition: 'color 150ms',
                             }}
                           >
                             Reschedule
@@ -687,7 +681,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                               onChange={(e) => setRescheduleDate(e.target.value)}
                               min={new Date().toISOString().slice(0, 16)}
                               style={{
-                                flex: 1, fontFamily: 'var(--font-mono)', fontSize: '11px',
+                                flex: 1, fontFamily: 'var(--font-sans)', fontSize: '13px',
                                 background: 'var(--bg-input)', border: '1px solid var(--border)',
                                 color: 'var(--text)', padding: '7px 10px', borderRadius: 'var(--radius-sm)',
                               }}
@@ -696,11 +690,10 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                               onClick={handleReschedule}
                               disabled={!rescheduleDate || calAction !== 'idle'}
                               style={{
-                                fontFamily: 'var(--font-mono)', fontSize: '10px',
-                                textTransform: 'uppercase', letterSpacing: '0.06em',
+                                fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
                                 padding: '7px 12px', border: '1px solid rgba(34,201,122,0.4)',
                                 background: 'rgba(34,201,122,0.1)', color: 'var(--clear)',
-                                borderRadius: 0, cursor: 'pointer',
+                                borderRadius: 'var(--radius-sm)', cursor: 'pointer',
                               }}
                             >
                               {calAction === 'rescheduling' ? 'Saving…' : 'Confirm'}
@@ -714,7 +707,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                 {calStatus === 'cancelled' && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <StatusBadge label="Cancelled" variant="gold" dot />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
                       Block was cancelled
                     </span>
                   </div>
@@ -722,7 +715,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                 {calStatus === 'failed' && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                     <StatusBadge label="Scheduling Failed" variant="danger" dot />
-                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
                       Could not create calendar event
                     </span>
                   </div>
@@ -737,7 +730,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                 <SectionLabel>Case Brief</SectionLabel>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
                   <StatusBadge label="Brief Ready" variant="clear" dot />
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
                     1-page summary for attorney review · print to PDF
                   </span>
                 </div>
@@ -745,13 +738,12 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                   onClick={handleOpenBrief}
                   disabled={briefLoading}
                   style={{
-                    width: '100%', fontFamily: 'var(--font-mono)', fontSize: '11px',
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    padding: '11px', border: 'none', borderRadius: 0,
-                    background: 'var(--stamp)', color: '#fff',
+                    width: '100%', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
+                    padding: '11px', border: 'none', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--text)', color: 'var(--bg)',
                     cursor: briefLoading ? 'wait' : 'pointer',
                     opacity: briefLoading ? 0.7 : 1,
-                    fontWeight: 700, transition: 'opacity 150ms',
+                    transition: 'opacity 150ms',
                   }}
                 >
                   {briefLoading ? 'Opening…' : 'Open Brief ↗'}
@@ -767,8 +759,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     {caseData.mongodb_via === 'mcp' ? (
                       <span style={{
-                        fontFamily: 'var(--font-mono)', fontSize: '10px',
-                        textTransform: 'uppercase', letterSpacing: '0.07em',
+                        fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500,
                         padding: '3px 8px',
                         background: 'rgba(34,201,122,0.12)',
                         border: '1px solid rgba(34,201,122,0.35)',
@@ -779,8 +770,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                       </span>
                     ) : (
                       <span style={{
-                        fontFamily: 'var(--font-mono)', fontSize: '10px',
-                        textTransform: 'uppercase', letterSpacing: '0.07em',
+                        fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500,
                         padding: '3px 8px',
                         background: 'rgba(240,160,48,0.12)',
                         border: '1px solid rgba(240,160,48,0.35)',
@@ -791,7 +781,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                       </span>
                     )}
                   </div>
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.04em' }}>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
                     MCP config: .mcp.json · @mongodb-js/mongodb-mcp-server
                   </p>
                 </div>
@@ -836,14 +826,14 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                   onClick={handleOverride}
                   disabled={!overrideReason.trim() || !overrideRank || overrideStatus === 'saving'}
                   style={{
-                    width: '100%', fontFamily: 'var(--font-mono)', fontSize: '11px',
-                    textTransform: 'uppercase', letterSpacing: '0.06em',
-                    background: overrideStatus === 'done' ? 'var(--clear)' : 'var(--gold)',
-                    color: '#000', border: 'none',
+                    width: '100%', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
+                    background: overrideStatus === 'done' ? 'rgba(34,201,122,0.15)' : 'var(--bg-raised)',
+                    color: overrideStatus === 'done' ? 'var(--clear)' : 'var(--text)',
+                    border: overrideStatus === 'done' ? '1px solid rgba(34,201,122,0.3)' : '1px solid var(--border-mid)',
                     borderRadius: 'var(--radius-sm)', padding: '11px',
-                    cursor: 'pointer', fontWeight: 700,
+                    cursor: 'pointer',
                     opacity: (!overrideReason.trim() || !overrideRank) ? 0.4 : 1,
-                    transition: 'background 200ms, opacity 150ms',
+                    transition: 'background 200ms, opacity 150ms, color 200ms',
                   }}
                 >
                   {overrideStatus === 'saving' ? 'Saving…'
@@ -851,7 +841,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                     : 'Save Override'}
                 </button>
                 {overrideStatus === 'error' && (
-                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--urgent)', marginTop: '8px', textAlign: 'center' }}>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--urgent)', marginTop: '8px', textAlign: 'center' }}>
                     Failed to save — please try again
                   </p>
                 )}

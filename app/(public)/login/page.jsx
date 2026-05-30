@@ -92,14 +92,9 @@ export default function LoginPage() {
       <div style={{ width: '100%', maxWidth: '380px' }}>
 
         {/* Logo */}
-        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', marginBottom: '2.5rem', textDecoration: 'none' }}>
-          <div style={{
-            width: '28px', height: '28px', background: 'var(--accent)',
-            borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>
-            <span style={{ fontSize: '14px', color: '#fff' }}>⚖</span>
-          </div>
-          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', marginBottom: '2.5rem', textDecoration: 'none' }}>
+          <span style={{ fontSize: '17px', lineHeight: 1 }}>⚖</span>
+          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>
             JusticeQueue
           </span>
         </a>
@@ -152,7 +147,7 @@ export default function LoginPage() {
               type="submit" disabled={busy}
               style={{
                 width: '100%', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
-                background: 'var(--accent)', color: '#fff',
+                background: 'var(--text)', color: 'var(--bg)',
                 border: 'none', borderRadius: 'var(--radius-sm)', padding: '11px',
                 cursor: busy ? 'not-allowed' : 'pointer',
                 opacity: busy ? 0.65 : 1, transition: 'opacity 150ms',

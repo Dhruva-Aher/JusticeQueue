@@ -2,52 +2,52 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Backgrounds — true dark, near-black */
-  --bg:           #0D0D0F;
-  --bg-surface:   #141416;
-  --bg-raised:    #1A1A1D;
-  --bg-hover:     #202024;
-  --bg-input:     #141416;
+  /* Backgrounds — warm dark, like aged leather */
+  --bg:           #0C0B09;
+  --bg-surface:   #131210;
+  --bg-raised:    #1B1916;
+  --bg-hover:     #232018;
+  --bg-input:     #100F0D;
 
-  /* Borders — cool grays */
-  --border:       #222228;
-  --border-mid:   #2D2D36;
-  --border-strong:#3C3C48;
+  /* Borders — warm, almost invisible */
+  --border:       #262421;
+  --border-mid:   #32302A;
+  --border-strong:#403C35;
 
-  /* Text */
-  --text:         #EBEBEB;
-  --text-2:       #8E8EA0;
-  --text-3:       #525265;
+  /* Text — warm cream */
+  --text:         #EDE8E0;
+  --text-2:       #968E84;
+  --text-3:       #5C554D;
 
-  /* Indigo accent (replaces gold) */
-  --accent:       #5B6EF7;
-  --accent-dim:   #3D52E0;
-  --accent-glow:  rgba(91,110,247,0.14);
-  --accent-subtle:rgba(91,110,247,0.07);
+  /* ONE accent — burnished cognac (use sparingly, <5% surface area) */
+  --accent:       #C8823A;
+  --accent-dim:   #A0641E;
+  --accent-glow:  rgba(200,130,58,0.10);
+  --accent-subtle:rgba(200,130,58,0.06);
 
-  /* Legacy aliases — keeps existing components working */
+  /* Legacy aliases — keep these so existing components don't break */
   --gold:         var(--accent);
   --gold-dim:     var(--accent-dim);
   --gold-glow:    var(--accent-glow);
   --gold-subtle:  var(--accent-subtle);
 
-  /* Urgency colors */
+  /* Urgency — unchanged (these carry meaning, not branding) */
   --urgent:       #E84444;
   --urgent-subtle:rgba(232,68,68,0.12);
-  --medium:       #F0A030;
-  --medium-subtle:rgba(240,160,48,0.12);
+  --medium:       #E8962A;
+  --medium-subtle:rgba(232,150,42,0.12);
   --clear:        #22C97A;
   --clear-subtle: rgba(34,201,122,0.12);
 
-  /* Radius */
+  /* Radius — larger, more polished */
   --radius-sm: 4px;
   --radius:    6px;
-  --radius-lg: 10px;
+  --radius-lg: 12px;
 
-  /* Shadows */
-  --shadow-sm:    0 1px 3px rgba(0,0,0,0.6), 0 1px 8px rgba(0,0,0,0.35);
-  --shadow-md:    0 4px 24px rgba(0,0,0,0.7);
-  --shadow-panel: -4px 0 40px rgba(0,0,0,0.6);
+  /* Shadows — very restrained */
+  --shadow-sm:    0 1px 4px rgba(0,0,0,0.5);
+  --shadow-md:    0 4px 20px rgba(0,0,0,0.6);
+  --shadow-panel: -2px 0 24px rgba(0,0,0,0.5);
 
   /* Legacy aliases */
   --ink:          var(--text);
@@ -81,7 +81,7 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -120,10 +120,11 @@ th {
   text-align: left;
   padding: 0 16px;
   height: 36px;
+  letter-spacing: 0;
+  text-transform: none;
   border-bottom: 1px solid var(--border);
   background: var(--bg-surface);
   white-space: nowrap;
-  letter-spacing: 0;
 }
 
 td {

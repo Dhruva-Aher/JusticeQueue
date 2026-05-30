@@ -29,7 +29,7 @@ function StatCard({ label, value, sub, accent, loading }) {
       ) : (
         <>
           <div style={{
-            fontFamily: 'var(--font-sans)', fontSize: '24px', fontWeight: 700,
+            fontFamily: 'var(--font-sans)', fontSize: '26px', fontWeight: 700,
             color: accent || 'var(--text)', lineHeight: 1, marginBottom: '5px',
             letterSpacing: '-0.03em', transition: 'color 300ms',
           }}>
@@ -244,7 +244,7 @@ function DashboardInner() {
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '0 16px',
-          height: '40px',
+          height: '44px',
           background: 'var(--bg-surface)',
           border: '1px solid var(--border)',
           borderTop: displayCases.length > 0 || loading ? 'none' : '1px solid var(--border)',
@@ -258,7 +258,7 @@ function DashboardInner() {
             </h2>
             {(status === 'processing' || status === 'uploading') && (
               <span style={{
-                fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--accent)',
+                fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)',
                 animation: 'pulse 1.4s ease-in-out infinite',
               }}>
                 Analyzing…
