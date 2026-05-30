@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import UrgencyBreakdown from './UrgencyBreakdown.jsx'
 import SimilarCases from './SimilarCases.jsx'
 import StatusBadge from './StatusBadge.jsx'
@@ -152,6 +152,19 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
   const [overrideRank,   setOverrideRank]   = useState('')
   const [overrideStatus, setOverrideStatus] = useState('idle')
   const [actionStatus,   setActionStatus]   = useState(null) // { type, state }
+  // Outreach email state
+  const [emailStatus,  setEmailStatus]  = useState('idle') // idle | saving | sending | done | error
+  const [emailDraftId, setEmailDraftId] = useState(null)
+  const [emailSent,    setEmailSent]    = useState(false)
+  const [emailSentAt,  setEmailSentAt]  = useState(null)
+  // Calendar state (local override for cancel/reschedule)
+  const [calStatus,    setCalStatus]    = useState(null)
+  const [calLink,      setCalLink]      = useState(null)
+  const [showReschedule, setShowReschedule] = useState(false)
+  const [rescheduleDate, setRescheduleDate] = useState('')
+  const [calAction,    setCalAction]    = useState('idle') // idle | cancelling | rescheduling
+  // Brief state
+  const [briefLoading, setBriefLoading] = useState(false)
 
   const currentIndex = caseIds.indexOf(caseId)
   const hasPrev      = currentIndex > 0
@@ -174,6 +187,86 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
       .catch(() => setCaseData(null))
       .finally(() => setLoading(false))
   }, [caseId, overrideData])
+
+  // Sync local agent action state when caseData loads
+  useEffect(() => {
+    if (!caseData) return
+    setEmailSent(caseData.outreach?.status === 'sent')
+    setEmailSentAt(caseData.outreach?.sent_at ?? null)
+    setEmailDraftId(caseData.outreach?.draft_id ?? null)
+    setCalStatus(caseData.calendar?.status ?? null)
+    setCalLink(caseData.calendar?.event_link ?? null)
+  }, [caseData])
+
+  async function handleSaveDraft() {
+    const to = prompt('Recipient email address:')
+    if (!to) return
+    setEmailStatus('saving')
+    try {
+      const r = await axiosClient.post(`/api/cases/${caseId}/email`, { to })
+      setEmailDraftId(r.data.draft_id)
+      setEmailStatus('done')
+      setTimeout(() => setEmailStatus('idle'), 3000)
+    } catch {
+      setEmailStatus('error')
+      setTimeout(() => setEmailStatus('idle'), 3000)
+    }
+  }
+
+  async function handleSendEmail() {
+    if (!emailDraftId) return handleSaveDraft()
+    setEmailStatus('sending')
+    try {
+      const r = await axiosClient.patch(`/api/cases/${caseId}/email`)
+      setEmailSent(true)
+      setEmailSentAt(r.data.sent_at)
+      setEmailStatus('done')
+    } catch {
+      setEmailStatus('error')
+      setTimeout(() => setEmailStatus('idle'), 3000)
+    }
+  }
+
+  async function handleCancelCalendar() {
+    if (!confirm('Cancel the calendar block for this case?')) return
+    setCalAction('cancelling')
+    try {
+      await axiosClient.delete(`/api/cases/${caseId}/calendar`)
+      setCalStatus('cancelled')
+    } catch { /* ignore */ }
+    finally { setCalAction('idle') }
+  }
+
+  async function handleReschedule() {
+    if (!rescheduleDate) return
+    setCalAction('rescheduling')
+    try {
+      const r = await axiosClient.post(`/api/cases/${caseId}/calendar`, { iso_date: rescheduleDate })
+      setCalStatus('scheduled')
+      setCalLink(r.data.event_link)
+      setShowReschedule(false)
+      setRescheduleDate('')
+    } catch { /* ignore */ }
+    finally { setCalAction('idle') }
+  }
+
+  async function handleOpenBrief() {
+    if (isDemo) { window.open('/demo-brief.html', '_blank'); return }
+    setBriefLoading(true)
+    try {
+      const auth  = (await import('../lib/firebase.js')).getFirebaseAuth()
+      const token = await auth?.currentUser?.getIdToken()
+      const res   = await fetch(`/api/cases/${caseId}/brief`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) throw new Error('Brief unavailable')
+      const html   = await res.text()
+      const blob   = new Blob([html], { type: 'text/html' })
+      const url    = URL.createObjectURL(blob)
+      window.open(url, '_blank')
+    } catch { /* ignore */ }
+    finally { setBriefLoading(false) }
+  }
 
   async function handleStatusChange(newStatus) {
     setActionStatus({ type: newStatus, state: 'saving' })
@@ -453,6 +546,222 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                 <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.04em' }}>
                   AI-generated · Always verify before taking action
                 </p>
+              </>
+            )}
+
+            {/* ── Outreach Email ──────────────────────────────────────── */}
+            {caseData.outreach && caseData.outreach.status !== 'none' && caseData.outreach.body && (
+              <>
+                <Divider />
+                <SectionLabel>Outreach Email</SectionLabel>
+                {(emailSent || caseData.outreach?.status === 'sent') ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <StatusBadge label="Email Sent" variant="clear" dot />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                      {emailSentAt ? new Date(emailSentAt).toLocaleString() : caseData.outreach?.sent_at ? new Date(caseData.outreach.sent_at).toLocaleString() : ''}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text)', fontWeight: 500, marginBottom: '6px' }}>
+                      {caseData.outreach?.subject}
+                    </div>
+                    <div style={{
+                      fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)',
+                      lineHeight: 1.7, whiteSpace: 'pre-wrap',
+                      maxHeight: '140px', overflowY: 'auto',
+                      marginBottom: '12px',
+                      padding: '10px 12px', background: 'var(--bg-raised)',
+                      borderRadius: 'var(--radius-sm)',
+                    }}>
+                      {caseData.outreach?.body}
+                    </div>
+                    {isDemo ? (
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.04em' }}>
+                        Demo mode — sign in to send
+                      </p>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button
+                          onClick={handleSaveDraft}
+                          disabled={emailStatus === 'saving' || emailStatus === 'sending'}
+                          style={{
+                            flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
+                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                            padding: '8px', border: '1px solid var(--border)',
+                            background: 'var(--bg-hover)', color: 'var(--text-2)',
+                            borderRadius: 0, cursor: 'pointer',
+                            opacity: emailStatus === 'saving' ? 0.6 : 1,
+                          }}
+                        >
+                          {emailStatus === 'saving' ? 'Saving…' : emailStatus === 'done' && !emailSent ? '✓ Draft Saved' : 'Save Draft'}
+                        </button>
+                        <button
+                          onClick={handleSendEmail}
+                          disabled={emailStatus === 'saving' || emailStatus === 'sending'}
+                          style={{
+                            flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
+                            textTransform: 'uppercase', letterSpacing: '0.06em',
+                            padding: '8px',
+                            border: emailStatus === 'error' ? '1px solid var(--urgent)' : '1px solid rgba(232,68,68,0.4)',
+                            background: emailStatus === 'error' ? 'rgba(232,68,68,0.15)' : 'rgba(232,68,68,0.08)',
+                            color: emailStatus === 'error' ? 'var(--urgent)' : 'var(--stamp)',
+                            borderRadius: 0, cursor: 'pointer',
+                            opacity: emailStatus === 'sending' ? 0.6 : 1,
+                          }}
+                        >
+                          {emailStatus === 'sending' ? 'Sending…' : emailStatus === 'error' ? 'Failed — Try Again' : 'Send Email'}
+                        </button>
+                      </div>
+                    )}
+                    {emailDraftId && !emailSent && (
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', marginTop: '6px', letterSpacing: '0.04em' }}>
+                        Draft ID: {emailDraftId}
+                      </p>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ── Calendar Block ──────────────────────────────────────── */}
+            {caseData.calendar && calStatus && calStatus !== 'none' && (
+              <>
+                <Divider />
+                <SectionLabel>Calendar Block</SectionLabel>
+                {calStatus === 'scheduled' && (
+                  <>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+                      <StatusBadge label="Scheduled" variant="clear" dot />
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-2)' }}>
+                        Tomorrow · 9:00–10:00 AM
+                      </span>
+                    </div>
+                    {(calLink || caseData.calendar?.event_link) && (
+                      <a
+                        href={calLink || caseData.calendar.event_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          display: 'block', marginBottom: '10px',
+                          fontFamily: 'var(--font-mono)', fontSize: '11px',
+                          color: 'var(--stamp)', textDecoration: 'underline',
+                        }}
+                      >
+                        View in Google Calendar →
+                      </a>
+                    )}
+                    {isDemo ? (
+                      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.04em' }}>
+                        Demo mode — sign in to manage
+                      </p>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: showReschedule ? '10px' : 0 }}>
+                          <button
+                            onClick={handleCancelCalendar}
+                            disabled={calAction !== 'idle'}
+                            style={{
+                              flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
+                              textTransform: 'uppercase', letterSpacing: '0.06em',
+                              padding: '7px', border: '1px solid var(--border)',
+                              background: 'var(--bg-hover)', color: 'var(--text-3)',
+                              borderRadius: 0, cursor: 'pointer',
+                            }}
+                          >
+                            {calAction === 'cancelling' ? 'Cancelling…' : 'Cancel Block'}
+                          </button>
+                          <button
+                            onClick={() => setShowReschedule((v) => !v)}
+                            disabled={calAction !== 'idle'}
+                            style={{
+                              flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
+                              textTransform: 'uppercase', letterSpacing: '0.06em',
+                              padding: '7px', border: '1px solid var(--border)',
+                              background: 'var(--bg-hover)', color: 'var(--text-2)',
+                              borderRadius: 0, cursor: 'pointer',
+                            }}
+                          >
+                            Reschedule
+                          </button>
+                        </div>
+                        {showReschedule && (
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <input
+                              type="datetime-local"
+                              value={rescheduleDate}
+                              onChange={(e) => setRescheduleDate(e.target.value)}
+                              min={new Date().toISOString().slice(0, 16)}
+                              style={{
+                                flex: 1, fontFamily: 'var(--font-mono)', fontSize: '11px',
+                                background: 'var(--bg-input)', border: '1px solid var(--border)',
+                                color: 'var(--text)', padding: '7px 10px', borderRadius: 'var(--radius-sm)',
+                              }}
+                            />
+                            <button
+                              onClick={handleReschedule}
+                              disabled={!rescheduleDate || calAction !== 'idle'}
+                              style={{
+                                fontFamily: 'var(--font-mono)', fontSize: '10px',
+                                textTransform: 'uppercase', letterSpacing: '0.06em',
+                                padding: '7px 12px', border: '1px solid rgba(34,201,122,0.4)',
+                                background: 'rgba(34,201,122,0.1)', color: 'var(--clear)',
+                                borderRadius: 0, cursor: 'pointer',
+                              }}
+                            >
+                              {calAction === 'rescheduling' ? 'Saving…' : 'Confirm'}
+                            </button>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+                {calStatus === 'cancelled' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <StatusBadge label="Cancelled" variant="gold" dot />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                      Block was cancelled
+                    </span>
+                  </div>
+                )}
+                {calStatus === 'failed' && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <StatusBadge label="Scheduling Failed" variant="danger" dot />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                      Could not create calendar event
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* ── Case Brief ──────────────────────────────────────────── */}
+            {caseData.brief?.available && (
+              <>
+                <Divider />
+                <SectionLabel>Case Brief</SectionLabel>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                  <StatusBadge label="Brief Ready" variant="clear" dot />
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                    1-page summary for attorney review · print to PDF
+                  </span>
+                </div>
+                <button
+                  onClick={handleOpenBrief}
+                  disabled={briefLoading}
+                  style={{
+                    width: '100%', fontFamily: 'var(--font-mono)', fontSize: '11px',
+                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    padding: '11px', border: 'none', borderRadius: 0,
+                    background: 'var(--stamp)', color: '#fff',
+                    cursor: briefLoading ? 'wait' : 'pointer',
+                    opacity: briefLoading ? 0.7 : 1,
+                    fontWeight: 700, transition: 'opacity 150ms',
+                  }}
+                >
+                  {briefLoading ? 'Opening…' : 'Open Brief ↗'}
+                </button>
               </>
             )}
 
