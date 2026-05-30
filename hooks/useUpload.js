@@ -12,7 +12,6 @@ export function useUpload() {
   const [agentStats, setAgentStats] = useState(null)
   const [error,      setError]      = useState(null)
   const [batchId,    setBatchId]    = useState(null)
-  const _uploadStart = useState(null)
 
   async function upload(file) {
     const startMs = Date.now()

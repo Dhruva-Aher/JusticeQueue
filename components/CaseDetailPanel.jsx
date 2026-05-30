@@ -4,6 +4,7 @@ import UrgencyBreakdown from './UrgencyBreakdown.jsx'
 import SimilarCases from './SimilarCases.jsx'
 import StatusBadge from './StatusBadge.jsx'
 import axiosClient from '../lib/axiosClient.js'
+import { getFirebaseAuth } from '../lib/firebase.js'
 
 function scoreColor(s) {
   if (s >= 80) return '#e84444'
@@ -254,7 +255,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
     if (isDemo) { window.open('/demo-brief.html', '_blank'); return }
     setBriefLoading(true)
     try {
-      const auth  = (await import('../lib/firebase.js')).getFirebaseAuth()
+      const auth  = getFirebaseAuth()
       const token = await auth?.currentUser?.getIdToken()
       const res   = await fetch(`/api/cases/${caseId}/brief`, {
         headers: { Authorization: `Bearer ${token}` },
