@@ -518,6 +518,60 @@ function BriefInner() {
           </div>
         )}
 
+        {/* ── Historical Case Matches (Atlas $vectorSearch) ─────────────────── */}
+        {result?.vector_search_results?.length > 0 && (
+          <div className="brief-section" style={{ marginBottom: '2.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <SectionLabel>Historical Case Matches</SectionLabel>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)' }}>
+                Atlas $vectorSearch · index: description_embedding_index
+              </span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {result.vector_search_results.map((match, i) => (
+                <div key={i} style={{
+                  background: 'var(--bg-surface)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius)', padding: '12px 16px',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+                    <div>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginRight: '8px' }}>
+                        {match.client_name}
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
+                        {match.case_type}
+                      </span>
+                    </div>
+                    {match.top_similarity != null && (
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#16A34A' }}>
+                        {(match.top_similarity * 100).toFixed(1)}% similarity
+                      </span>
+                    )}
+                  </div>
+                  {(match.results || []).slice(0, 2).map((r, j) => (
+                    <div key={j} style={{
+                      display: 'flex', gap: '10px', alignItems: 'flex-start',
+                      paddingTop: '6px', borderTop: j === 0 ? '1px solid var(--border)' : 'none',
+                      marginTop: j === 0 ? '6px' : 0,
+                    }}>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 700,
+                        color: r.outcome === 'won' ? '#16A34A' : r.outcome === 'settled' ? '#C2710C' : '#57534E',
+                        flexShrink: 0, lineHeight: '18px',
+                      }}>
+                        {r.outcome?.toUpperCase()}
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', lineHeight: 1.5, flex: 1 }}>
+                        {r.outcome_notes}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* ── Legal Precedents ──────────────────────────────────────────────── */}
         {hasOpinions && (
           <div className="brief-section" style={{ marginBottom: '2.5rem' }}>

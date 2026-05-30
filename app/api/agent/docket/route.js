@@ -1,25 +1,26 @@
 // POST /api/agent/docket  — "Prepare Tomorrow's Docket"
-// Autonomous agent workflow: retrieve cases → analyze urgency → vector search →
-// CourtListener precedents → Gemini recommendations → executive report → persist trace
+// Autonomous agent workflow: retrieve → analyze → detect gaps → Atlas $vectorSearch →
+// (branch) CourtListener precedents → Gemini recommendations → executive report → persist
 export const dynamic    = 'force-dynamic'
 export const maxDuration = 60   // seconds — Vercel Pro allows up to 300
 
-import { verifyToken } from '../../../../lib/verifyToken.js'
-import { apiError }    from '../../../../lib/apiError.js'
-import { connectDB }   from '../../../../lib/mongodb.js'
-import Case            from '../../../../lib/models/Case.js'
-import AgentRun        from '../../../../lib/models/AgentRun.js'
-import { callGeminiPro } from '../../../../lib/gemini.js'
+import { verifyToken }      from '../../../../lib/verifyToken.js'
+import { apiError }         from '../../../../lib/apiError.js'
+import { connectDB }        from '../../../../lib/mongodb.js'
+import Case                 from '../../../../lib/models/Case.js'
+import AgentRun             from '../../../../lib/models/AgentRun.js'
+import { callGeminiPro }    from '../../../../lib/gemini.js'
+import { findSimilarCases } from '../../../../lib/vectorSearch.js'
 
 // ── CourtListener public API ────────────────────────────────────────────────
 const COURT_QUERIES = {
-  eviction:   'tenant eviction unlawful detainer emergency housing relief',
-  immigration:'immigration deportation removal stay emergency proceedings',
-  custody:    'child custody emergency protective order best interest',
-  wage_theft: 'wage theft unpaid wages labor violation restitution',
-  employment: 'wrongful termination employment discrimination reinstatement',
+  eviction:          'tenant eviction unlawful detainer emergency housing relief',
+  immigration:       'immigration deportation removal stay emergency proceedings',
+  custody:           'child custody emergency protective order best interest',
+  wage_theft:        'wage theft unpaid wages labor violation restitution',
+  employment:        'wrongful termination employment discrimination reinstatement',
   domestic_violence: 'domestic violence restraining protective order emergency',
-  other:      'legal aid emergency relief due process',
+  other:             'legal aid emergency relief due process',
 }
 
 async function searchCourtListener(caseType, pageSize = 3) {
@@ -33,19 +34,19 @@ async function searchCourtListener(caseType, pageSize = 3) {
     if (!res.ok) return []
     const data = await res.json()
     return (data.results || []).slice(0, pageSize).map((op) => ({
-      case_name:   op.caseName   || op.case_name || 'Unknown',
-      court:       op.court      || op.court_id  || 'Unknown court',
-      date_filed:  op.dateFiled  || op.date_filed || null,
-      snippet:     typeof op.snippet === 'string' ? op.snippet.replace(/<[^>]+>/g, '').slice(0, 200) : null,
-      url:         op.absolute_url ? `https://www.courtlistener.com${op.absolute_url}` : 'https://www.courtlistener.com/opinion/',
-      case_type:   caseType,
+      case_name:  op.caseName   || op.case_name || 'Unknown',
+      court:      op.court      || op.court_id  || 'Unknown court',
+      date_filed: op.dateFiled  || op.date_filed || null,
+      snippet:    typeof op.snippet === 'string' ? op.snippet.replace(/<[^>]+>/g, '').slice(0, 200) : null,
+      url:        op.absolute_url ? `https://www.courtlistener.com${op.absolute_url}` : 'https://www.courtlistener.com/opinion/',
+      case_type:  caseType,
     }))
   } catch {
     return []
   }
 }
 
-// ── Helper — record a completed step ────────────────────────────────────────
+// ── Helpers ─────────────────────────────────────────────────────────────────
 function makeStep(id, label, tool, startedMs, durationMs, result) {
   return { id, label, tool, status: 'complete', started_ms: startedMs, duration_ms: durationMs, result }
 }
@@ -66,7 +67,7 @@ export async function POST(request) {
   try {
     await connectDB()
 
-    // Create the run record immediately so the UI can find it
+    // Create run record so the UI can find it immediately
     const runDoc = new AgentRun({
       uid:        decoded.uid,
       run_id:     runId,
@@ -75,19 +76,25 @@ export async function POST(request) {
         'Connect to MongoDB Atlas and retrieve all active cases',
         'Analyze deadline urgency — identify critical (≤3 days) and urgent (≤7 days) matters',
         'Detect cases with incomplete or missing documentation',
-        'Run vector similarity search against historical case database',
-        'Query CourtListener API for relevant legal precedents',
+        'Run Atlas $vectorSearch against historical case database for top priority cases',
+        'Branch: query CourtListener API only if urgent cases are present',
         'Generate AI-powered triage recommendations with Gemini Pro',
         'Compile executive docket report for tomorrow\'s operations',
-        'Persist complete execution trace and results to MongoDB',
+        'Persist complete execution trace, decisions, and vector results to MongoDB',
       ],
       status:     'running',
       started_at: new Date(),
       steps:      [],
+      decisions:  [],
     })
     await runDoc.save()
 
-    const steps = []
+    const steps     = []
+    const decisions = []
+
+    function logDecision(decision, reason, evidence, outcome) {
+      decisions.push({ decision, reason, evidence, outcome, timestamp_ms: elapsed() })
+    }
 
     // ── STEP 1: Retrieve cases ──────────────────────────────────────────────
     let s = elapsed()
@@ -95,89 +102,225 @@ export async function POST(request) {
     steps.push(makeStep('retrieve_cases', 'Retrieve all active cases from MongoDB Atlas', 'MongoDB Atlas',
       s, elapsed() - s, { count: cases.length }))
 
+    // Short-circuit if no cases — nothing to analyze
+    if (cases.length === 0) {
+      logDecision(
+        'Terminate workflow — no active cases',
+        'The case queue is empty. Load cases via the Operations Center and run again.',
+        { cases_found: 0 },
+        'Workflow terminated after case retrieval. No analysis performed.'
+      )
+      await AgentRun.findOneAndUpdate({ run_id: runId }, {
+        $set: {
+          status: 'complete', completed_at: new Date(),
+          duration_ms: elapsed(), steps, decisions,
+          result: {
+            cases_reviewed: 0, critical_cases: 0, urgent_cases: 0,
+            missing_documents: 0, recommendations_count: 0, court_opinions_count: 0,
+            recommendations: [], court_opinions: [], executive_report: 'No cases found.',
+            action_items: [], vector_search_results: [],
+            reasoning_summary: {
+              prioritization_rationale: 'No active cases found in the queue.',
+              key_patterns: [],
+              historical_findings: 'Vector search not executed — no cases to search against.',
+              confidence_assessment: 'N/A',
+            },
+          },
+        },
+      })
+      return Response.json({ run_id: runId, status: 'complete', duration_ms: elapsed(), summary: { cases_reviewed: 0 } })
+    }
+
     // ── STEP 2: Analyze urgency ─────────────────────────────────────────────
     s = elapsed()
-    const criticalCases = cases.filter(
-      (c) => c.deadline_days != null && c.deadline_days <= 3
-    )
-    const urgentCases = cases.filter(
-      (c) => c.deadline_days != null && c.deadline_days <= 7
-    )
+    const criticalCases  = cases.filter((c) => c.deadline_days != null && c.deadline_days <= 3)
+    const urgentCases    = cases.filter((c) => c.deadline_days != null && c.deadline_days <= 7)
     const highScoreCases = cases.filter((c) => (c.priority_score ?? 0) >= 75)
     steps.push(makeStep('analyze_urgency', 'Analyze deadline urgency across all cases', 'Reasoning Engine',
       s, elapsed() - s, {
-        critical: criticalCases.length,
-        urgent:   urgentCases.length,
+        critical:   criticalCases.length,
+        urgent:     urgentCases.length,
         high_score: highScoreCases.length,
-        total:    cases.length,
+        total:      cases.length,
       }))
 
     // ── STEP 3: Detect missing documents ────────────────────────────────────
     s = elapsed()
     const withMissingDocs = cases.filter((c) => Array.isArray(c.missing_info) && c.missing_info.length > 0)
+    const docGapRatePct   = Math.round((withMissingDocs.length / cases.length) * 100)
     steps.push(makeStep('detect_gaps', 'Detect cases with missing or incomplete documentation', 'Reasoning Engine',
       s, elapsed() - s, {
         cases_with_gaps: withMissingDocs.length,
-        gap_rate: cases.length > 0 ? Math.round((withMissingDocs.length / cases.length) * 100) : 0,
+        gap_rate:        docGapRatePct,
       }))
 
-    // ── STEP 4: Vector similarity search (use existing similar_cases data) ──
-    s = elapsed()
-    const casesWithSimilar = cases.filter((c) => Array.isArray(c.similar_cases) && c.similar_cases.length > 0)
-    const totalSimilarMatches = casesWithSimilar.reduce(
-      (sum, c) => sum + (c.similar_cases?.length || 0), 0
+    // ── DECISION A: Branch — CourtListener only runs when urgent cases exist ─
+    const proceedToPrecedents = urgentCases.length > 0
+    logDecision(
+      proceedToPrecedents
+        ? 'Retrieve legal precedents from CourtListener API'
+        : 'Skip CourtListener — no urgent deadline cases in current docket',
+      proceedToPrecedents
+        ? `${urgentCases.length} case${urgentCases.length !== 1 ? 's' : ''} detected within the 7-day urgency window — attorney-ready precedents required`
+        : 'All cases are outside the 7-day urgency window. Precedent research is not time-critical and would add latency without actionable value.',
+      { urgent_cases: urgentCases.length, critical_cases: criticalCases.length, threshold_days: 7 },
+      proceedToPrecedents
+        ? 'CourtListener query will execute in Step 5'
+        : 'Workflow proceeds directly to recommendation generation'
     )
-    // Simulate a small delay representative of vector search latency
-    await new Promise((r) => setTimeout(r, 120))
-    steps.push(makeStep('vector_search', 'Run vector similarity search against historical case database', 'MongoDB Vector Search',
-      s, elapsed() - s, {
-        searches_run:        Math.min(cases.length, 20),
-        similar_cases_found: totalSimilarMatches,
-        cases_with_matches:  casesWithSimilar.length,
-      }))
 
-    // ── STEP 5: CourtListener precedents ────────────────────────────────────
-    s = elapsed()
-    const caseTypesToSearch = [...new Set(
-      urgentCases.map((c) => c.case_type).filter(Boolean)
-    )].slice(0, 3)
-
-    const courtOpinions = []
-    for (const ct of caseTypesToSearch) {
-      const opinions = await searchCourtListener(ct, 3)
-      courtOpinions.push(...opinions)
+    // ── DECISION B: Documentation remediation branch ────────────────────────
+    const highDocGapRate = docGapRatePct >= 40
+    if (highDocGapRate) {
+      logDecision(
+        'Activate documentation remediation workflow',
+        `${docGapRatePct}% of active cases have incomplete files — exceeds the 40% threshold. Remediation actions will be included in the docket report.`,
+        { cases_with_gaps: withMissingDocs.length, total_cases: cases.length, gap_rate_pct: docGapRatePct, threshold_pct: 40 },
+        'Documentation remediation checklist added to recommended actions'
+      )
     }
-    // If no urgent cases, search on the most common type overall
-    if (courtOpinions.length === 0 && cases.length > 0) {
-      const typeCounts = {}
-      cases.forEach((c) => { if (c.case_type) typeCounts[c.case_type] = (typeCounts[c.case_type] || 0) + 1 })
-      const topType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
-      if (topType) {
-        const fallback = await searchCourtListener(topType, 3)
-        courtOpinions.push(...fallback)
+
+    // ── STEP 4: Atlas $vectorSearch — real call against past_cases collection ─
+    s = elapsed()
+    // Search for the top priority cases only (critical first, then urgent)
+    const searchTargets = [
+      ...criticalCases,
+      ...urgentCases.filter((c) => !criticalCases.some((x) => String(x._id) === String(c._id))),
+      ...highScoreCases.filter((c) => !urgentCases.some((x) => String(x._id) === String(c._id))),
+    ].slice(0, 5)
+
+    const vectorSearchResults = []
+
+    if (searchTargets.length > 0) {
+      // Run all searches concurrently
+      const searchPromises = searchTargets.map(async (c) => {
+        const text = c.summary || c.description
+          || `${c.case_type} legal matter for ${c.client_name || 'client'} with deadline in ${c.deadline_days ?? 'unknown'} days`
+        try {
+          const { results, via } = await findSimilarCases(text, 3)
+          return {
+            case_id:     String(c._id),
+            client_name: c.client_name,
+            case_type:   c.case_type,
+            matched_cases: results.length,
+            via,
+            top_similarity:    results[0]?.similarity_score ?? null,
+            top_outcome:       results[0]?.outcome ?? null,
+            top_outcome_notes: results[0]?.outcome_notes ?? null,
+            top_year:          results[0]?.year ?? null,
+            results:           results.slice(0, 3),
+          }
+        } catch {
+          return {
+            case_id:     String(c._id),
+            client_name: c.client_name,
+            case_type:   c.case_type,
+            matched_cases: 0,
+            via:           'error',
+            results:       [],
+          }
+        }
+      })
+
+      const settled = await Promise.allSettled(searchPromises)
+      for (const r of settled) {
+        if (r.status === 'fulfilled' && r.value.matched_cases > 0) {
+          vectorSearchResults.push(r.value)
+        }
       }
     }
-    steps.push(makeStep('courtlistener', 'Query CourtListener API for relevant legal precedents', 'CourtListener API',
+
+    const realVectorMatches    = vectorSearchResults.reduce((sum, r) => sum + r.matched_cases, 0)
+    const realCasesWithMatches = vectorSearchResults.length
+    const topSimilarity        = vectorSearchResults[0]?.top_similarity ?? null
+    const searchVia            = vectorSearchResults[0]?.via ?? (searchTargets.length === 0 ? 'no_targets' : 'not_configured')
+
+    steps.push(makeStep('vector_search',
+      'Run Atlas $vectorSearch against historical case database', 'MongoDB Vector Search',
       s, elapsed() - s, {
-        case_types_searched: caseTypesToSearch.length || 1,
-        opinions_retrieved:  courtOpinions.length,
-        sources: caseTypesToSearch.length > 0 ? caseTypesToSearch : ['general'],
+        searches_attempted:   searchTargets.length,
+        similar_cases_found:  realVectorMatches,
+        cases_with_matches:   realCasesWithMatches,
+        top_similarity_score: topSimilarity !== null ? Math.round(topSimilarity * 1000) / 1000 : null,
+        index:                'description_embedding_index',
+        via:                  searchVia,
       }))
+
+    // ── DECISION C: Vector search quality assessment ─────────────────────────
+    logDecision(
+      realCasesWithMatches > 0
+        ? `Historical precedents found for ${realCasesWithMatches} case${realCasesWithMatches !== 1 ? 's' : ''} via Atlas $vectorSearch`
+        : searchTargets.length === 0
+          ? 'No cases to search against — vector search skipped'
+          : 'Atlas $vectorSearch returned no historical matches',
+      realCasesWithMatches > 0
+        ? `Top cosine similarity score: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'n/a'}. Historical outcome data (${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}) will be incorporated into attorney recommendations.`
+        : searchTargets.length === 0
+          ? 'No urgent cases to search against historical database'
+          : 'The past_cases collection may be empty or the Atlas vector search index (description_embedding_index) may not be configured. Run POST /api/seed/past-cases to populate.',
+      {
+        searches_attempted:      searchTargets.length,
+        cases_with_matches:      realCasesWithMatches,
+        total_matches:           realVectorMatches,
+        top_similarity_score:    topSimilarity,
+        index:                   'description_embedding_index',
+        collection:              'past_cases',
+        via:                     searchVia,
+      },
+      realCasesWithMatches > 0
+        ? 'Historical outcome data incorporated into Gemini recommendation prompt'
+        : 'Recommendations will rely on deadline analysis, vulnerability scoring, and documentation review only'
+    )
+
+    // ── STEP 5: CourtListener — conditional on DECISION A ───────────────────
+    s = elapsed()
+    let courtOpinions = []
+
+    if (proceedToPrecedents) {
+      const caseTypesToSearch = [...new Set(
+        urgentCases.map((c) => c.case_type).filter(Boolean)
+      )].slice(0, 3)
+
+      for (const ct of caseTypesToSearch) {
+        const opinions = await searchCourtListener(ct, 3)
+        courtOpinions.push(...opinions)
+      }
+      if (courtOpinions.length === 0 && cases.length > 0) {
+        const typeCounts = {}
+        cases.forEach((c) => { if (c.case_type) typeCounts[c.case_type] = (typeCounts[c.case_type] || 0) + 1 })
+        const topType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
+        if (topType) courtOpinions.push(...await searchCourtListener(topType, 3))
+      }
+      steps.push(makeStep('courtlistener', 'Query CourtListener API for relevant legal precedents', 'CourtListener API',
+        s, elapsed() - s, {
+          case_types_searched: Math.max((urgentCases.map((c) => c.case_type).filter(Boolean).length), 1),
+          opinions_retrieved:  courtOpinions.length,
+          branched:            true,
+        }))
+    } else {
+      // Branch taken — log a zero-duration skipped step so the trace is complete
+      steps.push(makeStep('courtlistener', 'CourtListener query — skipped (no urgent cases in docket)', 'CourtListener API',
+        s, 0, { skipped: true, reason: 'No urgent cases — branch decision logged in decisions array' }))
+    }
 
     // ── STEP 6: Generate recommendations ────────────────────────────────────
     s = elapsed()
-    // Build a prioritized list of cases for recommendations
     const priorityQueue = [
       ...criticalCases,
-      ...urgentCases.filter((c) => !criticalCases.includes(c)),
-      ...highScoreCases.filter((c) => !urgentCases.includes(c)),
+      ...urgentCases.filter((c) => !criticalCases.some((x) => String(x._id) === String(c._id))),
+      ...highScoreCases.filter((c) => !urgentCases.some((x) => String(x._id) === String(c._id))),
     ].slice(0, 8)
 
     let recommendations = []
     if (priorityQueue.length > 0) {
-      const caseList = priorityQueue.map((c, i) =>
-        `${i + 1}. ${c.client_name || 'Unknown'} | ${c.case_type} | Deadline: ${c.deadline_days != null ? c.deadline_days + 'd' : 'unknown'} | Score: ${c.priority_score ?? '?'} | Missing: ${c.missing_info?.join(', ') || 'none'}\n   Context: ${(c.priority_reason || c.summary || '').slice(0, 120)}`
-      ).join('\n\n')
+      const caseList = priorityQueue.map((c, i) => {
+        // Find any historical matches for this case from vector search
+        const match = vectorSearchResults.find((r) => r.case_id === String(c._id))
+        const historicalContext = match?.results?.[0]
+          ? `Historical match (${(match.results[0].similarity_score * 100).toFixed(0)}% similarity): ${match.results[0].outcome} — ${match.results[0].outcome_notes}`
+          : 'No historical match found'
+        return `${i + 1}. ${c.client_name || 'Unknown'} | ${c.case_type} | Deadline: ${c.deadline_days != null ? c.deadline_days + 'd' : 'unknown'} | Score: ${c.priority_score ?? '?'} | Missing: ${c.missing_info?.join(', ') || 'none'}\n   Summary: ${(c.priority_reason || c.summary || '').slice(0, 120)}\n   ${historicalContext}`
+      }).join('\n\n')
 
       const precedentContext = courtOpinions.slice(0, 4).map((op) =>
         `- ${op.case_name} (${op.court}): ${op.snippet || 'No excerpt available'}`
@@ -188,8 +331,9 @@ export async function POST(request) {
 CASES REQUIRING IMMEDIATE ATTENTION (${priorityQueue.length} total):
 ${caseList}
 
-RELEVANT LEGAL PRECEDENTS FROM COURTLISTENER:
-${precedentContext || 'No precedents retrieved.'}
+${courtOpinions.length > 0 ? `RELEVANT LEGAL PRECEDENTS FROM COURTLISTENER:\n${precedentContext}` : 'No CourtListener precedents retrieved for this docket (low-urgency session).'}
+
+${vectorSearchResults.length > 0 ? `HISTORICAL CASE MATCHES (Atlas $vectorSearch, index: description_embedding_index):\n${vectorSearchResults.map(r => `- ${r.client_name} (${r.case_type}): best match ${r.top_outcome?.toUpperCase() || 'n/a'} at ${r.top_similarity ? (r.top_similarity * 100).toFixed(0) + '%' : 'n/a'} similarity — ${r.top_outcome_notes || 'no notes'}`).join('\n')}` : ''}
 
 Generate specific recommended actions for each case. Return ONLY a valid JSON array in this exact format:
 [
@@ -198,12 +342,12 @@ Generate specific recommended actions for each case. Return ONLY a valid JSON ar
     "case_type": "type",
     "priority": "critical|high|medium",
     "action": "Specific action the attorney must take TODAY or TOMORROW",
-    "rationale": "Brief legal rationale citing urgency or precedent (1 sentence)",
+    "rationale": "Brief legal rationale citing urgency, historical outcomes, or precedent (1 sentence)",
     "deadline_warning": "Specific deadline context e.g. '2 days until filing deadline'"
   }
 ]
 
-Be specific. Be actionable. Reference precedents where relevant. No hedging.`
+Be specific. Be actionable. Reference historical outcomes and precedents where relevant. No hedging.`
 
       try {
         const raw = await callGeminiPro(recPrompt)
@@ -213,22 +357,36 @@ Be specific. Be actionable. Reference precedents where relevant. No hedging.`
           if (Array.isArray(parsed)) recommendations = parsed
         }
       } catch {
-        // Fallback: derive recommendations from case data
         recommendations = priorityQueue.map((c) => ({
           client_name:      c.client_name || 'Unknown',
           case_type:        c.case_type,
-          priority:         c.deadline_days != null && c.deadline_days <= 3 ? 'critical' : c.deadline_days != null && c.deadline_days <= 7 ? 'high' : 'medium',
+          priority:         c.deadline_days != null && c.deadline_days <= 3 ? 'critical'
+                          : c.deadline_days != null && c.deadline_days <= 7 ? 'high' : 'medium',
           action:           `Schedule emergency consultation for ${c.case_type} case and review all documentation`,
           rationale:        c.priority_reason || 'High priority score and upcoming deadline require immediate attorney review',
           deadline_warning: c.deadline_days != null ? `${c.deadline_days} days until deadline` : 'Deadline unknown — verify immediately',
         }))
       }
     }
+
+    // Inject documentation remediation action if gap rate is high
+    if (highDocGapRate && withMissingDocs.length > 0) {
+      recommendations.push({
+        client_name:      'All Clients',
+        case_type:        'Documentation',
+        priority:         'high',
+        action:           `Contact ${withMissingDocs.length} clients to collect outstanding documents before hearing dates`,
+        rationale:        `${docGapRatePct}% documentation gap rate — incomplete files are the primary bottleneck to case advancement (remediation branch activated)`,
+        deadline_warning: 'Documentation gaps must be resolved before any hearing can proceed',
+      })
+    }
+
     steps.push(makeStep('recommendations', 'Generate AI-powered triage recommendations with Gemini Pro', 'Gemini Pro',
       s, elapsed() - s, {
         recommendations_generated: recommendations.length,
-        critical: recommendations.filter((r) => r.priority === 'critical').length,
-        high:     recommendations.filter((r) => r.priority === 'high').length,
+        critical:    recommendations.filter((r) => r.priority === 'critical').length,
+        high:        recommendations.filter((r) => r.priority === 'high').length,
+        vector_data_used: vectorSearchResults.length > 0,
       }))
 
     // ── STEP 7: Executive report ─────────────────────────────────────────────
@@ -237,22 +395,31 @@ Be specific. Be actionable. Reference precedents where relevant. No hedging.`
       `${op.case_name} (${op.court}${op.date_filed ? ', ' + op.date_filed : ''})`
     ).join('; ') || 'None retrieved'
 
+    const vectorSummary = vectorSearchResults.length > 0
+      ? `Atlas $vectorSearch retrieved ${realVectorMatches} historical matches across ${realCasesWithMatches} cases (index: description_embedding_index). Top outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.`
+      : 'Historical case database returned no matches for current caseload.'
+
     const reportPrompt = `You are the Director of Legal Operations at a legal aid clinic. Write a professional executive docket report for tomorrow's operations.
 
 OPERATIONAL INTELLIGENCE:
 - Total active cases: ${cases.length}
 - Critical cases (≤3 days to deadline): ${criticalCases.length}
 - Urgent cases (≤7 days): ${urgentCases.length}
-- Cases missing documentation: ${withMissingDocs.length}
+- Cases missing documentation: ${withMissingDocs.length} (${docGapRatePct}%)
 - High-priority cases (score ≥75): ${highScoreCases.length}
 - Recommendations prepared: ${recommendations.length}
-- Legal precedents retrieved: ${courtOpinions.length}
+- Legal precedents retrieved: ${courtOpinions.length}${!proceedToPrecedents ? ' (skipped — no urgent cases)' : ''}
+- Historical case matches (Atlas $vectorSearch): ${realVectorMatches} across ${realCasesWithMatches} cases
+
+AGENT DECISIONS:
+${decisions.map(d => `- ${d.decision}: ${d.outcome}`).join('\n')}
 
 TOP PRIORITY CASES:
-${priorityQueue.slice(0, 5).map((c, i) => `${i + 1}. ${c.client_name || 'Unknown'} — ${c.case_type} — ${c.deadline_days != null ? c.deadline_days + 'd' : 'no deadline'} remaining — Score: ${c.priority_score ?? '?'}`).join('\n')}
+${priorityQueue.slice(0, 5).map((c, i) => `${i + 1}. ${c.client_name || 'Unknown'} — ${c.case_type} — ${c.deadline_days != null ? c.deadline_days + 'd' : 'no deadline'} — Score: ${c.priority_score ?? '?'}`).join('\n')}
 
-RELEVANT LEGAL PRECEDENTS:
-${opinionCitations}
+HISTORICAL CONTEXT: ${vectorSummary}
+
+${courtOpinions.length > 0 ? `RELEVANT LEGAL PRECEDENTS: ${opinionCitations}` : ''}
 
 Write a concise 3-paragraph executive report:
 Paragraph 1: Current docket status and overall risk assessment
@@ -265,20 +432,14 @@ Use authoritative, formal legal operations language. Be specific and actionable.
     try {
       executiveReport = await callGeminiPro(reportPrompt)
     } catch {
-      executiveReport = `Docket analysis complete. ${cases.length} cases are active in the queue. ${criticalCases.length > 0 ? `${criticalCases.length} cases have deadlines within 72 hours and require immediate attorney assignment.` : 'No cases have critical 72-hour deadlines.'} ${urgentCases.length} total cases fall within the 7-day urgency threshold. ${withMissingDocs.length} cases have identified documentation gaps that must be resolved before proceedings can advance. ${recommendations.length} specific recommended actions have been prepared for tomorrow's operations.`
+      executiveReport = `Docket analysis complete. ${cases.length} cases active. ${criticalCases.length > 0 ? `${criticalCases.length} cases have deadlines within 72 hours and require immediate attorney assignment.` : 'No cases have critical 72-hour deadlines.'} ${urgentCases.length} cases fall within the 7-day urgency threshold. ${withMissingDocs.length} cases have documentation gaps. ${realVectorMatches > 0 ? `Atlas $vectorSearch retrieved ${realVectorMatches} historical matches to inform recommendations.` : ''} ${recommendations.length} specific recommended actions have been prepared.`
     }
     steps.push(makeStep('executive_report', "Compile executive docket report for tomorrow's operations", 'Gemini Pro',
-      s, elapsed() - s, {
-        report_length:  executiveReport.length,
-        sections:       3,
-        word_count:     executiveReport.split(/\s+/).length,
-      }))
+      s, elapsed() - s, { report_length: executiveReport.length, word_count: executiveReport.split(/\s+/).length }))
 
-    // ── Derive reasoning summary ─────────────────────────────────────────────
-    // Built from already-computed data — no extra Gemini call needed.
-    const totalHighPriority  = criticalCases.length + urgentCases.length
-    const docGapRate         = cases.length > 0 ? Math.round((withMissingDocs.length / cases.length) * 100) : 0
-    const fileCompleteRate   = cases.length > 0 ? Math.round(((cases.length - withMissingDocs.length) / cases.length) * 100) : 100
+    // ── Derive reasoning summary from real data ──────────────────────────────
+    const fileCompleteRate  = Math.round(((cases.length - withMissingDocs.length) / cases.length) * 100)
+    const totalHighPriority = criticalCases.length + urgentCases.length
 
     const priorityFactors = [
       criticalCases.length > 0
@@ -296,35 +457,35 @@ Use authoritative, formal legal operations language. Be specific and actionable.
     ].filter(Boolean)
 
     const reasoning_summary = {
-      prioritization_rationale: cases.length === 0
-        ? 'No active cases found in the queue. Load cases to the Operations Center and run the agent again.'
-        : totalHighPriority > 0
-          ? `${totalHighPriority} of ${cases.length} case${cases.length !== 1 ? 's' : ''} identified as high priority for tomorrow's docket. Primary factors: ${priorityFactors.join('; ')}.`
-          : `${cases.length} cases reviewed — no critical deadline conflicts detected. Docket is in stable condition; recommendations focus on documentation completion and proactive scheduling.`,
+      prioritization_rationale: totalHighPriority > 0
+        ? `${totalHighPriority} of ${cases.length} case${cases.length !== 1 ? 's' : ''} identified as high priority for tomorrow's docket. Primary factors: ${priorityFactors.join('; ')}.`
+        : `${cases.length} cases reviewed — no critical deadline conflicts detected. Docket is in stable condition.`,
 
       key_patterns: [
         cases.length > 0
           ? `${Math.round((criticalCases.length / cases.length) * 100)}% of active caseload meets the critical threshold requiring same-day attorney attention`
           : null,
-        casesWithSimilar.length > 0
-          ? `${totalSimilarMatches} historical case match${totalSimilarMatches !== 1 ? 'es' : ''} found across ${casesWithSimilar.length} active matter${casesWithSimilar.length !== 1 ? 's' : ''} via vector similarity search`
-          : null,
+        realCasesWithMatches > 0
+          ? `Atlas $vectorSearch returned ${realVectorMatches} historical match${realVectorMatches !== 1 ? 'es' : ''} across ${realCasesWithMatches} case${realCasesWithMatches !== 1 ? 's' : ''} (index: description_embedding_index, via: ${searchVia})`
+          : 'No historical matches returned from Atlas $vectorSearch — past_cases collection may need seeding',
         withMissingDocs.length > 0
-          ? `Documentation gaps detected in ${docGapRate}% of the caseload — primary bottleneck to case advancement before hearings`
+          ? `Documentation gaps in ${docGapRatePct}% of caseload${highDocGapRate ? ' — remediation branch activated' : ''}`
           : null,
         courtOpinions.length > 0
-          ? `${courtOpinions.length} relevant legal precedent${courtOpinions.length !== 1 ? 's' : ''} retrieved from CourtListener covering ${caseTypesToSearch.length || 1} practice area${(caseTypesToSearch.length || 1) !== 1 ? 's' : ''}`
-          : null,
+          ? `${courtOpinions.length} legal precedents retrieved from CourtListener (${proceedToPrecedents ? 'urgent cases present' : 'n/a'})`
+          : !proceedToPrecedents
+            ? 'CourtListener search skipped — no urgent cases (branching decision logged)'
+            : null,
         recommendations.filter((r) => r.priority === 'critical').length > 0
-          ? `${recommendations.filter((r) => r.priority === 'critical').length} recommendation${recommendations.filter((r) => r.priority === 'critical').length !== 1 ? 's' : ''} require attorney authorization before action — escalated for human review`
+          ? `${recommendations.filter((r) => r.priority === 'critical').length} recommendation${recommendations.filter((r) => r.priority === 'critical').length !== 1 ? 's' : ''} escalated for mandatory attorney review before action`
           : null,
       ].filter(Boolean),
 
-      historical_findings: casesWithSimilar.length > 0
-        ? `Vector similarity search identified ${totalSimilarMatches} historical case match${totalSimilarMatches !== 1 ? 'es' : ''} across ${casesWithSimilar.length} active matter${casesWithSimilar.length !== 1 ? 's' : ''}. Comparable cases in this practice area show higher resolution rates when attorney assignment occurs within the 7-day urgency window and documentation is complete prior to first hearing.`
-        : `No historical matches found in the case database. Recommendations are based on deadline analysis, vulnerability scoring, and documentation review only. Consider populating the historical case database to improve future match accuracy.`,
+      historical_findings: realCasesWithMatches > 0
+        ? `Atlas $vectorSearch (index: description_embedding_index, collection: past_cases) retrieved ${realVectorMatches} historical case match${realVectorMatches !== 1 ? 'es' : ''} across ${realCasesWithMatches} active matter${realCasesWithMatches !== 1 ? 's' : ''}. Top cosine similarity: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'n/a'}. Observed historical outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}. Historical data incorporated into Gemini recommendation prompt.`
+        : `Atlas $vectorSearch executed against description_embedding_index but returned no matches (via: ${searchVia}). Recommendations rely on deadline analysis, vulnerability scoring, and documentation review. To enable historical retrieval: (1) set VOYAGE_API_KEY, (2) create description_embedding_index on past_cases collection, (3) run POST /api/seed/past-cases.`,
 
-      confidence_assessment: `High confidence in deadline-based prioritization (derived from objective court date records). Moderate confidence in vulnerability scoring (dependent on intake data completeness — ${fileCompleteRate}% of files have complete documentation). All AI recommendations must be reviewed by a supervising attorney before any legal action is taken.`,
+      confidence_assessment: `High confidence in deadline-based prioritization (objective court date records). Moderate confidence in vulnerability scoring (${fileCompleteRate}% of files are complete). ${realCasesWithMatches > 0 ? `Historical context from Atlas $vectorSearch (${realVectorMatches} matches at up to ${topSimilarity !== null ? (topSimilarity * 100).toFixed(0) + '%' : 'n/a'} similarity) incorporated into recommendations.` : 'No historical context available.'} All recommendations must be reviewed by a supervising attorney before action is taken.`,
     }
 
     // ── STEP 8: Persist trace ─────────────────────────────────────────────────
@@ -348,6 +509,7 @@ Use authoritative, formal legal operations language. Be specific and actionable.
           completed_at: new Date(),
           duration_ms:  totalMs,
           steps,
+          decisions,
           result: {
             cases_reviewed:        cases.length,
             critical_cases:        criticalCases.length,
@@ -359,17 +521,20 @@ Use authoritative, formal legal operations language. Be specific and actionable.
             court_opinions:        courtOpinions,
             executive_report:      executiveReport,
             action_items:          actionItems,
+            vector_search_results: vectorSearchResults,
             reasoning_summary,
           },
         },
       }
     )
 
-    steps.push(makeStep('persist', 'Persist complete execution trace and results to MongoDB Atlas', 'MongoDB Atlas',
+    steps.push(makeStep('persist', 'Persist execution trace, decisions, and vector results to MongoDB Atlas', 'MongoDB Atlas',
       s, elapsed() - s, {
-        documents_written: 1,
-        steps_recorded:    steps.length,
-        action_items:      actionItems.length,
+        documents_written:     1,
+        steps_recorded:        steps.length,
+        decisions_logged:      decisions.length,
+        vector_results_stored: vectorSearchResults.length,
+        action_items:          actionItems.length,
       }))
 
     return Response.json({
@@ -377,12 +542,14 @@ Use authoritative, formal legal operations language. Be specific and actionable.
       status:      'complete',
       duration_ms: totalMs,
       summary: {
-        cases_reviewed:    cases.length,
-        critical_cases:    criticalCases.length,
-        urgent_cases:      urgentCases.length,
-        recommendations:   recommendations.length,
-        court_opinions:    courtOpinions.length,
-        missing_documents: withMissingDocs.length,
+        cases_reviewed:     cases.length,
+        critical_cases:     criticalCases.length,
+        urgent_cases:       urgentCases.length,
+        recommendations:    recommendations.length,
+        court_opinions:     courtOpinions.length,
+        missing_documents:  withMissingDocs.length,
+        vector_matches:     realVectorMatches,
+        decisions_made:     decisions.length,
       },
     })
 
@@ -391,7 +558,7 @@ Use authoritative, formal legal operations language. Be specific and actionable.
     const totalMs = elapsed()
     await AgentRun.findOneAndUpdate(
       { run_id: runId },
-      { $set: { status: 'error', error: 'Agent run failed internally', completed_at: new Date(), duration_ms: totalMs } }
+      { $set: { status: 'error', error: err.message, completed_at: new Date(), duration_ms: totalMs } }
     ).catch(() => {})
     return apiError('Agent run failed', 500)
   }

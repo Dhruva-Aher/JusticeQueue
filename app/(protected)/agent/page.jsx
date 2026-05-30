@@ -105,13 +105,13 @@ function RunDetail({ run }) {
     ? Math.max(1, Math.round(result.cases_reviewed * 2 / 60 * 10) / 10)
     : null
 
-  // Enhancement 3: MongoDB visibility values
+  // Real vector search values — from actual Atlas $vectorSearch results
   const vectorSearchStep = run.steps
     ? run.steps.find((s) => s.tool === 'MongoDB Vector Search')
     : null
-  const vectorCount = vectorSearchStep?.result?.similar_cases_found != null
-    ? vectorSearchStep.result.similar_cases_found
-    : (result && result.cases_reviewed > 0 ? Math.floor(result.cases_reviewed * 0.3) : 0)
+  const vectorCount = vectorSearchStep?.result?.similar_cases_found ?? 0
+  const vectorVia   = vectorSearchStep?.result?.via ?? null
+  const vectorIndex = vectorSearchStep?.result?.index ?? 'description_embedding_index'
 
   return (
     <div style={{ padding: '2rem', overflowY: 'auto', height: '100%' }}>
@@ -399,6 +399,88 @@ function RunDetail({ run }) {
         </div>
       )}
 
+      {/* Real Atlas $vectorSearch results — one card per case searched */}
+      {result?.vector_search_results && result.vector_search_results.length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>
+              Historical Case Matches
+            </p>
+            <span style={{
+              fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+              color: '#16A34A', padding: '1px 7px',
+              background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.18)',
+              borderRadius: '3px',
+            }}>
+              Atlas $vectorSearch · description_embedding_index
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {result.vector_search_results.map((match, i) => (
+              <div key={i} style={{
+                background: 'var(--bg-surface)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', overflow: 'hidden',
+              }}>
+                {/* Match header */}
+                <div style={{
+                  padding: '10px 14px',
+                  borderBottom: '1px solid var(--border)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>
+                      {match.client_name || 'Unknown'}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
+                      {match.case_type}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {match.top_similarity != null && (
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                        top: {(match.top_similarity * 100).toFixed(1)}%
+                      </span>
+                    )}
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                      {match.matched_cases} match{match.matched_cases !== 1 ? 'es' : ''}
+                    </span>
+                  </div>
+                </div>
+                {/* Individual matches */}
+                {(match.results || []).slice(0, 2).map((r, j) => {
+                  const outcomeColor = r.outcome === 'won' ? '#16A34A' : r.outcome === 'settled' ? '#C2710C' : '#57534E'
+                  return (
+                    <div key={j} style={{
+                      padding: '8px 14px',
+                      borderBottom: j === 0 && match.results?.length > 1 ? '1px solid var(--border)' : 'none',
+                      display: 'flex', alignItems: 'flex-start', gap: '10px',
+                    }}>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 700,
+                        color: outcomeColor, flexShrink: 0, lineHeight: '18px', minWidth: '50px',
+                      }}>
+                        {r.outcome?.toUpperCase() ?? '—'}
+                      </span>
+                      {r.similarity_score != null && (
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', flexShrink: 0, lineHeight: '18px' }}>
+                          {(r.similarity_score * 100).toFixed(1)}%
+                        </span>
+                      )}
+                      <span style={{
+                        fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)',
+                        lineHeight: 1.5, flex: 1,
+                      }}>
+                        {r.outcome_notes || r.description?.slice(0, 120)}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Enhancement 3: MongoDB Visibility section */}
       {result && (
         <div style={{ marginBottom: '2rem' }}>
@@ -420,8 +502,8 @@ function RunDetail({ run }) {
               {
                 title: 'Vector Retrieval',
                 value: vectorCount,
-                label: 'Similar cases matched',
-                sub: 'MongoDB Vector Search',
+                label: 'Historical matches ($vectorSearch)',
+                sub: vectorVia ? `index: ${vectorIndex} · via: ${vectorVia}` : `index: ${vectorIndex}`,
               },
               {
                 title: 'Precedents Retrieved',
@@ -465,6 +547,59 @@ function RunDetail({ run }) {
                 </div>
                 <div style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)' }}>
                   {card.sub}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Decision Log — every branching decision made during the run */}
+      {run.decisions && run.decisions.length > 0 && (
+        <div style={{ marginBottom: '2rem' }}>
+          <p style={{
+            fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
+            color: 'var(--text-3)', letterSpacing: '0.08em', marginBottom: '12px',
+          }}>
+            DECISION LOG
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            {run.decisions.map((d, i) => (
+              <div key={i} style={{
+                background: 'var(--bg-surface)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', padding: '12px 16px',
+              }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '6px' }}>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--accent)',
+                    fontWeight: 700, flexShrink: 0, lineHeight: '18px',
+                  }}>
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>
+                    {d.decision}
+                  </span>
+                </div>
+                <div style={{ paddingLeft: '26px' }}>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.55, marginBottom: '6px' }}>
+                    {d.reason}
+                  </p>
+                  {d.evidence && Object.keys(d.evidence).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
+                      {Object.entries(d.evidence).filter(([, v]) => v != null).map(([k, v]) => (
+                        <span key={k} style={{
+                          fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)',
+                          background: 'var(--bg-raised)', border: '1px solid var(--border)',
+                          borderRadius: '3px', padding: '1px 6px',
+                        }}>
+                          {k}: {String(v)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#16A34A', fontWeight: 500 }}>
+                    → {d.outcome}
+                  </p>
                 </div>
               </div>
             ))}

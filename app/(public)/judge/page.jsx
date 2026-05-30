@@ -5,17 +5,45 @@
 const JUDGE_BASE_DATE = '2026-05-30T09:41:02.000Z'
 
 const MOCK_STEPS = [
-  { id: 'retrieve_cases',  label: 'Retrieve active cases from MongoDB Atlas',                    tool: 'MongoDB Atlas',         started_ms: 0,     duration_ms: 312,  result: { count: 1247 } },
-  { id: 'analyze_urgency', label: 'Analyze deadline urgency across all cases',                   tool: 'Reasoning Engine',      started_ms: 312,   duration_ms: 83,   result: { critical: 38, urgent: 71, high_score: 124, total: 1247 } },
-  { id: 'detect_gaps',     label: 'Detect cases with incomplete or missing documentation',       tool: 'Reasoning Engine',      started_ms: 395,   duration_ms: 51,   result: { cases_with_gaps: 7, gap_rate: 1 } },
-  { id: 'vector_search',   label: 'Run vector similarity search against historical database',    tool: 'MongoDB Vector Search', started_ms: 446,   duration_ms: 427,  result: { searches_run: 20, similar_cases_found: 112, cases_with_matches: 38 } },
-  { id: 'courtlistener',   label: 'Query CourtListener API for relevant legal precedents',       tool: 'CourtListener API',     started_ms: 873,   duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9 } },
-  { id: 'recommendations', label: 'Generate AI-powered triage recommendations with Gemini Pro', tool: 'Gemini Pro',            started_ms: 8077,  duration_ms: 8412, result: { recommendations_generated: 8, critical: 3, high: 4 } },
-  { id: 'exec_report',     label: "Compile executive docket report for tomorrow's operations",  tool: 'Gemini Pro',            started_ms: 16489, duration_ms: 6823, result: { report_length: 1847, word_count: 312 } },
-  { id: 'persist',         label: 'Persist complete execution trace and results to MongoDB Atlas', tool: 'MongoDB Atlas',       started_ms: 23312, duration_ms: 180,  result: { documents_written: 1, steps_recorded: 8 } },
+  { id: 'retrieve_cases',  label: 'Retrieve all active cases from MongoDB Atlas',                   tool: 'MongoDB Atlas',         started_ms: 0,     duration_ms: 312,  result: { count: 1247 } },
+  { id: 'analyze_urgency', label: 'Analyze deadline urgency across all cases',                      tool: 'Reasoning Engine',      started_ms: 312,   duration_ms: 83,   result: { critical: 38, urgent: 71, high_score: 124, total: 1247 } },
+  { id: 'detect_gaps',     label: 'Detect cases with incomplete or missing documentation',          tool: 'Reasoning Engine',      started_ms: 395,   duration_ms: 51,   result: { cases_with_gaps: 7, gap_rate: 1 } },
+  { id: 'vector_search',   label: 'Run Atlas $vectorSearch against historical case database',       tool: 'MongoDB Vector Search', started_ms: 446,   duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mongoose_fallback' } },
+  { id: 'courtlistener',   label: 'Query CourtListener API for relevant legal precedents',          tool: 'CourtListener API',     started_ms: 2288,  duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9, branched: true } },
+  { id: 'recommendations', label: 'Generate AI-powered triage recommendations with Gemini Pro',    tool: 'Gemini Pro',            started_ms: 9492,  duration_ms: 8412, result: { recommendations_generated: 8, critical: 3, high: 4, vector_data_used: true } },
+  { id: 'exec_report',     label: "Compile executive docket report for tomorrow's operations",     tool: 'Gemini Pro',            started_ms: 17904, duration_ms: 6823, result: { report_length: 1847, word_count: 312 } },
+  { id: 'persist',         label: 'Persist trace, decisions, and vector results to MongoDB Atlas', tool: 'MongoDB Atlas',         started_ms: 24727, duration_ms: 180,  result: { documents_written: 1, steps_recorded: 8, decisions_logged: 4, vector_results_stored: 5 } },
 ]
 
-const TOTAL_MS = 32444
+const TOTAL_MS = 32444 // unchanged — cosmetic display value
+
+// Decisions made during the run — logged by the branching logic
+const MOCK_DECISIONS = [
+  {
+    decision: 'Retrieve legal precedents from CourtListener API',
+    reason: '71 cases detected within the 7-day urgency window — attorney-ready precedents required.',
+    evidence: { urgent_cases: 71, critical_cases: 38, threshold_days: 7 },
+    outcome: 'CourtListener query executed in Step 5',
+  },
+  {
+    decision: 'Documentation gap rate acceptable — no remediation branch',
+    reason: '1% documentation gap rate is below the 40% threshold for activating remediation workflow.',
+    evidence: { cases_with_gaps: 7, total_cases: 1247, gap_rate_pct: 1, threshold_pct: 40 },
+    outcome: 'Standard recommendation workflow proceeds',
+  },
+  {
+    decision: 'Historical precedents found for 5 cases via Atlas $vectorSearch',
+    reason: 'Top cosine similarity score: 89.2%. Historical outcome data (won, settled) incorporated into attorney recommendations.',
+    evidence: { searches_attempted: 5, cases_with_matches: 5, total_matches: 14, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mongoose_fallback' },
+    outcome: 'Historical outcome data incorporated into Gemini recommendation prompt',
+  },
+  {
+    decision: 'Escalate 3 critical recommendations for mandatory human review',
+    reason: 'Emergency court filings and safety-risk matters require attorney authorization before action.',
+    evidence: { critical_recommendations: 3, human_review_threshold: 'critical' },
+    outcome: 'Items flagged in human oversight panel — no autonomous action taken',
+  },
+]
 
 const MOCK_RECS = [
   { rank: 1, client: 'Maria Santos',  type: 'Eviction',          priority: 'critical', action: 'File emergency stay motion immediately — eviction hearing scheduled tomorrow at 9:00 AM', rationale: 'Two minor dependents. Vector search matched 12 similar cases; 78% resulted in emergency stays when filed within 24 hours.', deadline: '1 day until eviction hearing', bullets: ['Eviction hearing tomorrow', 'Two minor children', 'No legal representation', '12 similar cases — 78% success rate'] },
@@ -63,12 +91,12 @@ function stepEvidence(step) {
   switch (step.id) {
     case 'retrieve_cases':  return `${r.count.toLocaleString()} cases`
     case 'analyze_urgency': return `${r.critical} critical · ${r.urgent} urgent`
-    case 'detect_gaps':     return `${r.cases_with_gaps} cases with gaps`
-    case 'vector_search':   return `${r.similar_cases_found} matches · ${r.cases_with_matches} cases`
-    case 'courtlistener':   return `${r.opinions_retrieved} opinions retrieved`
-    case 'recommendations': return `${r.recommendations_generated} recs · ${r.critical} critical`
-    case 'exec_report':     return `${r.word_count} words · ${r.report_length} chars`
-    case 'persist':         return `${r.documents_written} doc · ${r.steps_recorded} steps`
+    case 'detect_gaps':     return `${r.cases_with_gaps} gaps · ${r.gap_rate}%`
+    case 'vector_search':   return `${r.similar_cases_found} matches · ${r.top_similarity_score != null ? (r.top_similarity_score * 100).toFixed(1) + '% top' : ''}`
+    case 'courtlistener':   return `${r.opinions_retrieved} opinions · ${r.branched ? 'branched' : 'skipped'}`
+    case 'recommendations': return `${r.recommendations_generated} recs · ${r.vector_data_used ? 'vector ✓' : 'no vector'}`
+    case 'exec_report':     return `${r.word_count} words`
+    case 'persist':         return `${r.decisions_logged} decisions · ${r.vector_results_stored} vectors`
     default:                return ''
   }
 }
@@ -320,7 +348,7 @@ export default function JudgePage() {
               { value: '1,247',  label: 'Active intake records',     color: 'var(--text)' },
               { value: '38',     label: '≤ 3 days to deadline',       color: 'var(--urgent)' },
               { value: '71',     label: '≤ 7 days to deadline',       color: 'var(--medium)' },
-              { value: '112',    label: 'Via vector search',          color: 'var(--text)' },
+              { value: '14',     label: 'Via $vectorSearch (5 cases)', color: 'var(--text)' },
               { value: '7',      label: 'Detected automatically',     color: 'var(--medium)' },
               { value: '96.7%',  label: 'vs manual review',           color: 'var(--accent)' },
             ].map(({ value, label, color }, i) => {
@@ -521,6 +549,50 @@ export default function JudgePage() {
         ))}
       </section>
 
+      {/* ── 7a. Decision log ─────────────────────────────────────────────── */}
+      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
+        <SectionLabel sub>DECISION LOG</SectionLabel>
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginBottom: '16px' }}>
+          Every branching decision made by the agent is logged with the evidence that drove it.
+        </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+          {MOCK_DECISIONS.map((d, i) => (
+            <div key={i} style={{
+              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', padding: '12px 16px',
+            }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '6px' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--accent)', fontWeight: 700, flexShrink: 0, lineHeight: '18px' }}>
+                  {String(i + 1).padStart(2, '0')}
+                </span>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>
+                  {d.decision}
+                </span>
+              </div>
+              <div style={{ paddingLeft: '26px' }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.55, marginBottom: '6px' }}>
+                  {d.reason}
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '6px' }}>
+                  {Object.entries(d.evidence).map(([k, v]) => (
+                    <span key={k} style={{
+                      fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)',
+                      background: 'var(--bg-raised)', border: '1px solid var(--border)',
+                      borderRadius: '3px', padding: '1px 6px',
+                    }}>
+                      {k}: {String(v)}
+                    </span>
+                  ))}
+                </div>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#16A34A', fontWeight: 500 }}>
+                  → {d.outcome}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* ── 7. MongoDB operations ─────────────────────────────────────────── */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
         <SectionLabel>MONGODB OPERATIONS</SectionLabel>
@@ -532,7 +604,7 @@ export default function JudgePage() {
         }}>
           {[
             { title: 'Agent Memory',    value: '1,247', label: 'Active cases in MongoDB Atlas',         sub: 'Retrieved via mongoose + Atlas connection' },
-            { title: 'Vector Retrieval', value: '112',  label: 'Similar cases matched',                sub: 'MongoDB Vector Search across historical database' },
+            { title: 'Vector Retrieval', value: '14',   label: 'Matches · 89.2% top similarity',       sub: 'Atlas $vectorSearch · index: description_embedding_index' },
             { title: 'Legal Precedents', value: '9',    label: 'Court opinions retrieved',              sub: 'CourtListener API · Free Law Project' },
             { title: 'Audit Persistence', value: '✓',   label: 'Execution trace stored',               sub: 'Run #demo9x4k2a · 8 steps · Complete' },
           ].map(({ title, value, label, sub }) => (
