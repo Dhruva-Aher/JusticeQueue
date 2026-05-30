@@ -6,8 +6,11 @@ import { apiError }        from '../../../../../lib/apiError.js'
 import { connectDB }       from '../../../../../lib/mongodb.js'
 import Case                from '../../../../../lib/models/Case.js'
 import { createGmailDraft, sendGmailDraft } from '../../../../../lib/gmail.js'
+import { assertObjectId }  from '../../../../../lib/validate.js'
 
 export async function GET(request, { params }) {
+  try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
+
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }
@@ -25,6 +28,8 @@ export async function GET(request, { params }) {
 }
 
 export async function POST(request, { params }) {
+  try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
+
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }
@@ -62,6 +67,8 @@ export async function POST(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
+
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }

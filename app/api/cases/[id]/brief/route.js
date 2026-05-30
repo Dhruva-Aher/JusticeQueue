@@ -1,12 +1,15 @@
 // GET /api/cases/:id/brief — return printable case brief as HTML
 // Browser prints to PDF natively — zero dependencies, works on Vercel serverless
-import { verifyToken }  from '../../../../../lib/verifyToken.js'
-import { apiError }     from '../../../../../lib/apiError.js'
-import { connectDB }    from '../../../../../lib/mongodb.js'
-import Case             from '../../../../../lib/models/Case.js'
+import { verifyToken }    from '../../../../../lib/verifyToken.js'
+import { apiError }       from '../../../../../lib/apiError.js'
+import { connectDB }      from '../../../../../lib/mongodb.js'
+import Case               from '../../../../../lib/models/Case.js'
 import { buildBriefHTML } from '../../../../../lib/caseBrief.js'
+import { assertObjectId } from '../../../../../lib/validate.js'
 
 export async function GET(request, { params }) {
+  try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
+
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }

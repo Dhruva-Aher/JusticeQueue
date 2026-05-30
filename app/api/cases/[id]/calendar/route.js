@@ -5,8 +5,11 @@ import { apiError }           from '../../../../../lib/apiError.js'
 import { connectDB }          from '../../../../../lib/mongodb.js'
 import Case                   from '../../../../../lib/models/Case.js'
 import { createCalendarEvent, deleteCalendarEvent } from '../../../../../lib/calendar.js'
+import { assertObjectId }     from '../../../../../lib/validate.js'
 
 export async function DELETE(request, { params }) {
+  try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
+
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }
@@ -27,6 +30,8 @@ export async function DELETE(request, { params }) {
 }
 
 export async function POST(request, { params }) {
+  try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
+
   let decoded
   try { decoded = await verifyToken(request) }
   catch { return apiError('Unauthorized', 401) }
@@ -38,9 +43,12 @@ export async function POST(request, { params }) {
   const { iso_date } = body
   if (!iso_date) return apiError('iso_date is required', 400)
 
-  const parsed = new Date(iso_date)
-  if (isNaN(parsed.getTime()) || parsed < new Date()) {
-    return apiError('iso_date must be a valid future date', 400)
+  let parsed
+  try { parsed = new Date(iso_date) } catch { return apiError('Invalid date', 400) }
+  const now     = new Date()
+  const maxDate = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate())
+  if (isNaN(parsed.getTime()) || parsed <= now || parsed > maxDate) {
+    return apiError('Invalid date', 400)
   }
 
   try {

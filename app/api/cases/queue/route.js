@@ -1,8 +1,9 @@
 // GET /api/cases/queue — return all cases for user sorted by priority_score desc
 import { verifyToken } from '../../../../lib/verifyToken.js'
-import { apiError } from '../../../../lib/apiError.js'
-import { connectDB } from '../../../../lib/mongodb.js'
-import Case from '../../../../lib/models/Case.js'
+import { apiError }    from '../../../../lib/apiError.js'
+import { connectDB }   from '../../../../lib/mongodb.js'
+import Case            from '../../../../lib/models/Case.js'
+import { assertUUID }  from '../../../../lib/validate.js'
 
 export async function GET(request) {
   let decoded
@@ -14,6 +15,10 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url)
   const batchId = searchParams.get('batch_id')
+
+  if (batchId) {
+    try { assertUUID(batchId) } catch { return apiError('Invalid batch ID', 400) }
+  }
 
   try {
     await connectDB()

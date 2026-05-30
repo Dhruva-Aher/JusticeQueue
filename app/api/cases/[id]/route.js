@@ -1,13 +1,16 @@
 // GET  /api/cases/:id  — full case document
 // PATCH /api/cases/:id — update status (reviewed | closed | pending)
-import { verifyToken } from '../../../../lib/verifyToken.js'
-import { apiError }    from '../../../../lib/apiError.js'
-import { connectDB }   from '../../../../lib/mongodb.js'
-import Case            from '../../../../lib/models/Case.js'
+import { verifyToken }   from '../../../../lib/verifyToken.js'
+import { apiError }      from '../../../../lib/apiError.js'
+import { connectDB }     from '../../../../lib/mongodb.js'
+import Case              from '../../../../lib/models/Case.js'
+import { assertObjectId } from '../../../../lib/validate.js'
 
 const ALLOWED_STATUSES = ['pending', 'reviewed', 'closed']
 
 export async function GET(request, { params }) {
+  try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
+
   let decoded
   try {
     decoded = await verifyToken(request)
@@ -31,6 +34,8 @@ export async function GET(request, { params }) {
 }
 
 export async function PATCH(request, { params }) {
+  try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
+
   let decoded
   try {
     decoded = await verifyToken(request)

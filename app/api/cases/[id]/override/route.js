@@ -1,11 +1,14 @@
 // POST /api/cases/:id/override — staff override with reason, writes to staff_actions
-import { verifyToken } from '../../../../../lib/verifyToken.js'
-import { apiError } from '../../../../../lib/apiError.js'
-import { connectDB } from '../../../../../lib/mongodb.js'
-import Case from '../../../../../lib/models/Case.js'
-import StaffAction from '../../../../../lib/models/StaffAction.js'
+import { verifyToken }  from '../../../../../lib/verifyToken.js'
+import { apiError }     from '../../../../../lib/apiError.js'
+import { connectDB }    from '../../../../../lib/mongodb.js'
+import Case             from '../../../../../lib/models/Case.js'
+import StaffAction      from '../../../../../lib/models/StaffAction.js'
+import { assertObjectId, sanitizeString } from '../../../../../lib/validate.js'
 
 export async function POST(request, { params }) {
+  try { assertObjectId(params.id) } catch { return apiError('Invalid case ID', 400) }
+
   let decoded
   try {
     decoded = await verifyToken(request)
@@ -20,12 +23,19 @@ export async function POST(request, { params }) {
     return apiError('Invalid JSON body', 400)
   }
 
-  const { reason, new_rank } = body
-  if (!reason || typeof reason !== 'string' || reason.trim().length === 0) {
+  const { new_rank } = body
+  const reason = sanitizeString(body.reason, 500)
+
+  if (!reason) {
     return apiError('reason is required and must be a non-empty string', 400)
   }
-  if (typeof new_rank !== 'number') {
-    return apiError('new_rank is required and must be a number', 400)
+  if (
+    typeof new_rank !== 'number' ||
+    !Number.isInteger(new_rank) ||
+    new_rank < 1 ||
+    new_rank > 9999
+  ) {
+    return apiError('new_rank must be a positive integer between 1 and 9999', 400)
   }
 
   try {
@@ -39,7 +49,7 @@ export async function POST(request, { params }) {
       action:         'override',
       previous_score: doc.priority_score,
       new_rank,
-      reason:         reason.trim(),
+      reason,
     })
 
     doc.status = 'overridden'
