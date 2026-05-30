@@ -75,15 +75,15 @@ function ToolBadge({ tool }) {
 
 // ── DOCKET LOADING STEPS (displayed while agent runs) ───────────────────────
 const DOCKET_STEPS = [
-  'Connecting to MongoDB Atlas…',
-  'Retrieving active cases…',
-  'Analyzing deadline urgency…',
-  'Detecting documentation gaps…',
-  'Running vector similarity search…',
-  'Querying CourtListener API…',
-  'Generating AI recommendations…',
-  'Compiling executive docket report…',
-  'Persisting execution trace…',
+  { label: 'Connecting to MongoDB Atlas…',        sub: 'Establishing secure database connection' },
+  { label: 'Retrieving all active cases…',         sub: 'Loading full caseload from Atlas' },
+  { label: 'Identifying critical deadlines…',      sub: 'Flagging cases within 72-hour window' },
+  { label: 'Detecting documentation gaps…',        sub: 'Finding incomplete files before hearings' },
+  { label: 'Running vector similarity search…',    sub: 'Matching against historical outcomes' },
+  { label: 'Querying CourtListener API…',          sub: 'Fetching relevant legal precedents' },
+  { label: 'Gemini Pro generating analysis…',      sub: 'Building attorney action recommendations' },
+  { label: 'Compiling executive docket report…',   sub: 'Drafting tomorrow\'s operational brief' },
+  { label: 'Saving audit trail to MongoDB…',       sub: 'Persisting complete execution trace' },
 ]
 
 // ── Run detail view ───────────────────────────────────────────────────────────
@@ -468,6 +468,106 @@ function RunDetail({ run }) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Agent Reasoning Summary — Priority 1 */}
+      {result?.reasoning_summary && (
+        <div style={{ marginBottom: '2rem' }}>
+          <p style={{
+            fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600,
+            color: 'var(--text-3)', letterSpacing: '0.08em', marginBottom: '12px',
+          }}>
+            AGENT REASONING
+          </p>
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)', overflow: 'hidden',
+          }}>
+
+            {/* Prioritization rationale */}
+            <div style={{
+              padding: '16px 20px',
+              borderBottom: '1px solid var(--border)',
+              borderLeft: '3px solid var(--accent)',
+            }}>
+              <p style={{
+                fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500,
+                color: 'var(--text)', lineHeight: 1.65, margin: 0,
+              }}>
+                {result.reasoning_summary.prioritization_rationale}
+              </p>
+            </div>
+
+            {/* Key patterns */}
+            {result.reasoning_summary.key_patterns?.length > 0 && (
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+                <p style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+                  color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: '10px',
+                }}>
+                  KEY PATTERNS
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
+                  {result.reasoning_summary.key_patterns.map((pattern, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '11px',
+                        color: 'var(--accent)', fontWeight: 700,
+                        flexShrink: 0, lineHeight: '18px',
+                      }}>
+                        →
+                      </span>
+                      <span style={{
+                        fontFamily: 'var(--font-sans)', fontSize: '12px',
+                        color: 'var(--text-2)', lineHeight: 1.55,
+                      }}>
+                        {pattern}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Historical retrieval findings */}
+            {result.reasoning_summary.historical_findings && (
+              <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+                <p style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+                  color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: '8px',
+                }}>
+                  HISTORICAL RETRIEVAL
+                </p>
+                <p style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '12px',
+                  color: 'var(--text-2)', lineHeight: 1.6, margin: 0,
+                }}>
+                  {result.reasoning_summary.historical_findings}
+                </p>
+              </div>
+            )}
+
+            {/* Confidence assessment */}
+            {result.reasoning_summary.confidence_assessment && (
+              <div style={{ padding: '12px 20px', background: 'var(--bg-raised)' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: '11px',
+                    color: '#C2710C', fontWeight: 700, flexShrink: 0, lineHeight: '18px',
+                  }}>
+                    !
+                  </span>
+                  <span style={{
+                    fontFamily: 'var(--font-sans)', fontSize: '11px',
+                    color: 'var(--text-3)', lineHeight: 1.6,
+                  }}>
+                    {result.reasoning_summary.confidence_assessment}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -874,32 +974,27 @@ function AgentPageInner() {
               animation: 'spin 0.9s linear infinite',
               margin: '0 auto 1.5rem',
             }} />
-            <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '20px', fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.025em', marginBottom: '8px' }}>
+            <h2 style={{ fontFamily: 'var(--font-sans)', fontSize: '20px', fontWeight: 700, color: 'var(--text)', letterSpacing: '-0.025em', marginBottom: '6px' }}>
               Preparing Tomorrow&apos;s Docket
             </h2>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-3)', marginBottom: '2rem' }}>
-              The agent is executing your operational workflow
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: 'var(--text-2)', marginBottom: '4px' }}>
+              {DOCKET_STEPS[stepIdx]?.label}
             </p>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: '8px',
-              padding: '8px 16px',
-              background: 'var(--bg-surface)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)', minWidth: '300px',
-            }}>
-              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--accent)', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0 }} />
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', textAlign: 'left' }}>
-                {DOCKET_STEPS[stepIdx]}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '4px', marginTop: '1rem' }}>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginBottom: '1.5rem' }}>
+              {DOCKET_STEPS[stepIdx]?.sub}
+            </p>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '5px', marginBottom: '10px' }}>
               {DOCKET_STEPS.map((_, i) => (
                 <div key={i} style={{
-                  width: i === stepIdx ? '16px' : '4px', height: '3px',
-                  borderRadius: '2px',
-                  background: i === stepIdx ? 'var(--accent)' : 'var(--border-mid)',
-                  transition: 'all 300ms ease',
+                  width: i === stepIdx ? '20px' : '5px', height: '4px',
+                  borderRadius: '3px',
+                  background: i < stepIdx ? 'rgba(67,56,202,0.4)' : i === stepIdx ? 'var(--accent)' : 'var(--border-mid)',
+                  transition: 'all 350ms ease',
                 }} />
               ))}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)', marginBottom: '1rem' }}>
+              Step {stepIdx + 1} of {DOCKET_STEPS.length}
             </div>
           </div>
         </div>

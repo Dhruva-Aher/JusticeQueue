@@ -14,15 +14,15 @@ import CaseDetailPanel from '../../../components/CaseDetailPanel.jsx'
 import AgentSummaryStrip from '../../../components/AgentSummaryStrip.jsx'
 
 const DOCKET_STEPS = [
-  'Connecting to case database…',
-  'Retrieving active cases…',
-  'Analyzing deadline urgency…',
-  'Detecting documentation gaps…',
-  'Running vector similarity search…',
-  'Querying CourtListener API for precedents…',
-  'Generating AI-powered recommendations…',
-  'Compiling executive docket report…',
-  'Persisting execution trace…',
+  { label: 'Connecting to MongoDB Atlas…',        sub: 'Establishing secure database connection' },
+  { label: 'Retrieving all active cases…',         sub: 'Loading full caseload from Atlas' },
+  { label: 'Identifying critical deadlines…',      sub: 'Flagging cases within 72-hour window' },
+  { label: 'Detecting documentation gaps…',        sub: 'Finding incomplete files before hearings' },
+  { label: 'Running vector similarity search…',    sub: 'Matching against historical outcomes' },
+  { label: 'Querying CourtListener API…',          sub: 'Fetching relevant legal precedents' },
+  { label: 'Gemini Pro generating analysis…',      sub: 'Building attorney action recommendations' },
+  { label: 'Compiling executive docket report…',   sub: 'Drafting tomorrow\'s operational brief' },
+  { label: 'Saving audit trail to MongoDB…',       sub: 'Persisting complete execution trace' },
 ]
 
 function StatCard({ label, value, sub, accent, loading }) {
@@ -104,7 +104,29 @@ function DashboardInner() {
   const [showUpload,     setShowUpload]     = useState(false)
   const [runningDocket,  setRunningDocket]  = useState(false)
   const [docketStep,     setDocketStep]     = useState(0)
+  const [seedingDemo,    setSeedingDemo]    = useState(false)
+  const [seedSuccess,    setSeedSuccess]    = useState(false)
   const docketIntervalRef = useRef(null)
+
+  async function seedDemoData() {
+    setSeedingDemo(true)
+    setSeedSuccess(false)
+    try {
+      const auth  = getFirebaseAuth()
+      const token = await auth?.currentUser?.getIdToken()
+      const res   = await fetch('/api/demo/seed', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (res.ok) {
+        setSeedSuccess(true)
+        refetch()
+        setShowUpload(false)
+        setTimeout(() => setSeedSuccess(false), 4000)
+      }
+    } catch { /* ignore */ }
+    finally { setSeedingDemo(false) }
+  }
 
   async function prepareDocket() {
     setRunningDocket(true)
@@ -210,39 +232,65 @@ function DashboardInner() {
           }} />
           <div style={{ textAlign: 'center' }}>
             <div style={{
-              fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600,
-              color: 'var(--text)', letterSpacing: '-0.015em', marginBottom: '8px',
+              fontFamily: 'var(--font-sans)', fontSize: '16px', fontWeight: 700,
+              color: 'var(--text)', letterSpacing: '-0.02em', marginBottom: '6px',
             }}>
               Preparing Tomorrow&apos;s Docket
             </div>
             <div style={{
-              fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-3)',
-              minHeight: '20px',
+              fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500,
+              color: 'var(--text-2)', minHeight: '20px', marginBottom: '4px',
+              transition: 'opacity 300ms',
             }}>
-              {DOCKET_STEPS[docketStep]}
+              {DOCKET_STEPS[docketStep]?.label}
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)',
+              minHeight: '16px',
+            }}>
+              {DOCKET_STEPS[docketStep]?.sub}
             </div>
           </div>
           {/* Step progress dots */}
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '5px', alignItems: 'center' }}>
             {DOCKET_STEPS.map((_, i) => (
               <span key={i} style={{
-                width: '6px', height: '6px', borderRadius: '50%',
-                background: i <= docketStep ? 'var(--accent)' : 'var(--border-mid)',
-                transition: 'background 300ms',
+                width: i === docketStep ? '20px' : '5px',
+                height: '5px',
+                borderRadius: '3px',
+                background: i < docketStep
+                  ? 'var(--accent)'
+                  : i === docketStep
+                    ? 'var(--accent)'
+                    : 'var(--border-mid)',
+                transition: 'all 350ms ease',
+                opacity: i < docketStep ? 0.5 : 1,
               }} />
             ))}
           </div>
+          {/* Step count */}
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)',
+          }}>
+            Step {docketStep + 1} of {DOCKET_STEPS.length}
+          </div>
           <div style={{
             fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)',
-            display: 'flex', alignItems: 'center', gap: '12px',
+            display: 'flex', alignItems: 'center', gap: '8px',
           }}>
-            {['Gemini Pro', 'MongoDB Atlas', 'CourtListener API'].map((t) => (
-              <span key={t} style={{
-                padding: '3px 8px',
-                background: 'var(--bg-surface)',
-                border: '1px solid var(--border)',
+            {[
+              { label: 'Gemini Pro', color: 'rgba(67,56,202,0.07)', textColor: '#4338CA', border: 'rgba(67,56,202,0.18)' },
+              { label: 'MongoDB Atlas', color: 'rgba(22,163,74,0.07)', textColor: '#16A34A', border: 'rgba(22,163,74,0.18)' },
+              { label: 'CourtListener', color: 'rgba(37,99,235,0.07)', textColor: '#2563EB', border: 'rgba(37,99,235,0.18)' },
+            ].map((t) => (
+              <span key={t.label} style={{
+                padding: '3px 9px',
+                background: t.color,
+                color: t.textColor,
+                border: `1px solid ${t.border}`,
                 borderRadius: '4px',
-              }}>{t}</span>
+                fontWeight: 500,
+              }}>{t.label}</span>
             ))}
           </div>
         </div>
@@ -415,6 +463,39 @@ function DashboardInner() {
         {!isDemo && showUpload && (
           <div style={{ marginBottom: '1.5rem' }}>
             <UploadZone status={status} onUpload={upload} error={uploadError} />
+            {/* Demo seed option */}
+            <div style={{
+              marginTop: '12px', padding: '12px 16px',
+              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem',
+            }}>
+              <div>
+                <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: 'var(--text)', marginBottom: '2px' }}>
+                  Load sample dataset
+                </div>
+                <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
+                  50 realistic legal aid cases — optimized for demos and testing
+                </div>
+              </div>
+              <button
+                onClick={seedDemoData}
+                disabled={seedingDemo}
+                style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
+                  color: seedSuccess ? '#16A34A' : 'var(--accent)',
+                  background: seedSuccess ? 'rgba(22,163,74,0.08)' : 'rgba(67,56,202,0.06)',
+                  border: `1px solid ${seedSuccess ? 'rgba(22,163,74,0.18)' : 'rgba(67,56,202,0.2)'}`,
+                  borderRadius: 'var(--radius-sm)', padding: '7px 16px',
+                  cursor: seedingDemo ? 'wait' : 'pointer',
+                  opacity: seedingDemo ? 0.7 : 1,
+                  whiteSpace: 'nowrap', transition: 'all 150ms',
+                  flexShrink: 0,
+                }}
+              >
+                {seedingDemo ? 'Loading…' : seedSuccess ? '✓ 50 cases loaded' : 'Load 50 sample cases →'}
+              </button>
+            </div>
           </div>
         )}
 
