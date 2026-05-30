@@ -1,6 +1,22 @@
 // GET /api/demo/queue — hardcoded 5-case demo queue, no auth required
 export const dynamic = 'force-dynamic'
 
+const TOMORROW_9AM = (() => {
+  const d = new Date()
+  d.setDate(d.getDate() + 1)
+  d.setHours(9, 0, 0, 0)
+  return d.toISOString()
+})()
+
+const TOOLS_CALLED = [
+  'gemini_3.1_flash',
+  'atlas_vector_search_mcp',
+  'mongodb_insert_mcp',
+  'gemini_3.1_pro',
+  'gmail_draft',
+  'google_calendar',
+]
+
 const DEMO_CASES = [
   {
     id: 'demo-001',
@@ -11,7 +27,7 @@ const DEMO_CASES = [
     deadline_days: 2,
     vulnerability_flags: { minor_children: true, language_barrier: false, medical_condition: false },
     priority_score: 98,
-    score_breakdown: { deadline: 40, vulnerability: 15, case_type: 18, similarity: 15, base: 10 },
+    score_breakdown: { deadline_points: 40, vulnerability_points: 15, case_type_points: 18, similarity_points: 15 },
     priority_reason: 'Court date in 48 hours. Minor children at risk of housing loss. Similar cases won when represented.',
     recommendation: 'Assign immediately. Court appearance in 48 hours with two minor children present. Request emergency continuance and document the hospitalization with medical records. This case profile matches our highest win-rate eviction cases.',
     similar_cases: [
@@ -22,6 +38,37 @@ const DEMO_CASES = [
     missing_info: [],
     status: 'pending',
     createdAt: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
+    outreach: {
+      subject: 'Re: Your housing legal aid request',
+      body: 'We have received your intake request regarding the eviction notice at your current residence. Your case has been flagged as high priority and a caseworker will contact you within 24 hours. Please bring a copy of your lease agreement and any written communications from your landlord to your appointment.',
+      status: 'draft',
+      draft_id: null,
+      sent_at: null,
+    },
+    calendar: {
+      event_id: 'demo-event-001',
+      event_link: 'https://calendar.google.com/calendar/r',
+      scheduled_at: TOMORROW_9AM,
+      status: 'scheduled',
+    },
+    brief: {
+      available: true,
+      content: null,
+      generated_at: new Date(Date.now() - 1000 * 60 * 9).toISOString(),
+    },
+    agent_trace: [
+      { name: 'extract_facts',    durationMs: 1180, output: { case_type: 'eviction', deadline_days: 2, missing_info_count: 0 } },
+      { name: 'vector_search',    durationMs:  820, output: { results_found: 3, top_similarity: 0.94, top_outcome: 'won', mongodb_via: 'mcp' } },
+      { name: 'score_urgency',    durationMs:    1, output: { score: 98, breakdown: { deadline_points: 40, vulnerability_points: 15, case_type_points: 18, similarity_points: 15 } } },
+      { name: 'write_recommendation', durationMs: 2340, output: { chars: 218 } },
+      { name: 'gmail_draft',      durationMs:  910, output: { drafted: true } },
+      { name: 'google_calendar',  durationMs: 1240, output: { scheduled: true, event_color: 'Tomato' } },
+      { name: 'case_brief',       durationMs: 3100, output: { generated: true, sections: 4 } },
+    ],
+    tools_called: TOOLS_CALLED,
+    actions_taken: { emails_drafted: 5, calendar_blocks_created: 3, briefs_generated: 2 },
+    mongodb_via: 'mcp',
+    mcp_config: { server: '@mongodb-js/mongodb-mcp-server', config_file: '.mcp.json' },
   },
   {
     id: 'demo-002',
@@ -30,11 +77,11 @@ const DEMO_CASES = [
     case_type: 'immigration',
     summary: 'Long-term resident of 19 years with final order of removal and 72-hour deadline to file motion to reopen after attorney error; US-born daughter has serious medical condition.',
     deadline_days: 3,
-    vulnerability_flags: { minor_children: false, language_barrier: true, medical_barrier: false },
+    vulnerability_flags: { minor_children: false, language_barrier: true, medical_condition: false },
     priority_score: 93,
-    score_breakdown: { deadline: 40, vulnerability: 10, case_type: 20, similarity: 8, base: 15 },
+    score_breakdown: { deadline_points: 40, vulnerability_points: 10, case_type_points: 20, similarity_points: 8 },
     priority_reason: '72-hour deadline for motion to reopen. Attorney error creates strong grounds for relief. Language barrier present.',
-    recommendation: 'Assign to immigration specialist today. Attorney error at missed hearing is well-established grounds for motion to reopen — file immediately. Gather documentation of daughter\'s medical condition as hardship evidence.',
+    recommendation: "Assign to immigration specialist today. Attorney error at missed hearing is well-established grounds for motion to reopen — file immediately. Gather documentation of daughter's medical condition as hardship evidence.",
     similar_cases: [
       { case_type: 'immigration', outcome: 'won', outcome_notes: 'Motion to reopen granted based on attorney ineffective assistance; removal order vacated', similarity_score: 0.88, year: 2024 },
       { case_type: 'immigration', outcome: 'won', outcome_notes: 'Stay of removal granted; case remanded to immigration judge; client remains in country', similarity_score: 0.81, year: 2023 },
@@ -43,6 +90,37 @@ const DEMO_CASES = [
     missing_info: ['Attorney name and bar number for ineffective assistance claim'],
     status: 'pending',
     createdAt: new Date(Date.now() - 1000 * 60 * 12).toISOString(),
+    outreach: {
+      subject: 'Re: Your immigration legal aid request',
+      body: 'Thank you for reaching out to our clinic regarding your immigration matter. Your case has been flagged as high priority and a caseworker will contact you within 24 hours. Please bring your employment records and any correspondence from immigration authorities to your appointment.',
+      status: 'draft',
+      draft_id: null,
+      sent_at: null,
+    },
+    calendar: {
+      event_id: 'demo-event-002',
+      event_link: 'https://calendar.google.com/calendar/r',
+      scheduled_at: TOMORROW_9AM,
+      status: 'scheduled',
+    },
+    brief: {
+      available: true,
+      content: null,
+      generated_at: new Date(Date.now() - 1000 * 60 * 11).toISOString(),
+    },
+    agent_trace: [
+      { name: 'extract_facts',    durationMs: 1050, output: { case_type: 'immigration', deadline_days: 3, missing_info_count: 1 } },
+      { name: 'vector_search',    durationMs:  790, output: { results_found: 3, top_similarity: 0.88, top_outcome: 'won', mongodb_via: 'mcp' } },
+      { name: 'score_urgency',    durationMs:    1, output: { score: 93 } },
+      { name: 'write_recommendation', durationMs: 2210, output: { chars: 201 } },
+      { name: 'gmail_draft',      durationMs:  880, output: { drafted: true } },
+      { name: 'google_calendar',  durationMs: 1190, output: { scheduled: true, event_color: 'Tomato' } },
+      { name: 'case_brief',       durationMs: 2980, output: { generated: true, sections: 4 } },
+    ],
+    tools_called: TOOLS_CALLED,
+    actions_taken: { emails_drafted: 5, calendar_blocks_created: 3, briefs_generated: 2 },
+    mongodb_via: 'mcp',
+    mcp_config: { server: '@mongodb-js/mongodb-mcp-server', config_file: '.mcp.json' },
   },
   {
     id: 'demo-003',
@@ -53,7 +131,7 @@ const DEMO_CASES = [
     deadline_days: 21,
     vulnerability_flags: { minor_children: true, language_barrier: false, medical_condition: false },
     priority_score: 71,
-    score_breakdown: { deadline: 15, vulnerability: 15, case_type: 10, similarity: 8, base: 23 },
+    score_breakdown: { deadline_points: 15, vulnerability_points: 15, case_type_points: 10, similarity_points: 8 },
     priority_reason: 'Child may be in unsafe situation. Emergency ex parte motion may bypass the 21-day docket.',
     recommendation: 'File emergency ex parte motion for immediate custody order — the 4-day absence with no contact bypasses the standard docket timeline. The police report is critical supporting documentation.',
     similar_cases: [
@@ -64,6 +142,35 @@ const DEMO_CASES = [
     missing_info: ['Details of any prior custody order'],
     status: 'pending',
     createdAt: new Date(Date.now() - 1000 * 60 * 8).toISOString(),
+    outreach: {
+      subject: 'Re: Your family law request',
+      body: "Thank you for contacting our clinic about your custody matter. We have received your intake request and will review it shortly. Please bring the current custody order and any relevant documentation about the change in circumstances you described.",
+      status: 'draft',
+      draft_id: null,
+      sent_at: null,
+    },
+    calendar: {
+      event_id: 'demo-event-003',
+      event_link: 'https://calendar.google.com/calendar/r',
+      scheduled_at: TOMORROW_9AM,
+      status: 'scheduled',
+    },
+    brief: {
+      available: false,
+      content: null,
+      generated_at: null,
+    },
+    agent_trace: [
+      { name: 'extract_facts',  durationMs: 990, output: { case_type: 'custody', deadline_days: 21, missing_info_count: 1 } },
+      { name: 'vector_search',  durationMs: 810, output: { results_found: 3, top_similarity: 0.79, top_outcome: 'won', mongodb_via: 'mcp' } },
+      { name: 'score_urgency',  durationMs:   1, output: { score: 71 } },
+      { name: 'gmail_draft',    durationMs: 870, output: { drafted: true } },
+      { name: 'google_calendar', durationMs: 1140, output: { scheduled: true, event_color: 'Banana' } },
+    ],
+    tools_called: TOOLS_CALLED.filter((t) => t !== 'gemini_3.1_pro'),
+    actions_taken: { emails_drafted: 5, calendar_blocks_created: 3, briefs_generated: 2 },
+    mongodb_via: 'mcp',
+    mcp_config: { server: '@mongodb-js/mongodb-mcp-server', config_file: '.mcp.json' },
   },
   {
     id: 'demo-004',
@@ -74,9 +181,9 @@ const DEMO_CASES = [
     deadline_days: 14,
     vulnerability_flags: { minor_children: false, language_barrier: false, medical_condition: false },
     priority_score: 55,
-    score_breakdown: { deadline: 15, vulnerability: 0, case_type: 12, similarity: 8, base: 20 },
+    score_breakdown: { deadline_points: 15, vulnerability_points: 0, case_type_points: 12, similarity_points: 8 },
     priority_reason: 'Employer closing imminently. Documented violation history strengthens claim significantly.',
-    recommendation: 'File labor commissioner complaint within the week to ensure priority in any asset recovery. The employer\'s documented violation history makes this a strong claim.',
+    recommendation: "File labor commissioner complaint within the week to ensure priority in any asset recovery. The employer's documented violation history makes this a strong claim.",
     similar_cases: [
       { case_type: 'wage_theft', outcome: 'won', outcome_notes: 'Full wages recovered plus penalties; employer had prior violation history', similarity_score: 0.82, year: 2024 },
       { case_type: 'wage_theft', outcome: 'won', outcome_notes: 'Labor commissioner ruled in favor; employer paid back wages plus 25% penalty within 30 days', similarity_score: 0.77, year: 2023 },
@@ -85,6 +192,25 @@ const DEMO_CASES = [
     missing_info: ['Pay stubs or employment contract'],
     status: 'pending',
     createdAt: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+    outreach: {
+      subject: 'Re: Your wage claim request',
+      body: 'We have received your intake request regarding unpaid wages. We are reviewing your case and will be in touch shortly. To help us move forward quickly, please gather your pay stubs or any written records of hours worked during the period in question.',
+      status: 'draft',
+      draft_id: null,
+      sent_at: null,
+    },
+    calendar: { event_id: null, event_link: null, scheduled_at: null, status: 'none' },
+    brief: { available: false, content: null, generated_at: null },
+    agent_trace: [
+      { name: 'extract_facts', durationMs: 1010, output: { case_type: 'wage_theft', deadline_days: 14, missing_info_count: 1 } },
+      { name: 'vector_search', durationMs:  770, output: { results_found: 3, top_similarity: 0.82, top_outcome: 'won', mongodb_via: 'mcp' } },
+      { name: 'score_urgency', durationMs:    1, output: { score: 55 } },
+      { name: 'gmail_draft',   durationMs:  840, output: { drafted: true } },
+    ],
+    tools_called: TOOLS_CALLED.filter((t) => !['gemini_3.1_pro', 'google_calendar'].includes(t)),
+    actions_taken: { emails_drafted: 5, calendar_blocks_created: 3, briefs_generated: 2 },
+    mongodb_via: 'mcp',
+    mcp_config: { server: '@mongodb-js/mongodb-mcp-server', config_file: '.mcp.json' },
   },
   {
     id: 'demo-005',
@@ -95,7 +221,7 @@ const DEMO_CASES = [
     deadline_days: 30,
     vulnerability_flags: { minor_children: false, language_barrier: false, medical_condition: false },
     priority_score: 38,
-    score_breakdown: { deadline: 0, vulnerability: 0, case_type: 8, similarity: 0, base: 30 },
+    score_breakdown: { deadline_points: 0, vulnerability_points: 0, case_type_points: 8, similarity_points: 0 },
     priority_reason: '30-day window before limitations period. COBRA and final paycheck violations add additional claims.',
     recommendation: 'Schedule intake within 2 weeks to preserve statute of limitations. Document all communications with HR about safety violations — this is the foundation of the retaliation claim.',
     similar_cases: [
@@ -106,6 +232,25 @@ const DEMO_CASES = [
     missing_info: ['Written records of safety complaints to HR', 'Date of termination'],
     status: 'pending',
     createdAt: new Date(Date.now() - 1000 * 60 * 20).toISOString(),
+    outreach: {
+      subject: 'Re: Your employment legal aid request',
+      body: 'We have received your intake request regarding your termination. We are reviewing your case and will be in touch shortly. Documentation of the safety concerns you raised, along with any performance reviews or communications from your employer, will help us evaluate your situation.',
+      status: 'draft',
+      draft_id: null,
+      sent_at: null,
+    },
+    calendar: { event_id: null, event_link: null, scheduled_at: null, status: 'none' },
+    brief: { available: false, content: null, generated_at: null },
+    agent_trace: [
+      { name: 'extract_facts', durationMs: 970, output: { case_type: 'employment', deadline_days: 30, missing_info_count: 2 } },
+      { name: 'vector_search', durationMs: 750, output: { results_found: 3, top_similarity: 0.76, top_outcome: 'won', mongodb_via: 'mcp' } },
+      { name: 'score_urgency', durationMs:   1, output: { score: 38 } },
+      { name: 'gmail_draft',   durationMs: 810, output: { drafted: true } },
+    ],
+    tools_called: TOOLS_CALLED.filter((t) => !['gemini_3.1_pro', 'google_calendar'].includes(t)),
+    actions_taken: { emails_drafted: 5, calendar_blocks_created: 3, briefs_generated: 2 },
+    mongodb_via: 'mcp',
+    mcp_config: { server: '@mongodb-js/mongodb-mcp-server', config_file: '.mcp.json' },
   },
 ]
 
