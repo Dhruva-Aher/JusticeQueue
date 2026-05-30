@@ -72,6 +72,21 @@ export async function POST(request) {
   if (buffer.length > MAX_SIZE) return apiError('File exceeds 10 MB limit', 413)
   if (buffer.length === 0)      return apiError('File is empty', 400)
 
+  // ── Magic bytes / content validation ─────────────────────────────────────
+  // PDF: must start with %PDF signature
+  if (effectiveMime === 'application/pdf') {
+    if (buffer.slice(0, 4).toString('ascii') !== '%PDF') {
+      return apiError('Invalid PDF file', 415)
+    }
+  }
+  // Text files: scan first 1000 bytes for null bytes (catches binary disguised as text)
+  if (effectiveMime === 'text/plain' || effectiveMime === 'text/csv') {
+    const scan = buffer.slice(0, 1000)
+    for (let i = 0; i < scan.length; i++) {
+      if (scan[i] === 0x00) return apiError('Invalid file contents', 400)
+    }
+  }
+
   // ── Parse intake records ─────────────────────────────────────────────────
   let intakeTexts
   try { intakeTexts = await parseFile(buffer, effectiveMime) }
