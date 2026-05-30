@@ -15,6 +15,8 @@ export async function GET(request) {
 
   const { searchParams } = new URL(request.url)
   const batchId = searchParams.get('batch_id')
+  const RAW_LIMIT = parseInt(searchParams.get('limit') || '200', 10)
+  const cap = Math.min(Math.max(Number.isFinite(RAW_LIMIT) ? RAW_LIMIT : 200, 1), 500)
 
   if (batchId) {
     try { assertUUID(batchId) } catch { return apiError('Invalid batch ID', 400) }
@@ -25,7 +27,7 @@ export async function GET(request) {
     const query = { uid: decoded.uid }
     if (batchId) query.batch_id = batchId
 
-    const docs = await Case.find(query).sort({ priority_score: -1 }).lean()
+    const docs = await Case.find(query).sort({ priority_score: -1 }).limit(cap).lean()
 
     const cases = docs.map((doc, i) => ({
       id:               doc._id.toString(),
@@ -43,7 +45,7 @@ export async function GET(request) {
       createdAt:        doc.createdAt,
     }))
 
-    return Response.json({ cases })
+    return Response.json({ cases, cap })
   } catch (err) {
     console.error('[cases/queue]', err.message)
     return apiError('Internal server error', 500)
