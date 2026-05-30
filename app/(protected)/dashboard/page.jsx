@@ -13,6 +13,7 @@ import Navbar from '../../../components/Navbar.jsx'
 import UploadZone from '../../../components/UploadZone.jsx'
 import CaseTable from '../../../components/CaseTable.jsx'
 import CaseDetailPanel from '../../../components/CaseDetailPanel.jsx'
+import AgentSummaryStrip from '../../../components/AgentSummaryStrip.jsx'
 
 function StatCard({ label, value, sub, accent, loading }) {
   return (
@@ -83,12 +84,13 @@ function DashboardInner() {
   const isDemo       = searchParams.get('demo') === 'true'
 
   const { cases: dbCases, loading: casesLoading, refetch } = useCases()
-  const { status, cases: uploadedCases, stats: uploadStats, error: uploadError, upload, reset } = useUpload()
+  const { status, cases: uploadedCases, stats: uploadStats, agentStats, error: uploadError, upload, reset } = useUpload()
   const [selectedId,   setSelectedId]   = useState(null)
   const [demoCases,    setDemoCases]    = useState([])
   const [demoLoading,  setDemoLoading]  = useState(false)
   const [demoError,    setDemoError]    = useState(false)
   const [clearing,     setClearing]     = useState(false)
+  const [showStrip,    setShowStrip]    = useState(false)
 
   async function clearQueue() {
     if (!confirm('Delete all cases in your queue? This cannot be undone.')) return
@@ -108,7 +110,7 @@ function DashboardInner() {
   }, [user, authLoading, router, isDemo])
 
   useEffect(() => {
-    if (status === 'complete') refetch()
+    if (status === 'complete') { refetch(); setShowStrip(true) }
   }, [status, refetch])
 
   useEffect(() => {
@@ -239,6 +241,24 @@ function DashboardInner() {
       )}
 
       <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 2rem 4rem' }}>
+
+        {/* Agent summary strip — real upload */}
+        {!isDemo && showStrip && agentStats && (
+          <AgentSummaryStrip
+            stats={agentStats}
+            onDismiss={() => setShowStrip(false)}
+            isDemo={false}
+          />
+        )}
+
+        {/* Agent summary strip — demo mode (always visible, hardcoded) */}
+        {isDemo && !demoLoading && !demoError && (
+          <AgentSummaryStrip
+            stats={{ cases_scored: 5, emails_drafted: 5, calendar_blocks_created: 3, briefs_generated: 2, duration_ms: 8300 }}
+            onDismiss={() => {}}
+            isDemo={true}
+          />
+        )}
 
         {/* Upload zone — only for authenticated users */}
         {!isDemo && (
