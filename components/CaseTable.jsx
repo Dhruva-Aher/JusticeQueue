@@ -76,16 +76,8 @@ const TYPE_COLORS = {
 export default function CaseTable({ cases = [], selectedId, onSelectCase }) {
   if (cases.length === 0) {
     return (
-      <div style={{ padding: '4rem 2rem', textAlign: 'center' }}>
-        <div style={{
-          width: '48px', height: '48px', borderRadius: '50%',
-          background: 'var(--bg-raised)', border: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          margin: '0 auto 1rem', fontSize: '20px',
-        }}>
-          📋
-        </div>
-        <div style={{ fontFamily: 'var(--font-sans)', fontSize: '15px', color: 'var(--text-2)', fontWeight: 500, marginBottom: '6px' }}>
+      <div style={{ padding: '3.5rem 2rem', textAlign: 'center' }}>
+        <div style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', color: 'var(--text-2)', fontWeight: 500, marginBottom: '6px' }}>
           No cases in queue
         </div>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', lineHeight: 1.6 }}>
@@ -128,10 +120,10 @@ export default function CaseTable({ cases = [], selectedId, onSelectCase }) {
                 style={{
                   cursor: 'pointer',
                   background: selected
-                    ? 'linear-gradient(90deg, rgba(233,161,44,0.06) 0%, rgba(233,161,44,0.02) 100%)'
+                    ? 'linear-gradient(90deg, rgba(91,110,247,0.07) 0%, rgba(91,110,247,0.02) 100%)'
                     : 'transparent',
                   borderBottom: '1px solid var(--border)',
-                  borderLeft: selected ? '3px solid var(--gold)' : '3px solid transparent',
+                  borderLeft: selected ? '3px solid var(--accent)' : '3px solid transparent',
                   transition: 'background 100ms',
                   animation: `fadeIn 200ms ease ${idx * 30}ms both`,
                 }}

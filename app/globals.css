@@ -1,49 +1,55 @@
-/* JusticeQueue — Midnight Legal design system */
-@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap');
+/* JusticeQueue — Professional design system */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
-  /* Backgrounds */
-  --bg:           #080c14;
-  --bg-surface:   #0d1420;
-  --bg-raised:    #121b2a;
-  --bg-hover:     #182232;
-  --bg-input:     #0f1826;
+  /* Backgrounds — true dark, near-black */
+  --bg:           #0D0D0F;
+  --bg-surface:   #141416;
+  --bg-raised:    #1A1A1D;
+  --bg-hover:     #202024;
+  --bg-input:     #141416;
 
-  /* Borders */
-  --border:       #1c2d42;
-  --border-mid:   #243c56;
-  --border-strong:#2e4d6a;
+  /* Borders — cool grays */
+  --border:       #222228;
+  --border-mid:   #2D2D36;
+  --border-strong:#3C3C48;
 
   /* Text */
-  --text:         #dde6f0;
-  --text-2:       #6e8fa8;
-  --text-3:       #384f62;
+  --text:         #EBEBEB;
+  --text-2:       #8E8EA0;
+  --text-3:       #525265;
 
-  /* Gold — primary accent */
-  --gold:         #e9a12c;
-  --gold-dim:     #b87a1a;
-  --gold-glow:    rgba(233,161,44,0.10);
-  --gold-subtle:  rgba(233,161,44,0.06);
+  /* Indigo accent (replaces gold) */
+  --accent:       #5B6EF7;
+  --accent-dim:   #3D52E0;
+  --accent-glow:  rgba(91,110,247,0.14);
+  --accent-subtle:rgba(91,110,247,0.07);
+
+  /* Legacy aliases — keeps existing components working */
+  --gold:         var(--accent);
+  --gold-dim:     var(--accent-dim);
+  --gold-glow:    var(--accent-glow);
+  --gold-subtle:  var(--accent-subtle);
 
   /* Urgency colors */
-  --urgent:       #e84444;
+  --urgent:       #E84444;
   --urgent-subtle:rgba(232,68,68,0.12);
-  --medium:       #f0a030;
+  --medium:       #F0A030;
   --medium-subtle:rgba(240,160,48,0.12);
-  --clear:        #22c97a;
+  --clear:        #22C97A;
   --clear-subtle: rgba(34,201,122,0.12);
 
   /* Radius */
-  --radius-sm: 3px;
-  --radius:    5px;
+  --radius-sm: 4px;
+  --radius:    6px;
   --radius-lg: 10px;
 
   /* Shadows */
-  --shadow-sm:    0 1px 3px rgba(0,0,0,0.5), 0 1px 8px rgba(0,0,0,0.3);
-  --shadow-md:    0 4px 20px rgba(0,0,0,0.65);
-  --shadow-panel: -4px 0 40px rgba(0,0,0,0.55);
+  --shadow-sm:    0 1px 3px rgba(0,0,0,0.6), 0 1px 8px rgba(0,0,0,0.35);
+  --shadow-md:    0 4px 24px rgba(0,0,0,0.7);
+  --shadow-panel: -4px 0 40px rgba(0,0,0,0.6);
 
-  /* Legacy aliases — keeps existing components working */
+  /* Legacy aliases */
   --ink:          var(--text);
   --ink-2:        var(--text-2);
   --ink-3:        var(--text-3);
@@ -56,10 +62,10 @@
   --bg-inset:     var(--bg-input);
   --border-dark:  var(--border-mid);
 
-  /* Typography */
-  --font-serif:   'Instrument Serif', serif;
-  --font-mono:    'IBM Plex Mono', monospace;
-  --font-sans:    'Inter', sans-serif;
+  /* Typography — Inter only */
+  --font-sans:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-serif:   'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:    ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
 }
 
 *, *::before, *::after {
@@ -74,7 +80,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -98,8 +104,8 @@ a {
 }
 
 /* Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
@@ -107,17 +113,17 @@ a {
 table { width: 100%; border-collapse: collapse; }
 
 th {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
   color: var(--text-3);
   text-align: left;
-  padding: 10px 16px;
+  padding: 0 16px;
+  height: 36px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-surface);
-  font-weight: 500;
   white-space: nowrap;
+  letter-spacing: 0;
 }
 
 td {
@@ -125,7 +131,7 @@ td {
   font-size: 13px;
   color: var(--text-2);
   padding: 0 16px;
-  height: 52px;
+  height: 40px;
   border-bottom: 1px solid var(--border);
   vertical-align: middle;
 }
@@ -175,17 +181,8 @@ tr:last-child td { border-bottom: none; }
   border-radius: var(--radius-sm);
 }
 
-/* Utility */
-.label {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--text-3);
-}
-
 /* Focus rings */
 *:focus-visible {
-  outline: 2px solid var(--gold);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

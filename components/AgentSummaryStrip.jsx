@@ -3,20 +3,16 @@ import { useEffect, useState } from 'react'
 
 function StatItem({ n, label, color }) {
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+    <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
       <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: '12px',
-        textTransform: 'uppercase', letterSpacing: '0.04em',
-        color,
-        fontWeight: 700,
+        fontFamily: 'var(--font-sans)', fontSize: '12px',
+        color, fontWeight: 700,
       }}>
         {n}
       </span>
       <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: '12px',
-        textTransform: 'uppercase', letterSpacing: '0.04em',
-        color,
-        fontWeight: 400,
+        fontFamily: 'var(--font-sans)', fontSize: '12px',
+        color, fontWeight: 400,
       }}>
         {label}
       </span>
@@ -67,11 +63,10 @@ export default function AgentSummaryStrip({ stats, onDismiss, isDemo = false }) 
       {/* Right — duration + dismiss */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
         <span style={{
-          fontFamily: 'var(--font-mono)', fontSize: '11px',
-          color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.04em',
-          whiteSpace: 'nowrap',
+          fontFamily: 'var(--font-sans)', fontSize: '11px',
+          color: 'var(--text-3)', whiteSpace: 'nowrap',
         }}>
-          Agent Complete{durationSec ? ` · ${durationSec}s` : ''}
+          Agent complete{durationSec ? ` · ${durationSec}s` : ''}
         </span>
         {!isDemo && (
           <button

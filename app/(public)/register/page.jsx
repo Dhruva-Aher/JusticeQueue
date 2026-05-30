@@ -111,16 +111,16 @@ export default function RegisterPage() {
       <div style={{ width: '100%', maxWidth: '440px' }}>
 
         {/* Logo */}
-        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '2.5rem', textDecoration: 'none' }}>
-          <div style={{ width: '28px', height: '28px', background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: 'var(--font-serif)', fontSize: '15px', color: '#000' }}>⚖</span>
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', marginBottom: '2.5rem', textDecoration: 'none' }}>
+          <div style={{ width: '28px', height: '28px', background: 'var(--accent)', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: '14px', color: '#fff' }}>⚖</span>
           </div>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '18px', color: 'var(--text)' }}>JusticeQueue</span>
+          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>JusticeQueue</span>
         </a>
 
         {/* Card */}
-        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '4px', padding: '2.5rem' }}>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: 'var(--text)', marginBottom: '6px', lineHeight: 1.2 }}>
+        <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '8px', padding: '2rem' }}>
+          <h1 style={{ fontFamily: 'var(--font-sans)', fontSize: '22px', fontWeight: 700, color: 'var(--text)', marginBottom: '6px', letterSpacing: '-0.03em' }}>
             Create your account
           </h1>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)', marginBottom: '2rem' }}>
@@ -212,15 +212,15 @@ export default function RegisterPage() {
             <button
               type="submit" disabled={busy}
               style={{
-                width: '100%', fontFamily: 'var(--font-mono)', fontSize: '12px',
-                textTransform: 'uppercase', letterSpacing: '0.07em',
-                background: 'var(--gold)', color: '#000',
-                border: 'none', borderRadius: '3px', padding: '12px',
-                cursor: 'pointer', fontWeight: 700,
-                opacity: busy ? 0.6 : 1, transition: 'opacity 150ms',
+                width: '100%', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
+                letterSpacing: '-0.01em',
+                background: 'var(--accent)', color: '#fff',
+                border: 'none', borderRadius: 'var(--radius-sm)', padding: '11px',
+                cursor: busy ? 'not-allowed' : 'pointer',
+                opacity: busy ? 0.65 : 1, transition: 'opacity 150ms',
               }}
             >
-              {busy ? 'Creating account…' : 'Create Account'}
+              {busy ? 'Creating account…' : 'Create account'}
             </button>
           </form>
 
@@ -254,7 +254,7 @@ export default function RegisterPage() {
 
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginTop: '1.5rem', textAlign: 'center' }}>
             Already have an account?{' '}
-            <a href="/login" style={{ color: 'var(--gold)', fontWeight: 500 }}>Sign in</a>
+            <a href="/login" style={{ color: 'var(--accent)', fontWeight: 500 }}>Sign in</a>
           </p>
         </div>
       </div>

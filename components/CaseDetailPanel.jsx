@@ -31,7 +31,7 @@ const Divider = () => (
 
 const SectionLabel = ({ children, action }) => (
   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-3)' }}>
+    <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-3)' }}>
       {children}
     </p>
     {action}
@@ -50,35 +50,28 @@ const FactRow = ({ label, value, accent }) => (
   </div>
 )
 
-function ScoreRing({ score }) {
-  const r      = 30
-  const circ   = 2 * Math.PI * r
-  const offset = circ - (score / 100) * circ
-  const color  = scoreColor(score)
-
+function ScoreDisplay({ score }) {
+  const color = scoreColor(score)
   return (
-    <div style={{ position: 'relative', width: '80px', height: '80px', flexShrink: 0 }}>
-      <svg width="80" height="80" style={{ transform: 'rotate(-90deg)' }}>
-        <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="5" />
-        <circle
-          cx="40" cy="40" r={r}
-          fill="none" stroke={color} strokeWidth="5"
-          strokeDasharray={circ} strokeDashoffset={offset}
-          strokeLinecap="round"
-          style={{ transition: 'stroke-dashoffset 900ms cubic-bezier(0.4,0,0.2,1)' }}
-        />
-      </svg>
-      <div style={{
-        position: 'absolute', inset: 0,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      flexShrink: 0, width: '72px', height: '72px',
+      background: 'var(--bg)',
+      border: `1px solid ${color}33`,
+      borderRadius: '8px',
+    }}>
+      <span style={{
+        fontFamily: 'var(--font-sans)', fontSize: '28px', fontWeight: 700,
+        color, lineHeight: 1, letterSpacing: '-0.04em',
       }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '20px', color, fontWeight: 700, lineHeight: 1 }}>
-          {score}
-        </span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginTop: '2px' }}>
-          score
-        </span>
-      </div>
+        {score}
+      </span>
+      <span style={{
+        fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)',
+        marginTop: '3px',
+      }}>
+        / 100
+      </span>
     </div>
   )
 }
@@ -315,8 +308,8 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
 
   return (
     <div style={{
-      position: 'fixed', top: '56px', right: 0,
-      width: '460px', height: 'calc(100vh - 56px)',
+      position: 'fixed', top: 0, right: 0,
+      width: '460px', height: '100vh',
       background: 'var(--bg-surface)',
       borderLeft: '1px solid var(--border)',
       boxShadow: 'var(--shadow-panel)',
@@ -385,7 +378,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                 <SkeletonLine w="160px" h="20px" mb="8px" />
                 <SkeletonLine w="80px" h="11px" mb="0" />
               </div>
-              <div className="skeleton" style={{ width: '80px', height: '80px', borderRadius: '50%', marginLeft: 'auto', flexShrink: 0 }} />
+              <div className="skeleton" style={{ width: '72px', height: '72px', borderRadius: '8px', marginLeft: 'auto', flexShrink: 0 }} />
             </div>
             <SkeletonLine w="100%" h="60px" mb="16px" />
             <SkeletonLine w="90%" h="13px" mb="6px" />
@@ -413,7 +406,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                   )}
                 </div>
               </div>
-              <ScoreRing score={caseData.priority_score} />
+              <ScoreDisplay score={caseData.priority_score} />
             </div>
 
             {/* Priority reason */}
@@ -540,7 +533,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                   borderRadius: '0 var(--radius-sm) var(--radius-sm) 0',
                   marginBottom: '8px',
                 }}>
-                  <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.75 }}>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.7 }}>
                     {caseData.recommendation}
                   </p>
                 </div>

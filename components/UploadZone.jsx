@@ -64,12 +64,12 @@ export default function UploadZone({ status, onUpload, error }) {
   const pct          = isComplete ? 100 : stage?.pct ?? 0
 
   let borderColor = 'var(--border-mid)'
-  if (isDragActive) borderColor = 'var(--gold)'
+  if (isDragActive) borderColor = 'var(--accent)'
   if (isComplete)   borderColor = 'var(--clear)'
   if (isError)      borderColor = 'var(--urgent)'
 
   let bgColor = 'var(--bg-raised)'
-  if (isDragActive) bgColor = 'rgba(233,161,44,0.05)'
+  if (isDragActive) bgColor = 'rgba(91,110,247,0.05)'
   if (isProcessing) bgColor = 'var(--bg-surface)'
   if (isComplete)   bgColor = 'rgba(34,201,122,0.04)'
 
@@ -94,7 +94,7 @@ export default function UploadZone({ status, onUpload, error }) {
       {isDragActive && (
         <div style={{
           position: 'absolute', inset: 0,
-          background: 'radial-gradient(ellipse at center, rgba(233,161,44,0.08) 0%, transparent 70%)',
+          background: 'radial-gradient(ellipse at center, rgba(91,110,247,0.08) 0%, transparent 70%)',
           pointerEvents: 'none',
         }} />
       )}
@@ -104,21 +104,21 @@ export default function UploadZone({ status, onUpload, error }) {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '14px' }}>
             <div style={{
-              width: '7px', height: '7px', borderRadius: '50%',
-              background: 'var(--gold)', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0,
+              width: '6px', height: '6px', borderRadius: '50%',
+              background: 'var(--accent)', animation: 'pulse 1.2s ease-in-out infinite', flexShrink: 0,
             }} />
             <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text)', fontWeight: 500 }}>
               {stage.label}
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--gold)', marginLeft: 'auto' }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--accent)', marginLeft: 'auto' }}>
               {pct}%
             </span>
           </div>
 
           {/* Progress bar */}
-          <div style={{ height: '3px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
+          <div style={{ height: '2px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
             <div style={{
-              height: '100%', background: 'linear-gradient(90deg, var(--gold-dim), var(--gold))',
+              height: '100%', background: 'var(--accent)',
               borderRadius: '2px',
               width: `${pct}%`,
               transition: 'width 2s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -129,9 +129,9 @@ export default function UploadZone({ status, onUpload, error }) {
           <div style={{ display: 'flex', gap: '6px', marginTop: '12px' }}>
             {STAGES.map((_, i) => (
               <div key={i} style={{
-                width: i <= stageIdx ? '18px' : '6px', height: '3px',
+                width: i <= stageIdx ? '18px' : '6px', height: '2px',
                 borderRadius: '2px',
-                background: i <= stageIdx ? 'var(--gold)' : 'var(--border-mid)',
+                background: i <= stageIdx ? 'var(--accent)' : 'var(--border-mid)',
                 transition: 'all 400ms ease',
               }} />
             ))}
@@ -194,17 +194,17 @@ export default function UploadZone({ status, onUpload, error }) {
         /* Default / drag state */
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <div style={{
-            width: '52px', height: '52px', borderRadius: '50%',
-            background: isDragActive ? 'rgba(233,161,44,0.15)' : 'var(--bg-hover)',
-            border: `1px solid ${isDragActive ? 'rgba(233,161,44,0.4)' : 'var(--border-mid)'}`,
+            width: '44px', height: '44px', borderRadius: 'var(--radius)',
+            background: isDragActive ? 'rgba(91,110,247,0.12)' : 'var(--bg-hover)',
+            border: `1px solid ${isDragActive ? 'rgba(91,110,247,0.4)' : 'var(--border-mid)'}`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: isDragActive ? 'var(--gold)' : 'var(--text-3)',
+            color: isDragActive ? 'var(--accent)' : 'var(--text-3)',
             flexShrink: 0, transition: 'all 180ms',
           }}>
-            <UploadIcon size={22} />
+            <UploadIcon size={20} />
           </div>
           <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', color: isDragActive ? 'var(--gold)' : 'var(--text)', fontWeight: 500, marginBottom: '4px' }}>
+            <div style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: isDragActive ? 'var(--accent)' : 'var(--text)', fontWeight: 500, marginBottom: '4px' }}>
               {isDragActive ? 'Release to analyze' : 'Upload intake batch'}
             </div>
             <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', lineHeight: 1.5 }}>
@@ -213,12 +213,11 @@ export default function UploadZone({ status, onUpload, error }) {
             </div>
           </div>
           <div style={{
-            flexShrink: 0, padding: '8px 18px',
-            background: isDragActive ? 'var(--gold)' : 'transparent',
-            border: `1px solid ${isDragActive ? 'var(--gold)' : 'var(--border-mid)'}`,
-            fontFamily: 'var(--font-mono)', fontSize: '11px',
-            color: isDragActive ? '#000' : 'var(--text-3)',
-            textTransform: 'uppercase', letterSpacing: '0.06em',
+            flexShrink: 0, padding: '7px 16px',
+            background: isDragActive ? 'var(--accent)' : 'transparent',
+            border: `1px solid ${isDragActive ? 'var(--accent)' : 'var(--border-mid)'}`,
+            fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
+            color: isDragActive ? '#fff' : 'var(--text-3)',
             borderRadius: 'var(--radius-sm)',
             transition: 'all 180ms',
             pointerEvents: 'none',

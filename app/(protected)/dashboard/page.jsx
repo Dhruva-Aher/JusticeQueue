@@ -9,7 +9,6 @@ import { useCases } from '../../../hooks/useCases.js'
 import { useUpload } from '../../../hooks/useUpload.js'
 import axiosClient from '../../../lib/axiosClient.js'
 import { getFirebaseAuth } from '../../../lib/firebase.js'
-import Navbar from '../../../components/Navbar.jsx'
 import UploadZone from '../../../components/UploadZone.jsx'
 import CaseTable from '../../../components/CaseTable.jsx'
 import CaseDetailPanel from '../../../components/CaseDetailPanel.jsx'
@@ -19,24 +18,27 @@ function StatCard({ label, value, sub, accent, loading }) {
   return (
     <div style={{
       background: 'var(--bg-surface)',
-      padding: '1.25rem 1.5rem',
+      padding: '1rem 1.25rem',
       borderRight: '1px solid var(--border)',
     }}>
       {loading ? (
         <>
-          <div className="skeleton" style={{ width: '60px', height: '32px', marginBottom: '6px', borderRadius: '3px' }} />
-          <div className="skeleton" style={{ width: '80px', height: '10px', borderRadius: '3px' }} />
+          <div className="skeleton" style={{ width: '48px', height: '26px', marginBottom: '6px', borderRadius: '3px' }} />
+          <div className="skeleton" style={{ width: '70px', height: '10px', borderRadius: '3px' }} />
         </>
       ) : (
         <>
           <div style={{
-            fontFamily: 'var(--font-serif)', fontSize: '30px',
-            color: accent || 'var(--text)', lineHeight: 1, marginBottom: '4px',
-            transition: 'color 300ms',
+            fontFamily: 'var(--font-sans)', fontSize: '24px', fontWeight: 700,
+            color: accent || 'var(--text)', lineHeight: 1, marginBottom: '5px',
+            letterSpacing: '-0.03em', transition: 'color 300ms',
           }}>
             {value ?? '—'}
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: '2px' }}>
+          <div style={{
+            fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)',
+            fontWeight: 500, marginBottom: sub ? '2px' : 0,
+          }}>
             {label}
           </div>
           {sub && (
@@ -68,11 +70,11 @@ function StatsBar({ cases, loading }) {
     }}>
       <StatCard label="Total Cases"    value={total}     sub="in current queue" loading={loading} />
       <StatCard label="Critical"       value={critical}  sub="score ≥ 80"       loading={loading}
-        accent={critical > 0 ? 'var(--urgent)' : null} />
+        accent={critical > 0 ? 'var(--urgent)' : undefined} />
       <StatCard label="Average Score"  value={avg}       sub="urgency index"    loading={loading}
-        accent={avg != null && avg >= 70 ? 'var(--medium)' : avg != null && avg >= 50 ? 'var(--gold)' : null} />
+        accent={avg != null && avg >= 70 ? 'var(--medium)' : avg != null && avg >= 50 ? 'var(--accent)' : undefined} />
       <StatCard label="Overridden"     value={overridden} sub="manual adjustments" loading={loading}
-        accent={overridden > 0 ? 'var(--gold)' : null} />
+        accent={overridden > 0 ? 'var(--accent)' : undefined} />
     </div>
   )
 }
@@ -85,12 +87,12 @@ function DashboardInner() {
 
   const { cases: dbCases, loading: casesLoading, refetch } = useCases()
   const { status, cases: uploadedCases, stats: uploadStats, agentStats, error: uploadError, upload, reset } = useUpload()
-  const [selectedId,   setSelectedId]   = useState(null)
-  const [demoCases,    setDemoCases]    = useState([])
-  const [demoLoading,  setDemoLoading]  = useState(false)
-  const [demoError,    setDemoError]    = useState(false)
-  const [clearing,     setClearing]     = useState(false)
-  const [showStrip,    setShowStrip]    = useState(false)
+  const [selectedId,  setSelectedId]  = useState(null)
+  const [demoCases,   setDemoCases]   = useState([])
+  const [demoLoading, setDemoLoading] = useState(false)
+  const [demoError,   setDemoError]   = useState(false)
+  const [clearing,    setClearing]    = useState(false)
+  const [showStrip,   setShowStrip]   = useState(false)
 
   async function clearQueue() {
     if (!confirm('Delete all cases in your queue? This cannot be undone.')) return
@@ -125,7 +127,7 @@ function DashboardInner() {
 
   if (authLoading && !isDemo) return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
         Loading…
       </span>
     </div>
@@ -147,63 +149,31 @@ function DashboardInner() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
-      <Navbar caseCount={displayCases.length > 0 ? displayCases.length : undefined} />
+    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
 
-      {/* Tech stack strip */}
-      <div style={{
-        background: 'var(--bg-raised)',
-        borderBottom: '1px solid var(--border)',
-        padding: '5px 2rem',
-        display: 'flex', alignItems: 'center', gap: '6px',
-        overflowX: 'auto',
-      }}>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em', whiteSpace: 'nowrap' }}>
-          Powered by
-        </span>
-        {[
-          'Google Cloud Agent Builder',
-          'Gemini 3.1 Flash Lite',
-          'MongoDB Atlas',
-          'MongoDB MCP Server',
-        ].map((tech, i, arr) => (
-          <span key={tech} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <span style={{
-              fontFamily: 'var(--font-mono)', fontSize: '9px',
-              color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.07em',
-              whiteSpace: 'nowrap',
-            }}>
-              {tech}
-            </span>
-            {i < arr.length - 1 && (
-              <span style={{ color: 'var(--border-mid)', fontSize: '9px' }}>·</span>
-            )}
-          </span>
-        ))}
-      </div>
-
-      {/* Demo banner */}
+      {/* Demo banner — subtle, no bright background */}
       {isDemo && !demoError && (
         <div style={{
-          background: 'var(--medium)', padding: '8px 2rem',
+          background: 'var(--bg-surface)',
+          borderBottom: '1px solid var(--border)',
+          padding: '9px 1.5rem',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: '1rem',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{
-              width: '7px', height: '7px', borderRadius: '50%',
-              background: '#000', opacity: 0.5, flexShrink: 0,
+              display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
+              background: 'var(--accent)', flexShrink: 0,
             }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#000', opacity: 0.8 }}>
-              Demo Mode — sample data only, no account required
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)' }}>
+              Demo mode — sample data only, no account required
             </span>
           </div>
           <a
             href="/register"
             style={{
-              fontFamily: 'var(--font-mono)', fontSize: '11px',
-              textTransform: 'uppercase', letterSpacing: '0.06em',
-              color: '#000', textDecoration: 'underline', whiteSpace: 'nowrap',
+              fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
+              color: 'var(--accent)', whiteSpace: 'nowrap',
             }}
           >
             Create free account →
@@ -214,33 +184,31 @@ function DashboardInner() {
       {/* Demo error banner */}
       {isDemo && demoError && (
         <div style={{
-          background: 'var(--urgent)', padding: '12px 2rem',
+          background: 'var(--bg-surface)',
+          borderBottom: '1px solid rgba(232,68,68,0.2)',
+          padding: '9px 1.5rem',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           gap: '1rem',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <span style={{
-              width: '7px', height: '7px', borderRadius: '50%',
-              background: '#fff', opacity: 0.8, flexShrink: 0,
+              display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%',
+              background: 'var(--urgent)', flexShrink: 0,
             }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#fff' }}>
-              Demo Unavailable — Try Signing In
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)' }}>
+              Demo unavailable — please try signing in
             </span>
           </div>
           <a
             href="/login"
-            style={{
-              fontFamily: 'var(--font-mono)', fontSize: '11px',
-              textTransform: 'uppercase', letterSpacing: '0.06em',
-              color: '#fff', textDecoration: 'underline', whiteSpace: 'nowrap',
-            }}
+            style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: 'var(--text-2)', whiteSpace: 'nowrap' }}
           >
             Sign in →
           </a>
         </div>
       )}
 
-      <main style={{ maxWidth: '1200px', margin: '0 auto', padding: '2rem 2rem 4rem' }}>
+      <main style={{ padding: '1.5rem 2rem 4rem' }}>
 
         {/* Agent summary strip — real upload */}
         {!isDemo && showStrip && agentStats && (
@@ -262,7 +230,7 @@ function DashboardInner() {
 
         {/* Upload zone — only for authenticated users */}
         {!isDemo && (
-          <div style={{ marginBottom: '2rem' }}>
+          <div style={{ marginBottom: '1.75rem' }}>
             <UploadZone status={status} onUpload={upload} error={uploadError} />
           </div>
         )}
@@ -275,36 +243,35 @@ function DashboardInner() {
         {/* Queue header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          padding: '12px 16px',
+          padding: '0 16px',
+          height: '40px',
           background: 'var(--bg-surface)',
           border: '1px solid var(--border)',
           borderTop: displayCases.length > 0 || loading ? 'none' : '1px solid var(--border)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h2 style={{
-              fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
+              fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600,
               color: 'var(--text)', letterSpacing: '-0.01em',
             }}>
               {queueHeading}
             </h2>
-            {status === 'processing' || status === 'uploading' ? (
+            {(status === 'processing' || status === 'uploading') && (
               <span style={{
-                fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--gold)',
-                textTransform: 'uppercase', letterSpacing: '0.05em',
+                fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--accent)',
                 animation: 'pulse 1.4s ease-in-out infinite',
               }}>
                 Analyzing…
               </span>
-            ) : null}
+            )}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {uploadedCases.length > 0 && !isDemo && (
               <button
                 onClick={reset}
                 style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '10px',
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                  color: 'var(--text-3)', padding: '4px 10px',
+                  fontFamily: 'var(--font-sans)', fontSize: '11px',
+                  color: 'var(--text-3)', padding: '3px 10px',
                   border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
                   transition: 'color 150ms, border-color 150ms', background: 'transparent', cursor: 'pointer',
                 }}
@@ -319,10 +286,9 @@ function DashboardInner() {
                 onClick={clearQueue}
                 disabled={clearing}
                 style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '10px',
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                  color: 'var(--urgent)', padding: '4px 10px',
-                  border: '1px solid var(--urgent)', borderRadius: 'var(--radius-sm)',
+                  fontFamily: 'var(--font-sans)', fontSize: '11px',
+                  color: 'var(--urgent)', padding: '3px 10px',
+                  border: '1px solid rgba(232,68,68,0.3)', borderRadius: 'var(--radius-sm)',
                   opacity: clearing ? 0.5 : 1, background: 'transparent', cursor: 'pointer',
                   transition: 'opacity 150ms',
                 }}
@@ -342,17 +308,17 @@ function DashboardInner() {
           background: 'var(--bg-surface)',
         }}>
           {loading && displayCases.length === 0 ? (
-            <div style={{ padding: '3rem 2rem' }}>
+            <div style={{ padding: '2rem 1.5rem' }}>
               {[0, 1, 2, 3].map((i) => (
-                <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '14px 0', borderBottom: i < 3 ? '1px solid var(--border)' : 'none' }}>
-                  <div className="skeleton" style={{ width: '24px', height: '12px', borderRadius: '3px' }} />
-                  <div className="skeleton" style={{ width: '46px', height: '24px', borderRadius: '4px' }} />
+                <div key={i} style={{ display: 'flex', gap: '16px', alignItems: 'center', padding: '10px 0', borderBottom: i < 3 ? '1px solid var(--border)' : 'none' }}>
+                  <div className="skeleton" style={{ width: '20px', height: '11px', borderRadius: '3px' }} />
+                  <div className="skeleton" style={{ width: '40px', height: '22px', borderRadius: '4px' }} />
                   <div style={{ flex: 1 }}>
-                    <div className="skeleton" style={{ width: '140px', height: '14px', borderRadius: '3px', marginBottom: '4px' }} />
-                    <div className="skeleton" style={{ width: '200px', height: '11px', borderRadius: '3px' }} />
+                    <div className="skeleton" style={{ width: '130px', height: '13px', borderRadius: '3px', marginBottom: '4px' }} />
+                    <div className="skeleton" style={{ width: '190px', height: '10px', borderRadius: '3px' }} />
                   </div>
-                  <div className="skeleton" style={{ width: '80px', height: '12px', borderRadius: '3px' }} />
-                  <div className="skeleton" style={{ width: '40px', height: '12px', borderRadius: '3px' }} />
+                  <div className="skeleton" style={{ width: '70px', height: '11px', borderRadius: '3px' }} />
+                  <div className="skeleton" style={{ width: '36px', height: '11px', borderRadius: '3px' }} />
                 </div>
               ))}
             </div>
@@ -377,10 +343,7 @@ function DashboardInner() {
 function DashboardFallback() {
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      <span style={{
-        fontFamily: 'var(--font-mono)', fontSize: '11px',
-        color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.08em',
-      }}>
+      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
         Loading…
       </span>
     </div>

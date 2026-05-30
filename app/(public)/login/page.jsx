@@ -6,20 +6,13 @@ import { signInWithEmailAndPassword, signInWithPopup, GoogleAuthProvider } from 
 import { getFirebaseAuth } from '../../../lib/firebase.js'
 import { useAuth } from '../../../context/AuthContext.jsx'
 
-const STATS = [
-  { n: '< 30s', label: 'Intake to ranked queue' },
-  { n: '100%', label: 'Transparent scoring' },
-  { n: '4+',   label: 'Legal case types' },
-  { n: 'Free', label: 'For legal aid clinics' },
-]
-
 export default function LoginPage() {
   const router = useRouter()
   const { user, loading } = useAuth()
-  const [email, setEmail] = useState('')
+  const [email,    setEmail]    = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [error,    setError]    = useState('')
+  const [busy,     setBusy]     = useState(false)
 
   useEffect(() => {
     if (!loading && user) {
@@ -49,7 +42,6 @@ export default function LoginPage() {
     try {
       const auth = getFirebaseAuth()
       const cred = await signInWithEmailAndPassword(auth, email, password)
-      // Record last login — fire and forget, do NOT await
       // Fire-and-forget profile upsert — do NOT await
       cred.user.getIdToken().then((token) =>
         fetch('/api/auth/register', {
@@ -58,7 +50,7 @@ export default function LoginPage() {
           body: JSON.stringify({ name: cred.user.displayName || email.split('@')[0], provider: 'email' }),
         })
       ).catch(() => {})
-      // Do NOT router.push here — onAuthStateChanged fires → useEffect below redirects
+      // Do NOT router.push here — onAuthStateChanged fires → useEffect above redirects
     } catch (err) {
       setError(authError(err.code))
       setBusy(false)
@@ -86,95 +78,94 @@ export default function LoginPage() {
   const inputStyle = {
     width: '100%', fontFamily: 'var(--font-sans)', fontSize: '13px',
     background: 'var(--bg-input)', border: '1px solid var(--border)',
-    borderRadius: '3px', padding: '11px 13px', color: 'var(--text)',
-    outline: 'none', marginBottom: '10px', transition: 'border-color 150ms',
-    boxSizing: 'border-box',
+    borderRadius: 'var(--radius-sm)', padding: '10px 12px', color: 'var(--text)',
+    outline: 'none', boxSizing: 'border-box', transition: 'border-color 150ms',
+    display: 'block',
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)' }}>
+    <div style={{
+      minHeight: '100vh', background: 'var(--bg)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: '2rem',
+    }}>
+      <div style={{ width: '100%', maxWidth: '380px' }}>
 
-      {/* Left panel */}
-      <div style={{
-        width: '42%', minWidth: '340px',
-        background: 'var(--bg-surface)',
-        borderRight: '1px solid var(--border)',
-        padding: '3rem',
-        display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '32px', height: '32px', background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontFamily: 'var(--font-serif)', fontSize: '17px', color: '#000' }}>⚖</span>
+        {/* Logo */}
+        <a href="/" style={{ display: 'inline-flex', alignItems: 'center', gap: '9px', marginBottom: '2.5rem', textDecoration: 'none' }}>
+          <div style={{
+            width: '28px', height: '28px', background: 'var(--accent)',
+            borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: '14px', color: '#fff' }}>⚖</span>
           </div>
-          <span style={{ fontFamily: 'var(--font-serif)', fontSize: '20px', color: 'var(--text)' }}>JusticeQueue</span>
-        </div>
+          <span style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', fontWeight: 600, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+            JusticeQueue
+          </span>
+        </a>
 
-        <div>
-          <p style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', fontSize: '20px', color: 'var(--text)', lineHeight: 1.65, marginBottom: '1rem' }}>
-            &ldquo;The difference between seeing a client on Monday and seeing them on Friday is often the difference between keeping their home and losing it.&rdquo;
-          </p>
-          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-            — Legal Aid Director
-          </p>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-          {STATS.map(({ n, label }) => (
-            <div key={label} style={{ padding: '1rem', background: 'var(--bg-raised)', border: '1px solid var(--border)' }}>
-              <div style={{ fontFamily: 'var(--font-serif)', fontSize: '28px', color: 'var(--gold)', lineHeight: 1, marginBottom: '4px' }}>{n}</div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.06em', lineHeight: 1.4 }}>{label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Right panel */}
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '3rem 2rem' }}>
-        <div style={{ width: '100%', maxWidth: '380px' }}>
-          <h1 style={{ fontFamily: 'var(--font-serif)', fontSize: '32px', color: 'var(--text)', marginBottom: '6px', lineHeight: 1.2 }}>
+        {/* Card */}
+        <div style={{
+          background: 'var(--bg-surface)', border: '1px solid var(--border)',
+          borderRadius: '8px', padding: '2rem',
+        }}>
+          <h1 style={{
+            fontFamily: 'var(--font-sans)', fontSize: '22px', fontWeight: 700,
+            color: 'var(--text)', marginBottom: '6px', letterSpacing: '-0.03em',
+          }}>
             Welcome back
           </h1>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)', marginBottom: '2rem' }}>
-            Sign in to access your clinic&apos;s triage queue
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-3)', marginBottom: '1.75rem' }}>
+            Sign in to your clinic&apos;s triage queue
           </p>
 
-          <form onSubmit={handleEmail}>
-            <input
-              type="email" placeholder="Email address" required
-              value={email} onChange={(e) => setEmail(e.target.value)}
-              style={inputStyle}
-              onFocus={(e) => e.currentTarget.style.borderColor = 'var(--border-strong)'}
-              onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-            />
-            <input
-              type="password" placeholder="Password" required
-              value={password} onChange={(e) => setPassword(e.target.value)}
-              style={{ ...inputStyle, marginBottom: '14px' }}
-              onFocus={(e) => e.currentTarget.style.borderColor = 'var(--border-strong)'}
-              onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-            />
+          <form onSubmit={handleEmail} noValidate>
+            <div style={{ marginBottom: '10px' }}>
+              <input
+                type="email" placeholder="Email address" required
+                value={email} onChange={(e) => setEmail(e.target.value)}
+                style={inputStyle}
+                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--border-strong)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+              />
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <input
+                type="password" placeholder="Password" required
+                value={password} onChange={(e) => setPassword(e.target.value)}
+                style={inputStyle}
+                onFocus={(e) => e.currentTarget.style.borderColor = 'var(--border-strong)'}
+                onBlur={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
+              />
+            </div>
+
             {error && (
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--urgent)', marginBottom: '12px' }}>
-                {error}
-              </p>
+              <div style={{
+                background: 'rgba(232,68,68,0.08)', border: '1px solid rgba(232,68,68,0.25)',
+                borderRadius: 'var(--radius-sm)', padding: '9px 12px', marginBottom: '14px',
+              }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--urgent)' }}>{error}</p>
+              </div>
             )}
+
             <button
               type="submit" disabled={busy}
               style={{
-                width: '100%', fontFamily: 'var(--font-mono)', fontSize: '12px',
-                textTransform: 'uppercase', letterSpacing: '0.07em',
-                background: 'var(--gold)', color: '#000', border: 'none',
-                borderRadius: '3px', padding: '12px', cursor: 'pointer',
-                fontWeight: 700, opacity: busy ? 0.6 : 1,
+                width: '100%', fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600,
+                background: 'var(--accent)', color: '#fff',
+                border: 'none', borderRadius: 'var(--radius-sm)', padding: '11px',
+                cursor: busy ? 'not-allowed' : 'pointer',
+                opacity: busy ? 0.65 : 1, transition: 'opacity 150ms',
+                letterSpacing: '-0.01em',
               }}
             >
-              {busy ? 'Signing in…' : 'Sign In'}
+              {busy ? 'Signing in…' : 'Sign in'}
             </button>
           </form>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', margin: '1.25rem 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', margin: '1.25rem 0' }}>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', letterSpacing: '0.06em' }}>OR</span>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>or</span>
             <div style={{ flex: 1, height: '1px', background: 'var(--border)' }} />
           </div>
 
@@ -183,10 +174,11 @@ export default function LoginPage() {
             style={{
               width: '100%', fontFamily: 'var(--font-sans)', fontSize: '13px',
               background: 'var(--bg-raised)', color: 'var(--text)',
-              border: '1px solid var(--border)', borderRadius: '3px',
-              padding: '11px', cursor: 'pointer', fontWeight: 500,
-              opacity: busy ? 0.6 : 1,
+              border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)',
+              padding: '10px', cursor: 'pointer', fontWeight: 500,
+              opacity: busy ? 0.65 : 1,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              transition: 'border-color 150ms',
             }}
             onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--border-mid)'}
             onMouseLeave={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
@@ -202,13 +194,11 @@ export default function LoginPage() {
 
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginTop: '1.5rem', textAlign: 'center' }}>
             Don&apos;t have an account?{' '}
-            <a href="/register" style={{ color: 'var(--gold)', fontWeight: 500 }}>Create one</a>
+            <a href="/register" style={{ color: 'var(--accent)', fontWeight: 500 }}>Create one</a>
           </p>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginTop: '0.5rem', textAlign: 'center' }}>
             Need help?{' '}
-            <a href="mailto:admin@justicequeue.org" style={{ color: 'var(--text-2)' }}>
-              Contact your clinic admin
-            </a>
+            <a href="mailto:admin@justicequeue.org" style={{ color: 'var(--text-2)' }}>Contact your clinic admin</a>
           </p>
         </div>
       </div>
