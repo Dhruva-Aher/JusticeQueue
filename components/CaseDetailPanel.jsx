@@ -12,6 +12,21 @@ function scoreColor(s) {
   return '#22c97a'
 }
 
+function deriveExplainerBullets(c) {
+  const bullets = []
+  if (c.deadline_days != null) {
+    if (c.deadline_days <= 1)      bullets.push({ text: 'Hearing or deadline is tomorrow — immediate action required', color: '#DC2626' })
+    else if (c.deadline_days <= 3) bullets.push({ text: `Deadline in ${c.deadline_days} days — critical window`, color: '#DC2626' })
+    else if (c.deadline_days <= 7) bullets.push({ text: `Filing deadline within ${c.deadline_days} days`, color: '#C2710C' })
+  }
+  if (c.vulnerability_flags?.minor_children)  bullets.push({ text: 'Minor children present — elevated risk classification', color: '#C2710C' })
+  if (c.vulnerability_flags?.medical_condition) bullets.push({ text: 'Medical condition documented — priority escalated', color: '#C2710C' })
+  if (c.vulnerability_flags?.language_barrier)  bullets.push({ text: 'Language barrier identified — interpreter required', color: null })
+  if (c.missing_info?.length > 0) bullets.push({ text: `${c.missing_info.length} required document${c.missing_info.length > 1 ? 's' : ''} missing before case can advance`, color: '#C2710C' })
+  if (c.similar_cases?.length > 0) bullets.push({ text: `${c.similar_cases.length} similar historical cases matched via vector search`, color: null })
+  return bullets
+}
+
 function statusVariant(s) {
   if (s === 'overridden') return 'gold'
   if (s === 'reviewed')   return 'clear'
@@ -495,6 +510,38 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
             )}
 
             <Divider />
+
+            {/* Score explainability — "Why this score?" */}
+            {(() => {
+              const bullets = deriveExplainerBullets(caseData)
+              if (bullets.length === 0) return null
+              return (
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <p style={{
+                    fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600,
+                    color: 'var(--text-3)', marginBottom: '8px',
+                  }}>
+                    Why this score?
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                    {bullets.map((b, i) => (
+                      <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                        <span style={{
+                          color: b.color || 'var(--text-3)',
+                          fontSize: '8px', lineHeight: '20px', flexShrink: 0,
+                        }}>●</span>
+                        <span style={{
+                          fontFamily: 'var(--font-sans)', fontSize: '12px',
+                          color: b.color || 'var(--text-2)', lineHeight: 1.55,
+                        }}>
+                          {b.text}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Score breakdown */}
             <UrgencyBreakdown breakdown={caseData.score_breakdown} />
