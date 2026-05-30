@@ -17,10 +17,17 @@ const SCORE_STEPS = [
 ]
 
 const WORKFLOW = [
-  { n: '01', label: 'Intake',  desc: 'Upload batch CSV, PDF, or plain-text intake files. Every record is parsed and structured automatically.' },
-  { n: '02', label: 'Triage',  desc: 'Each case is scored across four weighted dimensions. Urgency, vulnerability, severity, and precedent — combined into a single priority rank.' },
-  { n: '03', label: 'Review',  desc: 'Attorneys review the ranked queue and drill into any case. Override a score with a documented reason. Every decision is logged.' },
-  { n: '04', label: 'Act',     desc: 'Send outreach emails, block calendar time, and generate one-page attorney briefs — all from the queue, without leaving the platform.' },
+  { n: '01', label: 'Retrieve',     desc: 'The agent connects to MongoDB Atlas and retrieves all active cases — hundreds of intake records, structured and ready for analysis.' },
+  { n: '02', label: 'Analyze',      desc: 'Deadline urgency is computed across every case. Critical matters (≤3 days) and urgent matters (≤7 days) are isolated automatically.' },
+  { n: '03', label: 'Research',     desc: 'A vector similarity search identifies precedent patterns. The CourtListener API pulls relevant judicial opinions in real time.' },
+  { n: '04', label: 'Recommend',    desc: 'Gemini Pro synthesizes case data and precedents into specific, actionable attorney instructions — one per client, ready for tomorrow.' },
+]
+
+const AGENT_TOOLS = [
+  { label: 'Gemini Pro',        color: '#4338CA', desc: 'Reasoning & recommendations' },
+  { label: 'MongoDB Atlas',     color: '#16A34A', desc: 'Case storage & vector search' },
+  { label: 'CourtListener',     color: '#2563EB', desc: 'Judicial precedent retrieval' },
+  { label: 'Reasoning Engine',  color: '#78716C', desc: 'Urgency & gap analysis' },
 ]
 
 function ScoreDot({ score }) {
@@ -163,7 +170,7 @@ export default function HomePage() {
             color: 'var(--accent)', letterSpacing: '0.04em',
             marginBottom: '1.25rem',
           }}>
-            Legal Aid Triage Platform
+            Autonomous Legal Operations Agent
           </p>
           <h1 style={{
             fontFamily: 'var(--font-sans)',
@@ -174,18 +181,36 @@ export default function HomePage() {
             letterSpacing: '-0.03em',
             marginBottom: '1.5rem',
           }}>
-            Every critical case,
-            <br />ranked automatically.
+            The docket prepares
+            <br />itself.
           </h1>
           <p style={{
             fontFamily: 'var(--font-sans)', fontSize: '17px',
             color: 'var(--text-2)', lineHeight: 1.65,
-            marginBottom: '2.5rem',
+            marginBottom: '2rem',
             maxWidth: '440px',
           }}>
-            JusticeQueue scores every intake across urgency, vulnerability, case severity,
-            and legal deadline — so your team sees the highest-risk cases first, every morning.
+            One click triggers an 8-step autonomous agent: it retrieves your cases, analyzes deadlines,
+            searches judicial precedents, and delivers a ranked docket with attorney recommendations —
+            in under 60 seconds.
           </p>
+          {/* Tool badges */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
+            {AGENT_TOOLS.map(({ label, color }) => (
+              <span key={label} style={{
+                fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500,
+                padding: '4px 10px',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '4px',
+                color: 'var(--text-2)',
+                display: 'inline-flex', alignItems: 'center', gap: '5px',
+              }}>
+                <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+                {label}
+              </span>
+            ))}
+          </div>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             <a href="/register" style={{
               fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600,
@@ -215,7 +240,7 @@ export default function HomePage() {
             </a>
           </div>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginTop: '1.25rem' }}>
-            No configuration required. Upload an intake file — scored in under 60 seconds.
+            No configuration required. Upload an intake file and run the agent — docket ready in under 60 seconds.
           </p>
         </div>
 
@@ -237,10 +262,10 @@ export default function HomePage() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)' }}>
-                Case Queue
+                Docket Preview
               </span>
               <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
-                5 cases · Today
+                5 cases · Agent scored
               </span>
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
@@ -306,10 +331,10 @@ export default function HomePage() {
           gap: '0',
         }}>
           {[
-            { n: '< 60s',  label: 'Intake processing time' },
-            { n: '4',      label: 'Scoring dimensions' },
-            { n: '100',    label: 'Point priority scale' },
-            { n: '100%',   label: 'Override auditability' },
+            { n: '8',      label: 'Autonomous agent steps' },
+            { n: '< 60s',  label: 'Full docket preparation' },
+            { n: '3',      label: 'Live APIs integrated' },
+            { n: '100%',   label: 'Auditable decisions' },
           ].map(({ n, label }, i) => (
             <div key={label} style={{
               padding: '2.5rem 2rem',
@@ -338,10 +363,10 @@ export default function HomePage() {
             fontWeight: 700, color: 'var(--text)',
             letterSpacing: '-0.025em', marginBottom: '12px',
           }}>
-            How it works
+            The agent workflow
           </h2>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', color: 'var(--text-2)', maxWidth: '520px', lineHeight: 1.6 }}>
-            From a raw intake file to a fully ranked, annotated queue — in under a minute.
+            One button triggers eight sequential steps. Every action is recorded, every tool call visible, every decision auditable.
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2rem' }}>
@@ -456,7 +481,7 @@ export default function HomePage() {
             fontFamily: 'var(--font-sans)', fontSize: '17px', color: 'var(--text-2)',
             marginBottom: '2.5rem', lineHeight: 1.6,
           }}>
-            Set up your clinic&apos;s queue in minutes.
+            An autonomous agent prepares tomorrow&apos;s docket so your team starts every morning with a clear plan.
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
             <a href="/register" style={{
@@ -508,7 +533,8 @@ export default function HomePage() {
           </div>
           <nav style={{ display: 'flex', gap: '1.5rem' }}>
             {[
-              { label: 'Dashboard', href: '/dashboard?demo=true' },
+              { label: 'Operations Center', href: '/dashboard?demo=true' },
+              { label: 'Agent Activity', href: '/agent' },
               { label: 'Sign in', href: '/login' },
               { label: 'Register', href: '/register' },
             ].map(({ label, href }) => (

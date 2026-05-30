@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 import { Suspense } from 'react'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '../../../context/AuthContext.jsx'
 import { useCases } from '../../../hooks/useCases.js'
@@ -12,6 +12,18 @@ import UploadZone from '../../../components/UploadZone.jsx'
 import CaseTable from '../../../components/CaseTable.jsx'
 import CaseDetailPanel from '../../../components/CaseDetailPanel.jsx'
 import AgentSummaryStrip from '../../../components/AgentSummaryStrip.jsx'
+
+const DOCKET_STEPS = [
+  'Connecting to case database…',
+  'Retrieving active cases…',
+  'Analyzing deadline urgency…',
+  'Detecting documentation gaps…',
+  'Running vector similarity search…',
+  'Querying CourtListener API for precedents…',
+  'Generating AI-powered recommendations…',
+  'Compiling executive docket report…',
+  'Persisting execution trace…',
+]
 
 function StatCard({ label, value, sub, accent, loading }) {
   return (
@@ -83,13 +95,43 @@ function DashboardInner() {
 
   const { cases: dbCases, loading: casesLoading, refetch } = useCases()
   const { status, cases: uploadedCases, stats: uploadStats, agentStats, error: uploadError, upload, reset } = useUpload()
-  const [selectedId,   setSelectedId]   = useState(null)
-  const [demoCases,    setDemoCases]    = useState([])
-  const [demoLoading,  setDemoLoading]  = useState(false)
-  const [demoError,    setDemoError]    = useState(false)
-  const [clearing,     setClearing]     = useState(false)
-  const [showStrip,    setShowStrip]    = useState(false)
-  const [showUpload,   setShowUpload]   = useState(false)
+  const [selectedId,     setSelectedId]     = useState(null)
+  const [demoCases,      setDemoCases]      = useState([])
+  const [demoLoading,    setDemoLoading]    = useState(false)
+  const [demoError,      setDemoError]      = useState(false)
+  const [clearing,       setClearing]       = useState(false)
+  const [showStrip,      setShowStrip]      = useState(false)
+  const [showUpload,     setShowUpload]     = useState(false)
+  const [runningDocket,  setRunningDocket]  = useState(false)
+  const [docketStep,     setDocketStep]     = useState(0)
+  const docketIntervalRef = useRef(null)
+
+  async function prepareDocket() {
+    setRunningDocket(true)
+    setDocketStep(0)
+    docketIntervalRef.current = setInterval(() => {
+      setDocketStep((s) => Math.min(s + 1, DOCKET_STEPS.length - 1))
+    }, 2800)
+    try {
+      const auth  = getFirebaseAuth()
+      const token = await auth?.currentUser?.getIdToken()
+      const res   = await fetch('/api/agent/docket', {
+        method:  'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      })
+      const data = await res.json()
+      if (res.ok && data.run_id) {
+        router.push(`/agent?run=${data.run_id}`)
+      } else {
+        alert('Agent run failed — please try again.')
+      }
+    } catch {
+      alert('Agent run failed — please try again.')
+    } finally {
+      clearInterval(docketIntervalRef.current)
+      setRunningDocket(false)
+    }
+  }
 
   async function clearQueue() {
     if (!confirm('Delete all cases in your queue? This cannot be undone.')) return
@@ -150,6 +192,62 @@ function DashboardInner() {
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
 
+      {/* Docket preparation overlay */}
+      {runningDocket && (
+        <div style={{
+          position: 'fixed', inset: 0, zIndex: 100,
+          background: 'rgba(247,246,243,0.92)',
+          backdropFilter: 'blur(16px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexDirection: 'column', gap: '24px',
+        }}>
+          {/* Spinner */}
+          <div style={{
+            width: '52px', height: '52px', borderRadius: '50%',
+            border: '2px solid var(--border)',
+            borderTop: '2px solid var(--accent)',
+            animation: 'spin 0.9s linear infinite',
+          }} />
+          <div style={{ textAlign: 'center' }}>
+            <div style={{
+              fontFamily: 'var(--font-sans)', fontSize: '15px', fontWeight: 600,
+              color: 'var(--text)', letterSpacing: '-0.015em', marginBottom: '8px',
+            }}>
+              Preparing Tomorrow&apos;s Docket
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-3)',
+              minHeight: '20px',
+            }}>
+              {DOCKET_STEPS[docketStep]}
+            </div>
+          </div>
+          {/* Step progress dots */}
+          <div style={{ display: 'flex', gap: '6px' }}>
+            {DOCKET_STEPS.map((_, i) => (
+              <span key={i} style={{
+                width: '6px', height: '6px', borderRadius: '50%',
+                background: i <= docketStep ? 'var(--accent)' : 'var(--border-mid)',
+                transition: 'background 300ms',
+              }} />
+            ))}
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)',
+            display: 'flex', alignItems: 'center', gap: '12px',
+          }}>
+            {['Gemini Pro', 'MongoDB Atlas', 'CourtListener API'].map((t) => (
+              <span key={t} style={{
+                padding: '3px 8px',
+                background: 'var(--bg-surface)',
+                border: '1px solid var(--border)',
+                borderRadius: '4px',
+              }}>{t}</span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Demo banner */}
       {isDemo && !demoError && (
         <div style={{
@@ -203,7 +301,7 @@ function DashboardInner() {
             fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600,
             color: 'var(--text)', letterSpacing: '-0.015em',
           }}>
-            {isDemo ? 'Demo Queue' : 'Case Queue'}
+            {isDemo ? 'Operations Center · Demo' : 'Operations Center'}
           </h1>
           {(status === 'processing' || status === 'uploading') && (
             <span style={{
@@ -214,37 +312,37 @@ function DashboardInner() {
             </span>
           )}
         </div>
-        {!isDemo && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {uploadedCases.length > 0 && (
-              <button
-                onClick={reset}
-                style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
-                  padding: '5px 12px', border: '1px solid var(--border)',
-                  borderRadius: 'var(--radius-sm)', background: 'transparent',
-                  transition: 'color 150ms, border-color 150ms',
-                }}
-                onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border-mid)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'var(--border)' }}
-              >
-                Clear upload
-              </button>
-            )}
-            {displayCases.length > 0 && (
-              <button
-                onClick={clearQueue}
-                disabled={clearing}
-                style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--urgent)',
-                  padding: '5px 12px', border: '1px solid rgba(220,38,38,0.25)',
-                  borderRadius: 'var(--radius-sm)', background: 'transparent',
-                  opacity: clearing ? 0.5 : 1, transition: 'opacity 150ms',
-                }}
-              >
-                {clearing ? 'Clearing…' : 'Clear Queue'}
-              </button>
-            )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {!isDemo && uploadedCases.length > 0 && (
+            <button
+              onClick={reset}
+              style={{
+                fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
+                padding: '5px 12px', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius-sm)', background: 'transparent',
+                transition: 'color 150ms, border-color 150ms', cursor: 'pointer',
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--text-2)'; e.currentTarget.style.borderColor = 'var(--border-mid)' }}
+              onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--text-3)'; e.currentTarget.style.borderColor = 'var(--border)' }}
+            >
+              Clear upload
+            </button>
+          )}
+          {!isDemo && displayCases.length > 0 && (
+            <button
+              onClick={clearQueue}
+              disabled={clearing}
+              style={{
+                fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--urgent)',
+                padding: '5px 12px', border: '1px solid rgba(220,38,38,0.25)',
+                borderRadius: 'var(--radius-sm)', background: 'transparent',
+                opacity: clearing ? 0.5 : 1, transition: 'opacity 150ms', cursor: 'pointer',
+              }}
+            >
+              {clearing ? 'Clearing…' : 'Clear Queue'}
+            </button>
+          )}
+          {!isDemo && (
             <button
               onClick={() => setShowUpload((v) => !v)}
               disabled={status === 'uploading' || status === 'processing'}
@@ -255,7 +353,7 @@ function DashboardInner() {
                 background: showUpload ? 'var(--bg-raised)' : 'transparent',
                 border: '1px solid var(--border-mid)',
                 borderRadius: 'var(--radius-sm)',
-                transition: 'all 150ms',
+                transition: 'all 150ms', cursor: 'pointer',
                 opacity: (status === 'uploading' || status === 'processing') ? 0.5 : 1,
               }}
               onMouseEnter={(e) => { if (!showUpload) { e.currentTarget.style.color = 'var(--text)'; e.currentTarget.style.borderColor = 'var(--border-strong)' } }}
@@ -263,8 +361,40 @@ function DashboardInner() {
             >
               {status === 'uploading' || status === 'processing' ? 'Processing…' : 'Import Cases'}
             </button>
-          </div>
-        )}
+          )}
+          {!isDemo && (
+            <button
+              onClick={prepareDocket}
+              disabled={runningDocket}
+              style={{
+                fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600,
+                color: '#FFFFFF',
+                background: runningDocket ? 'var(--accent-dim)' : 'var(--accent)',
+                padding: '5px 16px',
+                border: 'none',
+                borderRadius: 'var(--radius-sm)',
+                transition: 'opacity 150ms', cursor: runningDocket ? 'wait' : 'pointer',
+                opacity: runningDocket ? 0.7 : 1,
+                display: 'flex', alignItems: 'center', gap: '6px',
+              }}
+              onMouseEnter={(e) => { if (!runningDocket) e.currentTarget.style.opacity = '0.88' }}
+              onMouseLeave={(e) => { if (!runningDocket) e.currentTarget.style.opacity = '1' }}
+            >
+              {runningDocket ? (
+                <>
+                  <span style={{
+                    width: '10px', height: '10px', borderRadius: '50%',
+                    border: '1.5px solid rgba(255,255,255,0.3)',
+                    borderTop: '1.5px solid #FFF',
+                    animation: 'spin 0.8s linear infinite',
+                    flexShrink: 0,
+                  }} />
+                  Running…
+                </>
+              ) : 'Prepare Tomorrow\'s Docket'}
+            </button>
+          )}
+        </div>
       </div>
 
       <main style={{ padding: '1.5rem 2rem 4rem' }}>

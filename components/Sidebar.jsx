@@ -9,6 +9,7 @@ function initials(name) {
 
 const NAV = [
   { label: 'Priority Queue', href: '/dashboard' },
+  { label: 'Agent Activity',  href: '/agent' },
 ]
 
 export default function Sidebar() {
