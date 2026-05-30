@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import UrgencyBreakdown from './UrgencyBreakdown.jsx'
 import SimilarCases from './SimilarCases.jsx'
 import StatusBadge from './StatusBadge.jsx'

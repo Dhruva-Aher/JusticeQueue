@@ -219,7 +219,7 @@ export async function POST(request) {
     .sort((a, b) => (b.priority_score ?? 0) - (a.priority_score ?? 0))
     .slice(0, 3)
 
-  await Promise.allSettled(sortedForCal.map(async (doc, i) => {
+  await Promise.allSettled(sortedForCal.map(async (doc) => {
     const caseData = {
       _id:               doc._id,
       case_type:         doc.case_type,
