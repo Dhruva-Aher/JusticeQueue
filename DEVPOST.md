@@ -6,32 +6,29 @@ before it is too late.
 
 ## What it does
 
-Every year, thousands of families lose their homes not because
-no legal help existed — but because the right case never reached
-the right lawyer in time.
+Upload a batch of intake submissions and the agent does four
+things in under 30 seconds:
 
-Legal aid clinics receive dozens of intake requests every week
-and have capacity for a fraction. Right now, a caseworker reads
-every submission manually. It takes hours. The family with a
-72-hour eviction notice gets the same priority as someone with
-a 6-month timeline. People lose their homes not because no lawyer
-was available — but because no system surfaced the right case
-at the right time.
+It scores every case 0-100 across four dimensions — deadline
+proximity, vulnerability factors, case type weight, and
+similarity to previously won cases using MongoDB Atlas Vector
+Search.
 
-JusticeQueue is the agent that closes that gap.
+It drafts a personalised outreach email to every client using
+Gemini 3.1 Pro — acknowledging their specific situation, stating
+their priority status, and requesting any missing documents.
 
-Upload a batch of intake submissions — CSV, PDF, or plain text.
-In under 30 seconds the agent reads every submission, extracts
-key facts using Gemini 3.1 Flash Lite, searches the clinic's
-entire case history for similar situations using MongoDB Atlas
-Vector Search, scores each case 0-100 using a transparent
-four-dimension algorithm, and returns a prioritized action list
-with full explanations. Every score is broken down into its
-components. Every recommendation references the past case it is
-grounded in. Staff override anything — every override is logged
-and informs future scoring.
+For the three most urgent cases, it creates Google Calendar
+events on the caseworker's calendar with the full case details
+pre-filled.
 
-The agent does not make decisions. It makes decisions defensible.
+For every case above priority score 80, it generates a
+downloadable 1-page case brief with client situation, legal
+context, precedent from similar past cases, and recommended
+first steps — ready to hand to an attorney.
+
+The caseworker's job becomes review-and-approve. The agent does
+the work.
 
 ## The problem nobody named
 

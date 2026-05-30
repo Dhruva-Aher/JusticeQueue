@@ -25,6 +25,19 @@ Built for the **Google Cloud Rapid Agent Hackathon 2026 — MongoDB track**.
 
 ---
 
+## What the Agent Does
+
+JusticeQueue is not a chatbot. It is an agent that takes action.
+
+After every intake batch:
+
+- **Scores all cases** using a transparent 4-dimension algorithm
+- **Drafts personalised outreach emails** for every client using Gemini 3.1 Pro
+- **Creates Google Calendar blocks** for the top 3 cases
+- **Generates printable case briefs** for high-priority cases (score ≥ 80)
+
+Every action is explained, logged, and reversible. Staff review and approve — the agent never acts without oversight.
+
 ## How It Works
 
 ```
@@ -33,28 +46,37 @@ Intake file (CSV / TXT / PDF)
         ▼
   POST /api/intake/upload
         │
-        ├─ 1. parseFile()          — extract raw text per case
+        ├─ 1. parseFile()              — extract raw text per case
         │
-        ├─ 2. extractCaseFacts()   — Gemini 3.1 Flash Lite
+        ├─ 2. extractCaseFacts()       — Gemini 3.1 Flash Lite
         │      ├─ client_name, case_type, summary
         │      ├─ deadline_days, vulnerability_flags
         │      └─ missing_info[]
         │
-        ├─ 3. findSimilarCases()   — MongoDB MCP Server → Atlas $vectorSearch
+        ├─ 3. findSimilarCases()       — MongoDB MCP Server → Atlas $vectorSearch
         │      ├─ Voyage AI embeds the case summary (1024-dim)
         │      ├─ MCP Server runs aggregation pipeline via stdio
         │      └─ Falls back to direct Mongoose if MCP unavailable
         │
-        ├─ 4. computeScore()       — deterministic urgency scoring
-        │      ├─ deadline:       0–40 pts (exponential decay)
-        │      ├─ vulnerability:  0–20 pts (minor children, medical, language)
+        ├─ 4. computeScore()           — deterministic urgency scoring
+        │      ├─ deadline:       0–40 pts
+        │      ├─ vulnerability:  0–25 pts (minor children, medical, language)
         │      ├─ case_type:      0–20 pts (immigration > eviction > custody…)
-        │      └─ precedent:      0–20 pts (similar past cases, outcome weight)
+        │      └─ precedent:      0–15 pts (similar past cases, outcome weight)
         │
-        ├─ 5. writeRecommendation()  — Gemini 3.1 Pro (score ≥ 80 only)
+        ├─ 5. writeRecommendation()    — Gemini 3.1 Pro (score ≥ 80 only)
         │      └─ 2-sentence attorney action recommendation
         │
-        └─ 6. Case.insertMany()    — persist to MongoDB Atlas
+        ├─ 6. generateOutreachEmail()  — Gemini 3.1 Pro (every case)
+        │      └─ personalised client email, staged for caseworker review
+        │
+        ├─ 7. createCalendarEvent()    — Google Calendar API (top 3 cases)
+        │      └─ 9am tomorrow, full case details pre-filled
+        │
+        ├─ 8. generateBriefContent()   — Gemini 3.1 Pro (score ≥ 80 only)
+        │      └─ 1-page attorney brief: situation, context, precedent, steps
+        │
+        └─ 9. Case.insertMany()        — persist to MongoDB Atlas
                └─ smart dedup: skip processed, retry SAFE_DEFAULT, add new
 ```
 
