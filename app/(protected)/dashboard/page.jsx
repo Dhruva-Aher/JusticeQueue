@@ -21,7 +21,7 @@ const DOCKET_STEPS = [
   { label: 'Gemini Flash selecting execution strategy…',   sub: 'Evaluating docket profile → choosing plan — Step 4' },
   { label: 'Running Atlas $vectorSearch…',                 sub: 'Matching against historical case outcomes — Step 5' },
   { label: 'Querying CourtListener API…',                  sub: 'Fetching relevant legal precedents (conditional) — Step 6' },
-  { label: 'Gemini Pro generating recommendations…',       sub: 'Building attorney action plan — Step 7' },
+  { label: 'Gemini Flash generating recommendations…',     sub: 'Building attorney action plan — Step 7' },
   { label: 'Compiling executive docket report…',           sub: 'Drafting tomorrow\'s operational brief — Step 8' },
   { label: 'Persisting complete trace to MongoDB Atlas…',  sub: 'Saving execution trace, decisions, vector results — Step 9' },
 ]
@@ -579,7 +579,7 @@ function DashboardInner() {
                 { label: 'Model Decision', sub: 'Gemini Flash selects strategy' },
                 { label: '$vectorSearch', sub: 'Atlas historical retrieval' },
                 { label: 'Precedents', sub: 'CourtListener (conditional)' },
-                { label: 'Recommendations', sub: 'Gemini Pro' },
+                { label: 'Recommendations', sub: 'Gemini Flash' },
                 { label: 'Brief', sub: 'Printable PDF' },
               ].map((s, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>

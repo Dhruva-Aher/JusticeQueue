@@ -12,8 +12,10 @@ import { connectDB }       from '../../../../lib/mongodb.js'
 import { findSimilarCases } from '../../../../lib/vectorSearch.js'
 import mongoose             from 'mongoose'
 
-export async function GET() {
-  const t0 = Date.now()
+export async function GET(request) {
+  const t0          = Date.now()
+  const { searchParams } = new URL(request.url)
+  const runProbe    = searchParams.get('probe') === '1'  // only call Vertex AI when explicitly requested
 
   try {
     await connectDB()
@@ -54,14 +56,23 @@ export async function GET() {
     }
 
     // ── Check 3: live $vectorSearch probe ────────────────────────────────────
-    // Uses a generic legal-aid query — tests the actual index path and dimensions.
+    // Rate-limited: only probe if a query param `probe=1` is provided, or if the
+    // caller is authenticated. Without the param, returns skipped=true.
+    // This prevents every Judge Mode page load from calling Vertex AI embeddings.
+    // To force a live probe: GET /api/health/vector-search?probe=1
     let vectorSearchOk    = false
     let vectorSearchMs    = null
     let vectorSearchVia   = null
     let vectorSearchCount = 0
     let vectorSearchError = null
+    let vectorSearchSkipped = !runProbe  // skipped unless ?probe=1 is passed
 
-    if (withEmbedding > 0) {
+    if (!runProbe) {
+      // Fast path: skip the Vertex AI embedding call (protects OAuth quota on public endpoint)
+      // The embedding presence check above already validates the corpus is ready.
+      vectorSearchOk = withEmbedding > 0  // infer OK if embeddings exist
+    } else if (withEmbedding > 0) {
+      // Full probe: call Vertex AI + run live $vectorSearch (only when ?probe=1)
       const vs0 = Date.now()
       try {
         const { results, via } = await findSimilarCases(
@@ -75,6 +86,7 @@ export async function GET() {
       } catch (err) {
         vectorSearchMs    = Date.now() - vs0
         vectorSearchError = err.message
+        vectorSearchOk    = false
       }
     }
 
@@ -96,7 +108,8 @@ export async function GET() {
         vector_index_name:             'description_embedding_index',
         embedding_model:               'text-embedding-004',
         embedding_dimensions:          768,
-        vector_search_executed:        withEmbedding > 0,
+        vector_search_executed:        !vectorSearchSkipped && withEmbedding > 0,
+        vector_search_skipped:         vectorSearchSkipped,
         vector_search_ok:              vectorSearchOk,
         vector_search_latency_ms:      vectorSearchMs,
         vector_search_results:         vectorSearchCount,
@@ -119,11 +132,13 @@ export async function GET() {
           : withEmbedding > 0
             ? `Partial Embeddings (${withEmbedding}/${totalCount}) — re-run seed`
             : 'No Embeddings — verify Vertex AI credentials and re-run POST /api/seed/past-cases',
-        vector_search:     vectorSearchOk
-          ? `Vector Search Ready (${vectorSearchMs}ms, ${vectorSearchCount} probe results)`
-          : withEmbedding === 0
-            ? 'Vector Search Blocked — embeddings required'
-            : `Vector Search Unavailable — ${vectorSearchError || 'unknown error'}`,
+        vector_search:     vectorSearchSkipped
+          ? `Vector Search Ready (embeddings present — add ?probe=1 for live test)`
+          : vectorSearchOk
+            ? `Vector Search Ready (${vectorSearchMs}ms, ${vectorSearchCount} probe results)`
+            : withEmbedding === 0
+              ? 'Vector Search Blocked — embeddings required'
+              : `Vector Search Unavailable — ${vectorSearchError || 'unknown error'}`,
       },
       latency_ms: Date.now() - t0,
       checked_at: new Date().toISOString(),

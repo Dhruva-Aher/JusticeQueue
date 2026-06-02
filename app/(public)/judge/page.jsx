@@ -335,7 +335,7 @@ export default function JudgePage() {
             color: 'var(--text-2)', lineHeight: 1.7,
             maxWidth: '520px', marginBottom: '1.5rem',
           }}>
-            A 9-step agentic workflow that prepares tomorrow&apos;s legal docket: model-driven strategy selection, Atlas Vector Search retrieval, conditional CourtListener precedents, Gemini Pro recommendations, and attorney oversight — typically in under two minutes.
+            A 9-step agentic workflow that prepares tomorrow&apos;s legal docket: model-driven strategy selection, Atlas Vector Search retrieval, conditional CourtListener precedents, Gemini Flash recommendations, and attorney oversight — typically in under two minutes.
           </p>
           {/* Two-workflow summary */}
           <div style={{ marginBottom: '16px' }}>

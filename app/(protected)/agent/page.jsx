@@ -676,7 +676,12 @@ function RunDetail({ run }) {
                 {
                   step: '1',
                   label: 'Atlas $vectorSearch executed',
-                  detail: `${run.steps?.find(s => s.id === 'vector_search')?.result?.searches_attempted ?? '—'} searches · ${initialCount} matches · ${run.steps?.find(s => s.id === 'vector_search')?.result?.top_similarity_score != null ? (run.steps.find(s => s.id === 'vector_search').result.top_similarity_score * 100).toFixed(1) + '% top similarity' : '—'}`,
+                  detail: (() => {
+                    const vsStep = run.steps?.find(s => s.id === 'vector_search')
+                    const attempts = vsStep?.result?.searches_attempted ?? '—'
+                    const simScore = vsStep?.result?.top_similarity_score
+                    return `${attempts} searches · ${initialCount} matches · ${simScore != null ? (simScore * 100).toFixed(1) + '% top similarity' : '—'}`
+                  })(),
                   color: '#16A34A',
                 },
                 {

@@ -57,7 +57,7 @@ JusticeQueue addresses the triage bottleneck specifically. It accepts CSV, TXT, 
 │               │   │  4. Gemini Flash     → strategy selection       │
 │ Vertex AI     │   │  5. text-embedding-004 → Atlas $vectorSearch    │
 │  (embed)      │   │  6. CourtListener    → legal opinions (cond.)   │
-│               │   │  7. Gemini Pro       → recommendations          │
+│               │   │  7. Gemini Flash     → recommendations          │
 │ $vectorSearch │   │  8. Gemini Pro       → executive report         │
 │  (retrieve)   │   │  9. MongoDB write    → AgentRun document        │
 │               │   │                                                  │
@@ -107,7 +107,7 @@ When a file is uploaded to `/api/intake/upload`, each intake record is processed
 Gemini Flash (Vertex AI) receives the raw intake text and returns a structured JSON object with `client_name`, `case_type` (one of: `eviction`, `immigration`, `wage_theft`, `custody`, `employment`, `other`), `summary`, `deadline_days`, `vulnerability_flags` (`minor_children`, `language_barrier`, `medical_condition`), and `missing_info[]`. The model is prompted with a fixed JSON schema; the response is parsed and validated before use.
 
 **Step 2 — `vector_search`**  
-The case summary is embedded using Vertex AI `text-embedding-004` (768 dimensions). The embedding is passed to a MongoDB Atlas `$vectorSearch` aggregation pipeline against the `past_cases` collection, returning up to 3 historically similar cases ranked by cosine similarity. Each result carries the original outcome (`won`, `settled`, or `declined`), outcome notes, and a `similarity_score` between 0 and 1. If the Vertex AI call fails, the step returns zero matches gracefully.
+The case summary is embedded using Vertex AI `text-embedding-004` (768 dimensions). The embedding is passed to a MongoDB Atlas `$vectorSearch` aggregation pipeline against the `past_cases` collection, returning up to 3 historically similar cases ranked by cosine similarity. Each result carries the original outcome (`won`, `settled`, `declined`, or `unknown`), outcome notes, and a `similarity_score` between 0 and 1. If the Vertex AI call fails, the step returns zero matches gracefully.
 
 **Step 3 — `score_urgency`**  
 A pure function (`lib/urgencyScore.js`) computes a score from 0–100 using the results of steps 1 and 2. The algorithm is described in the [Urgency Scoring](#urgency-scoring) section.
@@ -142,13 +142,13 @@ Gemini Flash (Vertex AI) receives the live docket profile — case counts, urgen
 **Step 5 — Atlas $vectorSearch**  
 For up to 5 cases (critical cases first, then urgent, then high-score), the agent runs `findSimilarCases()` concurrently. Each call generates a Vertex AI text-embedding-004 embedding for the case summary and executes a `$vectorSearch` aggregation against `description_embedding_index` on `past_cases`. Results include `similarity_score`, `outcome`, `outcome_notes`, and `year`. The `via` field records which execution path was used. Tool: MongoDB Vector Search.
 
-> **Decision logged after Step 5:** The agent records whether matches were found, the top similarity score, observed outcome distribution, and whether historical data will be incorporated into the Gemini Pro recommendation prompt.
+> **Decision logged after Step 5:** The agent records whether matches were found, the top similarity score, observed outcome distribution, and whether historical data will be incorporated into the Gemini Flash recommendation prompt.
 
 **Step 6 — CourtListener API** *(conditional on model decision from Step 4)*  
 If the model decision set `precedent_research: true`, the agent queries the CourtListener public search API for relevant legal opinions. The `courtlistener_depth` value from the model decision controls how many case types are searched. If the model set `precedent_research: false`, this step is recorded with `skipped: true` and zero duration — the model's decision is the direct cause of skipping. Tool: CourtListener API.
 
 **Step 7 — Generate recommendations**  
-Gemini Pro (Vertex AI) receives: the prioritized case list with summaries, historical matches from Step 5 (verbatim similarity scores and outcome notes), and CourtListener opinions from Step 6. It returns a JSON array of per-case recommendations. The executive report prompt explicitly includes the model's strategy and escalation level from Step 4. Tool: Gemini Pro.
+Gemini Flash (Vertex AI) receives: the prioritized case list with summaries, historical matches from Step 5 (verbatim similarity scores and outcome notes), and CourtListener opinions from Step 6. It returns a JSON array of per-case recommendations. The executive report prompt explicitly includes the model's strategy and escalation level from Step 4. Tool: Gemini Flash.
 
 **Step 8 — Compile executive report**  
 A second Gemini Pro call produces a three-paragraph executive report. The prompt includes the model decision strategy, all agent decisions, vector search findings, and CourtListener citations. Tool: Gemini Pro.
@@ -224,7 +224,7 @@ const pipeline = [
       id:               { $toString: '$_id' },
       case_type:        1,
       description:      1,
-      outcome:          1,    // 'won' | 'settled' | 'declined'
+      outcome:          1,    // 'won' | 'settled' | 'declined' | 'unknown'
       outcome_notes:    1,
       year:             1,
       similarity_score: { $meta: 'vectorSearchScore' },
@@ -360,7 +360,7 @@ The brief includes:
 
 - **Letterhead**: run ID, date generated, date the docket applies to
 - **Operational summary strip**: cases reviewed, critical matters, recommendation count, agent runtime
-- **Executive Summary**: the three-paragraph report generated by Gemini Pro in Step 7 of the docket workflow
+- **Executive Summary**: the three-paragraph report generated by Gemini Pro in Step 8 of the docket workflow
 - **Required Actions**: per-case recommendations sorted by priority (critical → high → medium), including the action, rationale, and deadline warning for each
 - **Documentation Gaps**: amber callout if any cases have incomplete files
 - **Historical Case Matches**: cases matched via Atlas `$vectorSearch`, with similarity scores and outcome notes from the `past_cases` collection
