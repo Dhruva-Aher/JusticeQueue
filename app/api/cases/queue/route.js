@@ -41,6 +41,8 @@ export async function GET(request) {
       priority_score:   doc.priority_score,
       score_breakdown:  doc.score_breakdown,
       priority_reason:  doc.priority_reason,
+      missing_info:     doc.missing_info,
+      brief:            doc.brief,
       status:           doc.status,
       createdAt:        doc.createdAt,
     }))

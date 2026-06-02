@@ -88,6 +88,62 @@ function StatsBar({ cases, loading }) {
   )
 }
 
+function ActionRequiredStrip({ cases }) {
+  const criticalDeadlines = cases.filter((c) => c.deadline_days != null && c.deadline_days <= 3).length
+  const missingDocs       = cases.filter((c) => Array.isArray(c.missing_info) && c.missing_info.length > 0).length
+  const attorneyReview    = cases.filter((c) => (c.priority_score ?? 0) >= 80 || c.status === 'pending').length
+  const briefsReady       = cases.filter((c) => c.brief?.available).length
+
+  const items = [
+    { label: 'Critical deadlines', value: criticalDeadlines, accent: criticalDeadlines > 0 ? 'var(--urgent)' : 'var(--text)' },
+    { label: 'Missing documents',  value: missingDocs,       accent: missingDocs > 0 ? 'var(--medium)' : 'var(--text)' },
+    { label: 'Needs review',       value: attorneyReview,    accent: attorneyReview > 0 ? 'var(--medium)' : 'var(--text)' },
+    { label: 'Briefs ready',       value: briefsReady,       accent: briefsReady > 0 ? 'var(--clear)' : 'var(--text)' },
+  ]
+
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+      gap: '1px',
+      background: 'var(--border)',
+      borderLeft: '1px solid var(--border)',
+      borderRight: '1px solid var(--border)',
+      borderBottom: '1px solid var(--border)',
+    }}>
+      {items.map((item) => (
+        <div key={item.label} style={{
+          background: 'var(--bg-surface)',
+          padding: '10px 16px',
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: '10px',
+          minWidth: 0,
+        }}>
+          <span style={{
+            fontFamily: 'var(--font-sans)',
+            fontSize: '11px',
+            fontWeight: 600,
+            color: 'var(--text-3)',
+            whiteSpace: 'nowrap',
+          }}>
+            {item.label}
+          </span>
+          <span style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '13px',
+            fontWeight: 700,
+            color: item.accent,
+          }}>
+            {item.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function DashboardInner() {
   const { user, loading: authLoading } = useAuth()
   const router       = useRouter()
@@ -503,6 +559,10 @@ function DashboardInner() {
         {/* Stats bar */}
         {(displayCases.length > 0 || loading) && (
           <StatsBar cases={displayCases} loading={loading && displayCases.length === 0} />
+        )}
+
+        {displayCases.length > 0 && (
+          <ActionRequiredStrip cases={displayCases} />
         )}
 
         {/* Agent action prompt — visible when queue has cases */}

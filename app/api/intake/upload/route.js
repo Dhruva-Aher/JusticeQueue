@@ -139,7 +139,8 @@ export async function POST(request) {
       case_type: doc.case_type, summary: doc.summary,
       deadline_days: doc.deadline_days, vulnerability_flags: doc.vulnerability_flags,
       priority_score: doc.priority_score, score_breakdown: doc.score_breakdown,
-      priority_reason: doc.priority_reason, status: doc.status, createdAt: doc.createdAt,
+      priority_reason: doc.priority_reason, missing_info: doc.missing_info,
+      status: doc.status, createdAt: doc.createdAt,
       outreach: doc.outreach, calendar: doc.calendar, brief: doc.brief,
     }))
     return Response.json({
@@ -306,6 +307,7 @@ export async function POST(request) {
     priority_score:  doc.priority_score,
     score_breakdown: doc.score_breakdown,
     priority_reason: doc.priority_reason,
+    missing_info:    doc.missing_info,
     status:          doc.status,
     createdAt:       doc.createdAt,
     outreach:        doc.outreach,
