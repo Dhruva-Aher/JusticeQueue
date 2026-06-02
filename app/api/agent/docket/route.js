@@ -56,6 +56,23 @@ function makeStep(id, label, tool, startedMs, durationMs, result) {
   return { id, label, tool, status: 'complete', started_ms: startedMs, duration_ms: durationMs, result }
 }
 
+function challengeConfidenceLevel(confidenceAssessment = '') {
+  const value = String(confidenceAssessment).toLowerCase()
+  if (value.startsWith('low')) return 'low'
+  if (value.startsWith('medium')) return 'medium'
+  if (value.startsWith('high')) return 'high'
+  return 'unknown'
+}
+
+function findRecommendationIndexByClient(recommendations, clientName) {
+  const target = String(clientName || '').trim().toLowerCase()
+  if (!target) return -1
+  return recommendations.findIndex((r) => {
+    const candidate = String(r.client_name || '').trim().toLowerCase()
+    return candidate === target || candidate.includes(target) || target.includes(candidate)
+  })
+}
+
 // ── Route handler ────────────────────────────────────────────────────────────
 export async function POST(request) {
   let decoded
@@ -1265,6 +1282,71 @@ Return JSON only:
         challengeFallback = true
       }
 
+      const challengedRecommendationIndex = findRecommendationIndexByClient(recommendations, challengeReview.most_uncertain_case)
+      const challengedRecommendation = challengedRecommendationIndex >= 0 ? recommendations[challengedRecommendationIndex] : null
+      const confidenceLevel = challengeConfidenceLevel(challengeReview.confidence_assessment)
+      const shouldRequireAuthorization =
+        !challengeReview.fallback_used &&
+        challengedRecommendation &&
+        (confidenceLevel !== 'high' || challengeReview.missing_evidence.length > 0)
+
+      challengeReview.execution_effect = {
+        applied:                false,
+        authorization_required: false,
+        priority_adjusted:      false,
+        affected_client:        challengedRecommendation?.client_name || challengeReview.most_uncertain_case,
+        reason:                 challengedRecommendation
+          ? 'Challenge review did not require execution changes'
+          : 'No matching recommendation found for challenge review target',
+      }
+
+      if (shouldRequireAuthorization) {
+        const previousPriority = challengedRecommendation.priority
+        challengedRecommendation.authorization_required = true
+        challengedRecommendation.authorization_reason =
+          `Challenge review flagged this recommendation as uncertain: ${challengeReview.uncertainty_reason}. Follow-up before action: ${challengeReview.recommended_follow_up || 'manual attorney review'}.`
+        challengedRecommendation.risk_assessment = confidenceLevel === 'low' ? 'high' : 'medium'
+        challengedRecommendation.challenged_by_review = true
+        challengedRecommendation.challenge_follow_up = challengeReview.recommended_follow_up || ''
+        challengedRecommendation.challenge_missing_evidence = challengeReview.missing_evidence
+
+        if (confidenceLevel === 'low' && challengedRecommendation.priority !== 'critical') {
+          challengedRecommendation.priority = 'high'
+        }
+
+        const priorityAdjusted = previousPriority !== challengedRecommendation.priority
+        challengeReview.execution_effect = {
+          applied:                true,
+          authorization_required: true,
+          priority_adjusted:      priorityAdjusted,
+          affected_client:        challengedRecommendation.client_name,
+          previous_priority:      previousPriority,
+          new_priority:           challengedRecommendation.priority,
+          reason:                 'Most uncertain recommendation requires attorney authorization before action',
+        }
+
+        if (confidenceLevel === 'low' && challengedRecommendationIndex > 0) {
+          recommendations.splice(challengedRecommendationIndex, 1)
+          recommendations.unshift(challengedRecommendation)
+          challengeReview.execution_effect.reordered = true
+        }
+
+        logDecision(
+          `Challenge review changed execution for "${challengedRecommendation.client_name}"`,
+          challengeReview.uncertainty_reason,
+          {
+            confidence_assessment: challengeReview.confidence_assessment,
+            missing_evidence:      challengeReview.missing_evidence,
+            recommended_follow_up: challengeReview.recommended_follow_up,
+            authorization_required: true,
+            priority_adjusted:      priorityAdjusted,
+          },
+          priorityAdjusted
+            ? 'Recommendation priority raised and attorney authorization required before action'
+            : 'Recommendation added to attorney authorization queue before action'
+        )
+      }
+
       steps.push(makeStep('challenge_review',
         `Model self-critique: most uncertain — ${challengeReview.most_uncertain_case} · confidence: ${challengeReview.confidence_assessment?.split(' ')[0] || 'assessed'}`,
         'Gemini Flash',
@@ -1275,6 +1357,9 @@ Return JSON only:
           missing_evidence_count: challengeReview.missing_evidence.length,
           confidence:            challengeReview.confidence_assessment?.split(' ')[0] || 'unknown',
           fallback_used:         challengeFallback,
+          execution_changed:      challengeReview.execution_effect.applied,
+          authorization_required: challengeReview.execution_effect.authorization_required,
+          priority_adjusted:      challengeReview.execution_effect.priority_adjusted,
         }
       ))
 
@@ -1392,6 +1477,13 @@ Authoritative, formal, specific, actionable. No boilerplate.`
       action:           r.action,
       rationale:        r.rationale,
       deadline_warning: r.deadline_warning,
+      authorization_required: r.authorization_required ?? false,
+      authorization_reason:   r.authorization_reason ?? null,
+      risk_assessment:        r.risk_assessment ?? null,
+      oversight_confidence:   r.oversight_confidence ?? null,
+      challenged_by_review:   r.challenged_by_review ?? false,
+      challenge_follow_up:    r.challenge_follow_up ?? null,
+      challenge_missing_evidence: r.challenge_missing_evidence ?? [],
     }))
 
     const totalMs = elapsed()
