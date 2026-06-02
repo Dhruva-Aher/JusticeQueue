@@ -200,6 +200,7 @@ function BriefInner() {
   const sortedActions = sortByPriority(result?.action_items)
   const hasMissingDocs = result?.missing_documents > 0
   const hasOpinions    = result?.court_opinions?.length > 0
+  const authorizationCount = sortedActions.filter((item) => item.authorization_required).length
 
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
@@ -339,7 +340,7 @@ function BriefInner() {
             color: 'var(--text-2)',
             marginBottom: '1.5rem',
           }}>
-            Prepared for: {tomorrowStr} · Authorized by AI Agent Run #{run.run_id}
+            Prepared for: {tomorrowStr} · Generated from Agent Run #{run.run_id} · Attorney review required before action
           </p>
 
           {/* Divider */}
@@ -380,6 +381,35 @@ function BriefInner() {
             />
           </div>
         </div>
+
+        {authorizationCount > 0 && (
+          <div className="brief-section" style={{
+            marginBottom: '2.5rem',
+            padding: '14px 16px',
+            background: 'rgba(194,113,12,0.06)',
+            border: '1px solid rgba(194,113,12,0.20)',
+            borderLeft: '3px solid #C2710C',
+            borderRadius: 'var(--radius)',
+          }}>
+            <div style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '12px',
+              fontWeight: 700,
+              color: '#C2710C',
+              marginBottom: '4px',
+            }}>
+              Attorney attention required
+            </div>
+            <p style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '12px',
+              color: 'var(--text-2)',
+              lineHeight: 1.6,
+            }}>
+              {authorizationCount} action{authorizationCount !== 1 ? 's' : ''} in this brief require licensed attorney authorization before filing, client contact, scheduling changes, or other legal action.
+            </p>
+          </div>
+        )}
 
         {/* ── Executive Summary ─────────────────────────────────────────────── */}
         {result?.executive_report && (
