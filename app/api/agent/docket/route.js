@@ -3,7 +3,7 @@
 // (branch) CourtListener precedents → Gemini recommendations → executive report → persist
 export const dynamic    = 'force-dynamic'
 export const maxDuration = 120  // seconds — Vercel Pro; raised from 60 to give real headroom
-                                 // for concurrent Voyage AI calls + two Gemini calls + CourtListener
+                                 // for concurrent Vertex AI embedding calls + multiple Gemini calls + CourtListener
 
 import { verifyToken }                    from '../../../../lib/verifyToken.js'
 import { apiError }                       from '../../../../lib/apiError.js'
@@ -81,7 +81,7 @@ export async function POST(request) {
       'Gemini evaluates docket state and selects execution strategy',
       'Run Atlas $vectorSearch against historical case database for top priority cases',
       'Execute CourtListener precedent research (depth determined by model decision)',
-      'Generate AI-powered triage recommendations with Gemini Pro',
+      'Generate AI-powered triage recommendations with Gemini Flash',
       'Compile executive docket report for tomorrow\'s operations',
       'Persist complete execution trace, decisions, and vector results to MongoDB',
     ]
@@ -296,7 +296,7 @@ Return this JSON object (fill every field):
       modelDecision.precedent_research
         ? `Query CourtListener at "${modelDecision.courtlistener_depth}" depth — model determined precedent research warranted`
         : `Skip CourtListener — model strategy "${modelDecision.strategy}" does not require precedent research`,
-      `Generate ${priorityQueue?.length || 0} attorney recommendations with Gemini Pro`,
+      `Generate ${priorityQueue?.length || 0} attorney recommendations with Gemini Flash`,
       `Compile executive docket report (escalation level: ${modelDecision.escalation_level})`,
       `Persist execution trace, model decision, adapted plan, and vector results to MongoDB Atlas`,
     ]
@@ -528,7 +528,7 @@ Return JSON only: {"action":"proceed"|"expand","reasoning":"one sentence coverin
               `Adaptive search found ${adaptAdded} additional historical case${adaptAdded !== 1 ? 's' : ''}`,
               `Broader case-type queries against description_embedding_index returned ${adaptAdded} previously-unmatched results`,
               { additional_matches: adaptAdded, total_matches_now: vectorSearchResults.reduce((s, r) => s + r.matched_cases, 0) },
-              'Additional historical context merged into Gemini Pro recommendation prompt'
+              'Additional historical context merged into Gemini Flash recommendation prompt'
             )
           }
         } else {
@@ -846,7 +846,7 @@ Authoritative, formal, specific, actionable. No boilerplate.`
 
       historical_findings: finalCasesWithMatches > 0
         ? `Atlas $vectorSearch (index: description_embedding_index, collection: past_cases) retrieved ${finalVectorMatches} historical case match${finalVectorMatches !== 1 ? 'es' : ''} across ${finalCasesWithMatches} case${finalCasesWithMatches !== 1 ? 's' : ''}. Top cosine similarity: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'n/a'}. Observed outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.${adaptiveSearchTriggered ? ' Adaptive broad search was triggered after model evaluated initial results as insufficient.' : ''}`
-        : `Atlas $vectorSearch executed against description_embedding_index but returned no matches (via: ${searchVia}). Recommendations rely on deadline analysis, vulnerability scoring, and documentation review. To enable historical retrieval: (1) set VOYAGE_API_KEY, (2) create description_embedding_index on past_cases collection, (3) run POST /api/seed/past-cases.`,
+        : `Atlas $vectorSearch executed against description_embedding_index but returned no matches (via: ${searchVia}). Recommendations rely on deadline analysis, vulnerability scoring, and documentation review. To enable historical retrieval: (1) set GOOGLE_CLOUD_PROJECT_ID and Vertex AI credentials, (2) create description_embedding_index on past_cases collection (768-dim), (3) run POST /api/seed/past-cases.`,
 
       confidence_assessment: `High confidence in deadline-based prioritization (objective court date records). Moderate confidence in vulnerability scoring (${fileCompleteRate}% of files are complete). ${finalCasesWithMatches > 0 ? `Historical context from Atlas $vectorSearch (${finalVectorMatches} matches at up to ${topSimilarity !== null ? (topSimilarity * 100).toFixed(0) + '%' : 'n/a'} similarity) incorporated into recommendations.${adaptiveSearchTriggered ? ' Adaptive search expanded scope.' : ''}` : 'No historical context available.'} All recommendations must be reviewed by a supervising attorney before action is taken.`,
     }

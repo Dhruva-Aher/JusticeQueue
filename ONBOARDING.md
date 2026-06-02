@@ -23,12 +23,12 @@ JusticeQueue solves this. You upload a batch of intake submissions (CSV, TXT, or
 | Layer | Technology |
 |---|---|
 | Agent Engine | Google Cloud Agent Builder |
-| LLM — extraction | Gemini 3.1 Flash Lite (Vertex AI) |
-| LLM — recommendations | Gemini 3.1 Pro Preview (Vertex AI) |
+| LLM — extraction | Gemini Flash (Vertex AI) |
+| LLM — recommendations (docket) | Gemini Flash (Vertex AI) |
 | Database | MongoDB Atlas (document store) |
 | Vector search | MongoDB Atlas $vectorSearch |
 | DB integration | MongoDB MCP Server (`@mongodb-js/mongodb-mcp-server`) |
-| Embeddings | Voyage AI `voyage-large-2` (1024-dim, cosine similarity) |
+| Embeddings | Vertex AI `text-embedding-004` (768-dim, cosine similarity) |
 | Auth | Firebase Authentication (Google OAuth + email/password) |
 | Rate limiting | Upstash Redis (10 uploads / 15 min per user) |
 | Frontend | Next.js 14 App Router |
@@ -122,7 +122,7 @@ rawText (one intake record)
     │     vulnerability_flags, missing_info[]
     │
     ├─ Step 2: findSimilarCases()      [MongoDB MCP Server → Atlas $vectorSearch]
-    │   → embeds summary with Voyage AI (1024-dim)
+    │   → embeds summary with Vertex AI text-embedding-004 (768-dim)
     │   → runs $vectorSearch on past_cases collection
     │   → falls back to direct Mongoose if MCP server fails
     │   → records mongodb_via: "mcp" or "mongoose_fallback"
@@ -429,7 +429,7 @@ Fingerprint = first 300 characters of trimmed raw text.
 
 2. **MCP cold start** — On Vercel serverless, the MCP server subprocess may time out on the first request of a cold function. The fallback to Mongoose is automatic and silent.
 
-3. **Vector index** — Atlas $vectorSearch requires a specific index to exist. Run `npm run seed` once, or create the index manually in Atlas: collection `past_cases`, field `description_embedding`, dimensions `1024`, similarity `cosine`.
+3. **Vector index** — Atlas $vectorSearch requires a specific index to exist. Run `npm run seed` once, or create the index manually in Atlas: collection `past_cases`, field `description_embedding`, dimensions `768`, similarity `cosine`.
 
 4. **Firebase JWT verification** — The app verifies Firebase tokens without the Admin SDK. It fetches Google's public keys from `https://www.googleapis.com/robot/v1/metadata/x509/securetoken@system.gserviceaccount.com` and verifies the JWT signature manually. The project ID used for audience check comes from `NEXT_PUBLIC_FIREBASE_PROJECT_ID`.
 

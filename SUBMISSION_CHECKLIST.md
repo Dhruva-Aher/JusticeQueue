@@ -106,7 +106,8 @@ Verify all of these are set in the Vercel project settings:
 - [ ] `GOOGLE_OAUTH_REFRESH_TOKEN`
 - [ ] `GEMINI_MODEL_FLASH` (must be a valid model in your GCP project)
 - [ ] `GEMINI_MODEL_PRO` (must be a valid model in your GCP project)
-- [ ] `VOYAGE_API_KEY`
+# VOYAGE_API_KEY removed — Vertex AI text-embedding-004 now handles embeddings
+# (GOOGLE_CLOUD_PROJECT_ID + OAuth credentials above are sufficient)
 - [ ] `NEXT_PUBLIC_FIREBASE_*` (6 Firebase config vars)
 - [ ] `UPSTASH_REDIS_REST_URL`
 - [ ] `UPSTASH_REDIS_REST_TOKEN`

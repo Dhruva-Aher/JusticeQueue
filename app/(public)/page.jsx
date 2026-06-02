@@ -24,7 +24,7 @@ const WORKFLOW = [
 ]
 
 const AGENT_TOOLS = [
-  { label: 'Gemini Pro',        color: '#4338CA', desc: 'Reasoning & recommendations' },
+  { label: 'Gemini Pro/Flash',  color: '#4338CA', desc: 'Reasoning & recommendations' },
   { label: 'MongoDB Atlas',     color: '#16A34A', desc: 'Case storage & vector search' },
   { label: 'CourtListener',     color: '#2563EB', desc: 'Judicial precedent retrieval' },
   { label: 'Reasoning Engine',  color: '#78716C', desc: 'Urgency & gap analysis' },

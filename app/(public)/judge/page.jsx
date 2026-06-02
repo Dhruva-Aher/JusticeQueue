@@ -810,7 +810,7 @@ export default function JudgePage() {
               qa: [
                 { q: 'Does the model select tools?', a: 'Gemini Flash evaluates the live docket profile and selects an execution strategy — this decision determines whether and at what depth CourtListener runs.' },
                 { q: 'Does execution branch?', a: 'Two branches: CourtListener depth is model-driven; documentation remediation is threshold-driven. Both are logged with evidence.' },
-                { q: 'Is retrieval grounded?', a: 'Atlas $vectorSearch results are passed verbatim into the Gemini Pro recommendation prompt, directly influencing output.' },
+                { q: 'Is retrieval grounded?', a: 'Atlas $vectorSearch results are passed verbatim into the Gemini Flash recommendation prompt, directly influencing output.' },
               ],
             },
             {

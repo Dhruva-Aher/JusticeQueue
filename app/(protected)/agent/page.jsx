@@ -89,7 +89,7 @@ const DOCKET_STEPS = [
   { label: 'Gemini Flash selecting execution strategy…',   sub: 'Evaluating docket profile → choosing plan — Step 4' },
   { label: 'Running Atlas $vectorSearch…',                 sub: 'Matching against historical case outcomes — Step 5' },
   { label: 'Querying CourtListener API…',                  sub: 'Fetching relevant legal precedents (conditional) — Step 6' },
-  { label: 'Gemini Pro generating recommendations…',       sub: 'Building attorney action plan — Step 7' },
+  { label: 'Gemini Flash generating recommendations…',     sub: 'Building attorney action plan — Step 7' },
   { label: 'Compiling executive docket report…',           sub: 'Drafting tomorrow\'s operational brief — Step 8' },
   { label: 'Persisting complete trace to MongoDB Atlas…',  sub: 'Saving execution trace, decisions, vector results — Step 9' },
 ]
@@ -687,7 +687,7 @@ function RunDetail({ run }) {
                 {
                   step: '2',
                   label: 'Gemini Flash evaluated retrieval quality',
-                  detail: `Quality: ${qualityScore || 'assessed'} · Outcome diversity: ${diversity ?? '—'} types (${outcomeMix || '—'}) · ${retrievalEvalDecision.reasoning}`,
+                  detail: `Quality: ${qualityScore || 'assessed'} · Outcome diversity: ${diversity ?? '—'} types (${outcomeMix || '—'}) · ${retrievalEvalDecision.reason ?? ''}`,
                   color: 'var(--accent)',
                 },
                 {
@@ -697,14 +697,14 @@ function RunDetail({ run }) {
                     : 'Model decided: accept results — quality sufficient',
                   detail: wasExpanded
                     ? `Broader case-type queries executed · total matches grew ${initialCount} → ${finalCount}`
-                    : retrievalEvalDecision.reasoning,
+                    : retrievalEvalDecision.reason ?? '',
                   color: wasExpanded ? '#C2710C' : '#16A34A',
                   highlight: wasExpanded,
                 },
                 wasExpanded && adaptiveResultDecision ? {
                   step: '4',
                   label: `Final corpus: ${finalCount} historical matches incorporated into recommendations`,
-                  detail: adaptiveResultDecision.reasoning,
+                  detail: adaptiveResultDecision.reason ?? '',
                   color: '#16A34A',
                 } : null,
               ].filter(Boolean).map((row, i, arr) => (
@@ -1316,7 +1316,7 @@ function RunDetail({ run }) {
             {[
               { text: `${result.cases_reviewed ?? 0} cases analyzed and ranked by urgency, vulnerability, and deadline`, sub: null },
               { text: `Model decision persisted — Gemini ${run.model_decision?.fallback_used ? '(fallback)' : 'Flash'} selected "${run.model_decision?.strategy ?? 'n/a'}" strategy`, sub: 'stored in AgentRun.model_decision · influenced CourtListener execution' },
-              { text: `${result.vector_search_results?.length ?? 0} Atlas $vectorSearch queries executed against description_embedding_index`, sub: 'historical outcomes incorporated into Gemini Pro recommendation prompt' },
+              { text: `${result.vector_search_results?.length ?? 0} Atlas $vectorSearch queries executed against description_embedding_index`, sub: 'historical outcomes incorporated into Gemini Flash recommendation prompt' },
               { text: `${result.recommendations_count ?? 0} attorney recommendations generated; executive brief compiled`, sub: null },
               { text: `Full execution trace persisted to MongoDB Atlas (Run #${run.run_id})`, sub: 'steps, decisions, model_decision, adapted_plan, vector_search_results' },
               { text: `Run telemetry logged to Google Cloud Logging (log: justicequeue.agent)`, sub: 'GCP Log Explorer → logName="justicequeue.agent"' },

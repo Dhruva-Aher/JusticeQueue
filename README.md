@@ -275,7 +275,7 @@ For a case summary of *"Single mother with two children facing eviction in 48 ho
 ]
 ```
 
-The 91.2% top similarity score (≥ 0.85) contributes 15 points to the urgency score. Both results are passed to Gemini Pro during the recommendation step.
+The 91.2% top similarity score (≥ 0.85) contributes 15 points to the urgency score. Both results are passed to Gemini Flash during the recommendation step.
 
 ---
 
@@ -545,7 +545,7 @@ npm run dev
 
 ## Known Limitations
 
-**Workflow-driven, not LLM-orchestrated.** The step sequence is fixed code. The language model is called at five points in the docket pipeline: (1) strategy selection via Gemini Flash, which determines whether and how CourtListener executes; (2) CourtListener query generation via Gemini Flash, which parameterizes the external API call; (3) recommendation generation via Gemini Pro; (4) executive report generation via Gemini Pro; and separately during intake: (5) fact extraction via Gemini Flash. The model does not receive tool results and decide next steps — it generates text and structured JSON at defined points in a predetermined sequence. This is a workflow that uses LLMs at specific decision points, not an autonomous planning loop.
+**Workflow-driven, not LLM-orchestrated.** The step sequence is fixed code. The language model is called at five points in the docket pipeline: (1) strategy selection via Gemini Flash, which determines whether and how CourtListener executes; (2) CourtListener query generation via Gemini Flash, which parameterizes the external API call; (3) recommendation generation via Gemini Flash; (4) executive report generation via Gemini Pro; and separately during intake: (5) fact extraction via Gemini Flash. The model does not receive tool results and decide next steps — it generates text and structured JSON at defined points in a predetermined sequence. This is a workflow that uses LLMs at specific decision points, not an autonomous planning loop.
 
 **MCP disabled in production.** The MongoDB MCP Server integration (`lib/mcpClient.js`) is wired but not usable in Vercel serverless functions: spawning a stdio subprocess per request is incompatible with the serverless execution model. In production, vector search always runs via direct Mongoose aggregation (`via: "mongoose_fallback"`). MCP functions correctly in local development when `MCP_ENABLED=true`.
 
