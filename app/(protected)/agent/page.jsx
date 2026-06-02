@@ -367,7 +367,7 @@ function RunDetail({ run }) {
             }
             if (recStep) {
               rows.push({
-                api:    'Gemini Pro recommendations',
+                api:    'Gemini Flash recommendations',
                 result: `${recStep.result?.recommendations_generated ?? 0} attorney recommendations generated`,
                 ok:     true,
               })

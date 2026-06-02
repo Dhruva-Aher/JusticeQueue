@@ -6,14 +6,16 @@ Run every item before submitting. Mark each ✓ or ✗.
 
 ## 1. Past Cases — MongoDB Atlas Vector Search
 
-**Required:** `past_cases` collection must exist with 30 documents and Voyage AI embeddings.
+**Required:** `past_cases` collection must exist with 30 documents and Vertex AI text-embedding-004 embeddings.
 
 ```bash
 # Verify via the health endpoint (no auth required)
 curl https://justicequeuelive.vercel.app/api/health/vector-search | jq .
 
 # Expected healthy response:
-# { "status": "healthy", "checks": { "past_cases_total": 30, "past_cases_with_embeddings": 30, "vector_search_ok": true } }
+# { "status": "healthy", "checks": { "past_cases_total": 30, "past_cases_with_embeddings": 30,
+# "vector_search_ok": true, "vector_search_skipped": true } }
+# Add ?probe=1 for live $vectorSearch test: /api/health/vector-search?probe=1
 ```
 
 **If unhealthy:** Seed the collection:
@@ -40,7 +42,7 @@ Confirm the live `VectorSearchHealth` component shows:
 - [ ] Atlas Connected
 - [ ] Historical Dataset Ready (30 cases)
 - [ ] Embeddings Present (30/30)
-- [ ] Vector Search Ready (Xms, Y probe results)
+- [ ] Vector Search Ready — run ?probe=1 for live test: curl .../api/health/vector-search?probe=1
 
 If any show errors: fix the seeding step above.
 

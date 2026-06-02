@@ -65,7 +65,7 @@ JusticeQueue addresses the triage bottleneck specifically. It accepts CSV, TXT, 
 │  (score)      │   └──────────────────────────────────────────────────┘
 │  (score)      │
 │               │
-│ Gemini Pro    │
+│ Gemini Flash  │
 │  (rec ≥ 80)   │
 └───────┬───────┘
         │
@@ -113,9 +113,9 @@ The case summary is embedded using Vertex AI `text-embedding-004` (768 dimension
 A pure function (`lib/urgencyScore.js`) computes a score from 0–100 using the results of steps 1 and 2. The algorithm is described in the [Urgency Scoring](#urgency-scoring) section.
 
 **Step 4 — `write_recommendation`** *(conditional: score ≥ 80 only)*  
-For high-priority cases, Gemini Pro (Vertex AI) generates a 2–3 sentence attorney recommendation grounding the case facts, the most similar historical outcome, and any vulnerability flags. Cases scoring below 80 do not incur this Gemini call.
+For high-priority cases, Gemini Flash (Vertex AI) generates a 2–3 sentence attorney recommendation grounding the case facts, the most similar historical outcome, and any vulnerability flags. Cases scoring below 80 do not incur this Gemini call.
 
-After the pipeline, the upload route generates outreach email drafts (Gemini Pro, if `GMAIL_ENABLED=true`), creates Google Calendar events for the top three cases by score (Google Calendar API, if `CALENDAR_ENABLED=true`), and generates case briefs for cases scoring ≥ 80. These three steps are non-blocking and log failures without aborting the batch.
+After the pipeline, the upload route generates outreach email drafts (Gemini Flash, if `GMAIL_ENABLED=true`), creates Google Calendar events for the top three cases by score (Google Calendar API, if `CALENDAR_ENABLED=true`), and generates case briefs for cases scoring ≥ 80. These three steps are non-blocking and log failures without aborting the batch.
 
 Files are processed in parallel chunks of 20 cases with deduplication: cases whose raw text fingerprint already exists in the user's queue are skipped; cases previously stored with extraction errors are deleted and re-processed.
 
@@ -242,7 +242,7 @@ const results = await collection.aggregate(pipeline).toArray()
 
 ### How retrieval influences recommendations
 
-During intake, `similarity_points` in the score is non-zero only when at least one matched historical case had outcome `'won'` with similarity ≥ 0.70. During docket preparation, the vector search results are included verbatim in the Gemini Pro prompt:
+During intake, `similarity_points` in the score is non-zero only when at least one matched historical case had outcome `'won'` with similarity ≥ 0.70. During docket preparation, the vector search results are included verbatim in the Gemini Flash recommendation prompt:
 
 ```
 HISTORICAL CASE MATCHES (Atlas $vectorSearch, index: description_embedding_index):

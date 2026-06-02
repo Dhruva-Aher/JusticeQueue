@@ -117,7 +117,7 @@ Every uploaded case goes through `lib/agent/orchestrator.js` in 4 steps:
 ```
 rawText (one intake record)
     │
-    ├─ Step 1: extractCaseFacts()      [Gemini 3.1 Flash Lite]
+    ├─ Step 1: extractCaseFacts()      [Gemini Flash (Vertex AI)]
     │   → client_name, case_type, summary, deadline_days,
     │     vulnerability_flags, missing_info[]
     │
@@ -134,7 +134,7 @@ rawText (one intake record)
     │   → similarity:    0–15 pts
     │   → total:         0–100
     │
-    └─ Step 4: writeRecommendation()   [Gemini 3.1 Pro — only if score ≥ 80]
+    └─ Step 4: writeRecommendation()   [Gemini Flash — only if score ≥ 80]
         → 2-sentence attorney action recommendation
 ```
 
@@ -350,11 +350,11 @@ This is optional — it just tags agent traces with the engine reference. The ap
 
 ---
 
-### Voyage AI — `VOYAGE_API_KEY`
+### Vertex AI text-embedding-004 (no separate API key needed)
 ```
-VOYAGE_API_KEY=
+# VOYAGE_API_KEY removed — Vertex AI text-embedding-004 handles embeddings
 ```
-Where to get it: https://www.voyageai.com → sign up → API Keys.  
+Embeddings now use Vertex AI text-embedding-004 via the same GCP OAuth credentials as Gemini.
 Free tier has enough quota for testing. Without this, vector search falls back to Mongoose with no embeddings, and similar cases will be empty.
 
 ---
@@ -383,7 +383,7 @@ npm run dev         # http://localhost:3000
 
 The seed script (`scripts/seed.js`) must be run at least once before vector search works. It:
 - Inserts 30 realistic past cases into the `past_cases` collection
-- Embeds each case description with Voyage AI
+- Embeds each case description with Vertex AI text-embedding-004 (768-dim)
 - Creates the Atlas $vectorSearch index on `past_cases.description_embedding`
 
 ---

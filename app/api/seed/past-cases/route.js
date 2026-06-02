@@ -1,6 +1,6 @@
 // POST /api/seed/past-cases
 // Seeds the past_cases collection with historical legal aid case outcomes
-// and generates Voyage AI embeddings (description_embedding) for Atlas $vectorSearch.
+// and generates Vertex AI text-embedding-004 embeddings (description_embedding) for Atlas $vectorSearch.
 //
 // Two corpus options:
 //   Default: 30 synthetic cases (representative patterns, immediate availability)
@@ -28,7 +28,7 @@ import mongoose from 'mongoose'
 
 // ── Historical case outcomes — realistic legal aid case data ─────────────────
 // Each description is written as dense semantic text (≈ what a case summary
-// looks like) so that Voyage AI embeddings capture the fact pattern accurately.
+// looks like) so that Vertex AI text-embedding-004 embeddings capture the fact pattern accurately.
 const PAST_CASES = [
   // ── EVICTION ──────────────────────────────────────────────────────────────
   {
@@ -327,7 +327,7 @@ export async function POST(request) {
       errors:           errors.length,
       deleted_previous: deleteResult.deletedCount,
       message:          withEmbeddings === results.length
-        ? `${results.length} historical cases seeded with Voyage AI embeddings. Atlas $vectorSearch is ready.`
+        ? `${results.length} historical cases seeded with Vertex AI text-embedding-004 embeddings. Atlas $vectorSearch is ready.`
         : withEmbeddings > 0
           ? `${results.length} cases seeded; ${withEmbeddings} with embeddings, ${results.length - withEmbeddings} without (Vertex AI embedding error — check GOOGLE_CLOUD_PROJECT_ID and OAuth credentials).`
           : `${results.length} cases inserted WITHOUT embeddings — Vertex AI embedding call failed. Verify GOOGLE_CLOUD_PROJECT_ID and OAuth token are set.`,

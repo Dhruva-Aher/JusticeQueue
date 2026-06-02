@@ -367,12 +367,12 @@ One concern per commit. Push immediately after each.
 | Layer | Technology |
 |---|---|
 | Agent engine | Google Cloud Agent Builder |
-| LLM — extraction | Gemini 3.1 Flash Lite (Vertex AI) |
-| LLM — recommendation, email, brief | Gemini 3.1 Pro Preview (Vertex AI) |
+| LLM — extraction | Gemini Flash (Vertex AI) |
+| LLM — recommendation (intake), email, brief | Gemini Flash (Vertex AI) |
 | Database | MongoDB Atlas |
 | Vector search | Atlas $vectorSearch on `past_cases.description_embedding` |
 | DB tool layer | MongoDB MCP Server (`@mongodb-js/mongodb-mcp-server` via stdio) |
-| Embeddings | Voyage AI `voyage-large-2` (1024-dim, cosine similarity) |
+| Embeddings | Vertex AI `text-embedding-004` (768-dim, cosine similarity) |
 | Auth | Firebase Authentication (Google OAuth + email/password) |
 | Token verify | Custom X.509 JWT verify (no Admin SDK) |
 | Rate limiting | Upstash Redis (10 uploads / 15 min per user) |
@@ -507,7 +507,7 @@ JusticeQueue/
   },
   priority_reason:   String,
   similar_cases:     Mixed,             // [{ case_type, outcome, outcome_notes, similarity_score, year }]
-  recommendation:    String,            // Gemini Pro, score >= 80 only
+  recommendation:    String,            // Gemini Flash, score >= 80 only
   agent_trace:       Mixed,             // [{ name, input, output, durationMs, error, startedAt }]
   mongodb_via:       String,            // 'mcp' | 'mongoose_fallback'
   mcp_config:        Mixed,             // { server, config_file }
@@ -545,14 +545,14 @@ Steps 1–4 run inside `lib/agent/orchestrator.js` → `runIntakeAgent(rawText)`
 Steps 5–8 run in `app/api/intake/upload/route.js` after `Case.insertMany()`.
 
 ```
-Step 1: extractCaseFacts()       Gemini 3.1 Flash Lite — ALL cases
+Step 1: extractCaseFacts()       Gemini Flash (Vertex AI) — ALL cases
 Step 2: findSimilarCases()       MongoDB MCP Server → Atlas $vectorSearch (fallback: Mongoose)
 Step 3: computeScore()           Pure JS — 4 dimensions, 0–100
-Step 4: writeRecommendation()    Gemini 3.1 Pro — score >= 80 only
+Step 4: writeRecommendation()    Gemini Flash (Vertex AI) — score >= 80 only
 --------- insertMany() happens here ---------
-Step 5: generateOutreachEmail()  Gemini 3.1 Pro — ALL cases, chunks of 5, non-fatal
+Step 5: generateOutreachEmail()  Gemini Flash (Vertex AI) — ALL cases, chunks of 5, non-fatal
 Step 6: createCalendarEvent()    Google Calendar API — top 3 by score, non-fatal
-Step 7: generateBriefContent()   Gemini 3.1 Pro — score >= 80 only, non-fatal
+Step 7: generateBriefContent()   Gemini Flash (Vertex AI) — score >= 80 only, non-fatal
 Step 8: [updates] all three actions update their case docs in MongoDB
 Step 9: final queue fetch → response with emails_drafted / calendar_blocks_created / briefs_generated
 ```
@@ -621,7 +621,7 @@ GEMINI_MODEL_PRO=gemini-3.1-pro-preview-05-06
 
 AGENT_BUILDER_ENGINE_ID=                   # optional — tags agent traces only
 
-VOYAGE_API_KEY=                            # required for real vector search
+# VOYAGE_API_KEY removed — Vertex AI text-embedding-004 handles embeddings
 
 UPSTASH_REDIS_REST_URL=
 UPSTASH_REDIS_REST_TOKEN=
@@ -706,7 +706,7 @@ d878467  chore(security): add airtight gitignore covering all secret file patter
 - Smart deduplication (fingerprint = first 300 chars)
 - MongoDB Atlas $vectorSearch via MCP Server (Mongoose fallback)
 - Urgency scoring 0–100 (4 dimensions, exact formula above)
-- AI recommendation (Gemini Pro, score ≥ 80)
+- AI recommendation (Gemini Flash, score ≥ 80)
 - Outreach email drafting (Gemini Pro, all cases)
 - Gmail draft creation + send via API
 - Google Calendar event creation (top 3) + cancel + reschedule
@@ -721,7 +721,7 @@ d878467  chore(security): add airtight gitignore covering all secret file patter
 
 ### Waiting on Dhruv (Manual Steps)
 - ⏳ Regenerate OAuth refresh token with `gmail.compose` + `calendar.events` scopes → update `GOOGLE_OAUTH_REFRESH_TOKEN` in Vercel → redeploy
-- ⏳ Verify `VOYAGE_API_KEY` is set in Vercel (required for real vector search)
+- ⏳ Verify GCP OAuth credentials are set (Vertex AI text-embedding-004 requires GOOGLE_CLOUD_PROJECT_ID)
 - ⏳ Record 3-minute demo video (script in DEVPOST.md — timed to the second)
 - ⏳ Submit on Devpost before Jun 11, 2026 @ 2pm MST
 - ⏳ GitHub About section → set license badge to MIT

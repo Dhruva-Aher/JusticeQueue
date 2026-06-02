@@ -15,7 +15,7 @@ similarity to previously won cases using MongoDB Atlas Vector
 Search.
 
 It drafts a personalised outreach email to every client using
-Gemini 3.1 Pro — acknowledging their specific situation, stating
+Gemini Flash — acknowledging their specific situation, stating
 their priority status, and requesting any missing documents.
 
 For the three most urgent cases, it creates Google Calendar
@@ -50,8 +50,8 @@ clinic's own historical outcomes.
 ## How we built it
 
 Google Cloud Agent Builder orchestrates the multi-step pipeline.
-Gemini 3.1 Flash Lite extracts structured facts from unstructured
-intake text. Gemini 3.1 Pro Preview writes case-specific
+Gemini Flash (Vertex AI) extracts structured facts from unstructured
+intake text. Gemini Flash writes case-specific
 recommendations for high-priority cases. MongoDB Atlas stores
 case documents with flexible schema — critical because eviction,
 immigration, and wage theft cases have completely different
@@ -95,12 +95,12 @@ that cannot afford to get it wrong.
 
 ## Tech stack
 - Google Cloud Agent Builder — pipeline orchestration
-- Gemini 3.1 Flash Lite — fact extraction
-- Gemini 3.1 Pro Preview — case recommendations
+- Gemini Flash (Vertex AI) — fact extraction
+- Gemini Flash (Vertex AI) — case recommendations and docket strategy
 - MongoDB Atlas — document store with flexible schema
 - Atlas Vector Search — semantic case similarity
 - MongoDB MCP Server — agent tool layer
-- Voyage AI — embeddings for vector search
+- Vertex AI text-embedding-004 — embeddings for vector search
 - Next.js 14 on Vercel — full stack, serverless
 - Firebase Auth — Google OAuth + email/password
 - Upstash Redis — rate limiting

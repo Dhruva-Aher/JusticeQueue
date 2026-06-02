@@ -424,7 +424,7 @@ Return this JSON object (fill every field):
     // results (similarity scores, match counts) and decides whether the corpus
     // produced sufficient context, or whether a broader search is warranted.
     // If it chooses to expand, it triggers additional Atlas queries and the
-    // results are merged into the context passed to Gemini Pro.
+    // results are merged into the context passed to Gemini Flash.
     let adaptiveSearchTriggered = false
 
     // Compute outcome diversity for the evaluation prompt
