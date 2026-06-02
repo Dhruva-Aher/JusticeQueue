@@ -536,6 +536,64 @@ function DashboardInner() {
           </div>
         )}
 
+        {/* Workflow clarity strip — shown when both workflows have been or can be used */}
+        {!isDemo && displayCases.length > 0 && (
+          <div style={{
+            borderBottom: '1px solid var(--border)',
+            borderLeft: '1px solid var(--border)',
+            borderRight: '1px solid var(--border)',
+            background: 'var(--bg-raised)',
+            padding: '8px 16px',
+            display: 'flex', alignItems: 'center', gap: '0', flexWrap: 'wrap',
+          }}>
+            {/* Intake workflow */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.06em' }}>INTAKE</span>
+              {[
+                { label: 'Upload', sub: 'CSV / TXT / PDF' },
+                { label: 'Extract', sub: 'Gemini Flash' },
+                { label: 'Score', sub: 'Deterministic' },
+                { label: 'Queue', sub: 'MongoDB Atlas' },
+              ].map((s, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '9px', color: 'var(--text-3)' }}>›</span>
+                  <span style={{
+                    fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+                    color: 'var(--text-2)', padding: '2px 6px',
+                    background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: '3px',
+                  }} title={s.sub}>{s.label}</span>
+                </div>
+              ))}
+            </div>
+            {/* Arrow to docket */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: '0 10px', flexShrink: 0 }}>
+              <div style={{ width: '24px', height: '1px', background: 'var(--accent)', opacity: 0.4 }} />
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--accent)', fontWeight: 600 }}>↓</span>
+              <div style={{ width: '24px', height: '1px', background: 'var(--accent)', opacity: 0.4 }} />
+            </div>
+            {/* Docket workflow */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, color: 'var(--accent)', letterSpacing: '0.06em' }}>DOCKET</span>
+              {[
+                { label: 'Model Decision', sub: 'Gemini Flash selects strategy' },
+                { label: '$vectorSearch', sub: 'Atlas historical retrieval' },
+                { label: 'Precedents', sub: 'CourtListener (conditional)' },
+                { label: 'Recommendations', sub: 'Gemini Pro' },
+                { label: 'Brief', sub: 'Printable PDF' },
+              ].map((s, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '9px', color: 'var(--text-3)' }}>›</span>
+                  <span style={{
+                    fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+                    color: 'var(--accent)', padding: '2px 6px',
+                    background: 'rgba(67,56,202,0.06)', border: '1px solid rgba(67,56,202,0.15)', borderRadius: '3px',
+                  }} title={s.sub}>{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Queue header */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',

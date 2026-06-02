@@ -158,44 +158,189 @@ function RunDetail({ run }) {
           </div>
         )}
 
-        {/* Plan — static (initial) and adapted (post-analysis) */}
-        {(run.adapted_plan?.length > 0 || run.plan?.length > 0) && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>
-                {run.adapted_plan?.length > 0 ? 'Adapted Execution Plan' : 'Execution Plan'}
-              </p>
-              {run.adapted_plan?.length > 0 && (
-                <span style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
-                  padding: '1px 6px',
-                  background: 'rgba(22,163,74,0.07)', color: '#16A34A',
-                  border: '1px solid rgba(22,163,74,0.18)', borderRadius: '3px',
-                }}>
-                  Generated from case analysis
-                </span>
+        {/* Plan comparison — original vs adapted, differences highlighted */}
+        {(run.adapted_plan?.length > 0 || run.plan?.length > 0) && (() => {
+          const orig    = run.plan          || []
+          const adapted = run.adapted_plan  || []
+          const showDiff = orig.length > 0 && adapted.length > 0
+          const display  = adapted.length > 0 ? adapted : orig
+
+          return (
+            <div>
+              {showDiff && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>
+                    Adapted Execution Plan
+                  </p>
+                  <span style={{
+                    fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+                    padding: '1px 6px',
+                    background: 'rgba(67,56,202,0.07)', color: 'var(--accent)',
+                    border: '1px solid rgba(67,56,202,0.18)', borderRadius: '3px',
+                  }}>
+                    Generated from case analysis — differs from static plan
+                  </span>
+                </div>
               )}
-            </div>
-            {(run.adapted_plan || run.plan).map((step, i) => (
-              <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--accent)', fontWeight: 600, minWidth: '20px', marginTop: '1px' }}>
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                  {step}
-                </span>
+              {!showDiff && (
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', marginBottom: '8px' }}>
+                  Execution Plan
+                </p>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                {display.map((step, i) => {
+                  const changed = showDiff && orig[i] && orig[i] !== adapted[i]
+                  return (
+                    <div key={i} style={{
+                      display: 'flex', gap: '10px', alignItems: 'flex-start',
+                      padding: changed ? '3px 6px' : '3px 0',
+                      background: changed ? 'rgba(67,56,202,0.04)' : 'transparent',
+                      borderRadius: changed ? '3px' : 0,
+                      borderLeft: changed ? '2px solid var(--accent)' : 'none',
+                      paddingLeft: changed ? '8px' : 0,
+                    }}>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '10px',
+                        color: changed ? 'var(--accent)' : 'var(--text-3)',
+                        fontWeight: 600, minWidth: '20px', marginTop: '1px', flexShrink: 0,
+                      }}>
+                        {String(i + 1).padStart(2, '0')}
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: changed ? 'var(--text)' : 'var(--text-2)', lineHeight: 1.5 }}>
+                        {step}
+                      </span>
+                      {changed && (
+                        <span style={{
+                          fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+                          color: 'var(--accent)', flexShrink: 0, marginTop: '2px',
+                        }}>
+                          adapted
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-            ))}
-          </div>
-        )}
+            </div>
+          )
+        })()}
       </div>
+
+      {/* ── MODEL DECISION — first thing judges see; Gemini Flash drove this ── */}
+      {run.model_decision && (
+        <div style={{ marginBottom: '2rem' }}>
+
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em' }}>
+              MODEL DECISION
+            </p>
+            <span style={{
+              fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500, padding: '1px 7px',
+              background: run.model_decision.fallback_used ? 'rgba(194,113,12,0.07)' : 'rgba(67,56,202,0.07)',
+              color:      run.model_decision.fallback_used ? '#C2710C'              : 'var(--accent)',
+              border:     `1px solid ${run.model_decision.fallback_used ? 'rgba(194,113,12,0.18)' : 'rgba(67,56,202,0.18)'}`,
+              borderRadius: '3px',
+            }}>
+              {run.model_decision.fallback_used ? 'deterministic fallback — Gemini unavailable' : run.model_decision.model || 'Gemini Flash'}
+            </span>
+          </div>
+
+          {/* Strategy selector — shows selected and rejected options */}
+          {(() => {
+            const ALL_STRATEGIES = [
+              { key: 'emergency',            label: 'Emergency',            desc: 'Full CourtListener research + immediate escalation',        color: '#DC2626', bg: 'rgba(220,38,38,0.07)', border: 'rgba(220,38,38,0.22)' },
+              { key: 'standard',             label: 'Standard',             desc: 'Targeted precedent research for urgent matters',            color: '#4338CA', bg: 'rgba(67,56,202,0.07)',  border: 'rgba(67,56,202,0.22)'  },
+              { key: 'documentation-focus',  label: 'Documentation Focus', desc: 'Remediation workflow; precedent research deprioritized',    color: '#C2710C', bg: 'rgba(194,113,12,0.07)', border: 'rgba(194,113,12,0.22)' },
+              { key: 'monitoring',           label: 'Monitoring',           desc: 'No urgent deadlines; lightweight recommendations only',     color: '#57534E', bg: 'rgba(0,0,0,0.04)',       border: 'rgba(0,0,0,0.14)'       },
+            ]
+            const selected = run.model_decision.strategy
+            const rejectedKeys = (run.model_decision.alternatives_considered || []).map(a => a.option)
+            const rejectedMap  = Object.fromEntries((run.model_decision.alternatives_considered || []).map(a => [a.option, a.rejected_reason]))
+
+            return (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px', marginBottom: '12px' }}>
+                {ALL_STRATEGIES.map((s) => {
+                  const isSelected = s.key === selected
+                  const isRejected = rejectedKeys.includes(s.key)
+                  return (
+                    <div key={s.key} style={{
+                      padding: '10px 12px',
+                      background:   isSelected ? s.bg      : 'var(--bg-raised)',
+                      border:       isSelected ? `2px solid ${s.border}` : '1px solid var(--border)',
+                      borderRadius: 'var(--radius)',
+                      opacity:      isRejected ? 0.45 : 1,
+                      position:     'relative',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginBottom: '4px' }}>
+                        {isSelected && (
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, color: s.color }}>✓</span>
+                        )}
+                        <span style={{
+                          fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: isSelected ? 700 : 500,
+                          color: isSelected ? s.color : 'var(--text-3)',
+                          textDecoration: isRejected ? 'line-through' : 'none',
+                        }}>
+                          {s.label}
+                        </span>
+                      </div>
+                      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: isSelected ? 'var(--text-2)' : 'var(--text-3)', lineHeight: 1.45 }}>
+                        {isRejected && rejectedMap[s.key] ? rejectedMap[s.key] : s.desc}
+                      </p>
+                    </div>
+                  )
+                })}
+              </div>
+            )
+          })()}
+
+          {/* Reasoning + resulting actions */}
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            borderLeft: '3px solid var(--accent)',
+            borderRadius: 'var(--radius)', padding: '12px 16px',
+            display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px',
+          }}>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.6, flex: 1 }}>
+              {run.model_decision.reasoning}
+            </p>
+            <div style={{ flexShrink: 0, textAlign: 'right' }}>
+              <div style={{
+                fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+                padding: '2px 8px', borderRadius: '3px', marginBottom: '4px',
+                background: run.model_decision.escalation_level === 'immediate'
+                  ? 'rgba(220,38,38,0.08)' : run.model_decision.escalation_level === 'urgent'
+                  ? 'rgba(194,113,12,0.08)' : 'rgba(0,0,0,0.04)',
+                color: run.model_decision.escalation_level === 'immediate'
+                  ? '#DC2626' : run.model_decision.escalation_level === 'urgent'
+                  ? '#C2710C' : '#57534E',
+                border: '1px solid ' + (run.model_decision.escalation_level === 'immediate'
+                  ? 'rgba(220,38,38,0.18)' : run.model_decision.escalation_level === 'urgent'
+                  ? 'rgba(194,113,12,0.18)' : 'rgba(0,0,0,0.10)'),
+              }}>
+                {(run.model_decision.escalation_level || 'routine').toUpperCase()} ESCALATION
+              </div>
+              <div style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)' }}>
+                CourtListener: {run.model_decision.precedent_research
+                  ? run.model_decision.courtlistener_depth || 'targeted'
+                  : 'skipped by model'}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Execution timeline */}
       {run.steps && run.steps.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
-          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', marginBottom: '12px' }}>
-            Execution Timeline
-          </p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>
+              Execution Timeline
+            </p>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)' }}>
+              · Click any row to inspect evidence
+            </span>
+          </div>
           <div style={{
             background: 'var(--bg-surface)',
             border: '1px solid var(--border)',
@@ -244,10 +389,14 @@ function RunDetail({ run }) {
                       {fmtAbsTime(run.started_at, step.started_ms)}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                      <span style={{ fontSize: '9px', color: '#16A34A' }}>●</span>
+                      <span style={{ fontSize: '9px', color: step.id === 'model_decision' ? 'var(--accent)' : '#16A34A', flexShrink: 0 }}>
+                        {step.id === 'model_decision' ? '◆' : '●'}
+                      </span>
                       <span style={{
-                        fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text)',
-                        fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        fontFamily: 'var(--font-sans)', fontSize: '12px',
+                        color: step.id === 'model_decision' ? 'var(--accent)' : 'var(--text)',
+                        fontWeight: step.id === 'model_decision' ? 600 : 500,
+                        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>
                         {step.label}
                       </span>
@@ -426,6 +575,22 @@ function RunDetail({ run }) {
             }}>
               Atlas $vectorSearch · description_embedding_index
             </span>
+            {(() => {
+              const totalDelta = result.vector_search_results.reduce((sum, r) => {
+                const pts = r.results?.[0]?.similarity_score >= 0.85 ? 15 : r.results?.[0]?.similarity_score >= 0.70 ? 8 : 0
+                return sum + pts
+              }, 0)
+              return totalDelta > 0 ? (
+                <span style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+                  color: '#16A34A', padding: '1px 7px',
+                  background: 'rgba(22,163,74,0.07)', border: '1px solid rgba(22,163,74,0.18)',
+                  borderRadius: '3px',
+                }}>
+                  +{totalDelta} pts added to priority scores
+                </span>
+              ) : null
+            })()}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {result.vector_search_results.map((match, i) => (
@@ -562,105 +727,6 @@ function RunDetail({ run }) {
                 </div>
               </div>
             ))}
-          </div>
-        </div>
-      )}
-
-      {/* Model Decision — Gemini's strategy selection that drove execution */}
-      {run.model_decision && (
-        <div style={{ marginBottom: '2rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em' }}>
-              MODEL DECISION
-            </p>
-            <span style={{
-              fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
-              padding: '1px 7px',
-              background: 'rgba(67,56,202,0.07)', color: 'var(--accent)',
-              border: '1px solid rgba(67,56,202,0.18)', borderRadius: '3px',
-            }}>
-              {run.model_decision.fallback_used ? 'Deterministic Fallback' : run.model_decision.model || 'Gemini Flash'}
-            </span>
-            {run.model_decision.fallback_used && (
-              <span style={{
-                fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
-                padding: '1px 7px',
-                background: 'rgba(194,113,12,0.07)', color: '#C2710C',
-                border: '1px solid rgba(194,113,12,0.18)', borderRadius: '3px',
-              }}>
-                Gemini unavailable
-              </span>
-            )}
-          </div>
-
-          <div style={{
-            background: 'var(--bg-surface)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)', overflow: 'hidden',
-          }}>
-            {/* Strategy + escalation */}
-            <div style={{
-              padding: '14px 18px',
-              borderBottom: '1px solid var(--border)',
-              borderLeft: '3px solid var(--accent)',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
-            }}>
-              <div>
-                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '3px' }}>
-                  Strategy: <span style={{ textTransform: 'capitalize' }}>{run.model_decision.strategy}</span>
-                </p>
-                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>
-                  {run.model_decision.reasoning}
-                </p>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                <div style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500,
-                  padding: '2px 9px',
-                  background: run.model_decision.escalation_level === 'immediate'
-                    ? 'rgba(220,38,38,0.08)' : run.model_decision.escalation_level === 'urgent'
-                    ? 'rgba(194,113,12,0.08)' : 'rgba(0,0,0,0.04)',
-                  color: run.model_decision.escalation_level === 'immediate'
-                    ? '#DC2626' : run.model_decision.escalation_level === 'urgent'
-                    ? '#C2710C' : '#57534E',
-                  border: '1px solid ' + (run.model_decision.escalation_level === 'immediate'
-                    ? 'rgba(220,38,38,0.18)' : run.model_decision.escalation_level === 'urgent'
-                    ? 'rgba(194,113,12,0.18)' : 'rgba(0,0,0,0.10)'),
-                  borderRadius: '3px', marginBottom: '4px',
-                }}>
-                  {run.model_decision.escalation_level?.toUpperCase()} ESCALATION
-                </div>
-                <div style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)' }}>
-                  CourtListener: {run.model_decision.precedent_research ? `${run.model_decision.courtlistener_depth}` : 'skipped'}
-                </div>
-              </div>
-            </div>
-
-            {/* Alternatives considered */}
-            {run.model_decision.alternatives_considered?.length > 0 && (
-              <div style={{ padding: '12px 18px' }}>
-                <p style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
-                  color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: '8px',
-                }}>
-                  ALTERNATIVES EVALUATED
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
-                  {run.model_decision.alternatives_considered.map((alt, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                      <span style={{
-                        fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)',
-                        flexShrink: 0, lineHeight: '16px', textDecoration: 'line-through',
-                      }}>
-                        {alt.option}
-                      </span>
-                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.4 }}>
-                        — {alt.rejected_reason}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -1040,19 +1106,26 @@ function RunDetail({ run }) {
             borderRadius: 'var(--radius)', overflow: 'hidden',
           }}>
             {[
-              `${result.cases_reviewed ?? 0} cases analyzed and ranked by urgency, vulnerability, and deadline`,
-              `${result.recommendations_count ?? 0} attorney recommendations generated with supporting evidence`,
-              `Executive brief compiled with full operational action plan`,
-              `Execution trace persisted to MongoDB Atlas (Run #${run.run_id})`,
-              `${result.action_items?.filter((i) => i.priority === 'critical').length ?? 0} high-risk decisions flagged for human review before action`,
-            ].map((text, i, arr) => (
+              { text: `${result.cases_reviewed ?? 0} cases analyzed and ranked by urgency, vulnerability, and deadline`, sub: null },
+              { text: `Model decision persisted — Gemini ${run.model_decision?.fallback_used ? '(fallback)' : 'Flash'} selected "${run.model_decision?.strategy ?? 'n/a'}" strategy`, sub: 'stored in AgentRun.model_decision · influenced CourtListener execution' },
+              { text: `${result.vector_search_results?.length ?? 0} Atlas $vectorSearch queries executed against description_embedding_index`, sub: 'historical outcomes incorporated into Gemini Pro recommendation prompt' },
+              { text: `${result.recommendations_count ?? 0} attorney recommendations generated; executive brief compiled`, sub: null },
+              { text: `Full execution trace persisted to MongoDB Atlas (Run #${run.run_id})`, sub: 'steps, decisions, model_decision, adapted_plan, vector_search_results' },
+              { text: `Run telemetry logged to Google Cloud Logging (log: justicequeue.agent)`, sub: 'GCP Log Explorer → logName="justicequeue.agent"' },
+              { text: `${result.action_items?.filter((i) => i.priority === 'critical').length ?? 0} high-risk decisions flagged for attorney review — no autonomous legal action taken`, sub: null },
+            ].map(({ text, sub }, i, arr) => (
               <div key={i} style={{
                 display: 'flex', alignItems: 'flex-start', gap: '12px',
-                padding: '11px 16px',
+                padding: '10px 16px',
                 borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
               }}>
                 <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 700, color: '#16A34A', lineHeight: '20px', flexShrink: 0 }}>✓</span>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>{text}</span>
+                <div>
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>{text}</span>
+                  {sub && (
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', marginTop: '2px' }}>{sub}</p>
+                  )}
+                </div>
               </div>
             ))}
           </div>

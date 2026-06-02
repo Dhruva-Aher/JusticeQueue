@@ -299,6 +299,32 @@ export default function JudgePage() {
           }}>
             An 8-step AI agent that autonomously prepares tomorrow&apos;s legal docket. Reasoning, planning, memory, tool use, human oversight — typically under two minutes.
           </p>
+          {/* Two-workflow summary */}
+          <div style={{ marginBottom: '16px' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, color: 'var(--text-3)', letterSpacing: '0.08em', marginBottom: '6px' }}>
+              TWO WORKFLOWS — ONE SYSTEM
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+              {/* Intake */}
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', fontWeight: 600 }}>INTAKE</span>
+              {['Upload', 'Gemini Extract', 'Score', 'Atlas Store'].map((s, i) => (
+                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>›</span>
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)', padding: '1px 5px', background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: '3px' }}>{s}</span>
+                </span>
+              ))}
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--accent)', fontWeight: 600, margin: '0 4px' }}>→ then →</span>
+              {/* Docket */}
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--accent)', fontWeight: 600 }}>DOCKET</span>
+              {['Model Decision', '$vectorSearch', 'CourtListener', 'Gemini Recs', 'Brief'].map((s, i) => (
+                <span key={i} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ fontSize: '9px', color: 'var(--text-3)' }}>›</span>
+                  <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--accent)', padding: '1px 5px', background: 'rgba(67,56,202,0.06)', border: '1px solid rgba(67,56,202,0.15)', borderRadius: '3px' }}>{s}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+
           {/* Tool badge row */}
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {['MongoDB Atlas', 'Gemini Pro', 'CourtListener API', 'Reasoning Engine'].map((tool) => (
@@ -733,36 +759,138 @@ export default function JudgePage() {
         </div>
       </section>
 
-      {/* ── 8a. Why an Agent? + Live infrastructure status ──────────────── */}
+      {/* ── 8a. Four judging questions + live status ─────────────────────── */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
-        <SectionLabel sub>SYSTEM REVIEW</SectionLabel>
+        <SectionLabel sub>JUDGING REVIEW</SectionLabel>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+        {/* Q&A grid — 2×2 */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '10px' }}>
+          {[
+            {
+              heading: 'Why is this an agent?',
+              color: 'var(--accent)',
+              qa: [
+                { q: 'Does the model select tools?', a: 'Gemini Flash evaluates the live docket profile and selects an execution strategy — this decision determines whether and at what depth CourtListener runs.' },
+                { q: 'Does execution branch?', a: 'Two branches: CourtListener depth is model-driven; documentation remediation is threshold-driven. Both are logged with evidence.' },
+                { q: 'Is retrieval grounded?', a: 'Atlas $vectorSearch results are passed verbatim into the Gemini Pro recommendation prompt, directly influencing output.' },
+              ],
+            },
+            {
+              heading: 'Why MongoDB?',
+              color: '#16A34A',
+              qa: [
+                { q: 'Why Atlas for storage?', a: 'The AgentRun document stores variable-length steps[], decisions[], and vector_search_results[] — shapes that require multiple joined tables in relational stores.' },
+                { q: 'Why Atlas Vector Search?', a: '$vectorSearch and document retrieval run in the same aggregation pipeline. No external vector DB, no synchronization lag.' },
+                { q: 'Does retrieval affect scores?', a: 'Yes — vector similarity scores contribute up to 15 urgency points. Cases show their before/after delta in the Case Detail panel.' },
+              ],
+            },
+            {
+              heading: 'Why Google Cloud?',
+              color: '#2563EB',
+              qa: [
+                { q: 'Which GCP services run?', a: 'Vertex AI (Gemini Pro for recommendations/reports), Vertex AI (Gemini Flash for model decisions), Cloud Logging (run telemetry), Firebase Auth (JWT).' },
+                { q: 'Why Vertex AI over API keys?', a: 'OAuth 2.0 Bearer token via aiplatform.googleapis.com — compatible with enterprise GCP org policies that block API key usage.' },
+                { q: 'What goes to Cloud Logging?', a: 'Per-run structured JSON: run_id, strategy, vector_via, duration_ms, decision count. Visible in GCP Log Explorer.' },
+              ],
+            },
+            {
+              heading: 'Why human review?',
+              color: '#C2710C',
+              qa: [
+                { q: 'What requires authorization?', a: 'All critical-priority recommendations are flagged. No legal filing, court communication, or client contact is initiated without attorney sign-off.' },
+                { q: 'What is autonomous?', a: 'Triage ranking, historical retrieval, recommendation drafting, and brief generation. Nothing with legal consequence.' },
+                { q: 'How is oversight enforced?', a: 'Flagged items appear in the Human Oversight panel with checkbox UI. The audit trail in MongoDB records which items received attorney review.' },
+              ],
+            },
+          ].map(({ heading, color, qa }) => (
+            <div key={heading} style={{
+              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', padding: '16px',
+              borderTop: `3px solid ${color}`,
+            }}>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 700, color, marginBottom: '12px' }}>
+                {heading}
+              </p>
+              {qa.map(({ q, a }, i) => (
+                <div key={i} style={{ marginBottom: i < qa.length - 1 ? '10px' : 0, paddingBottom: i < qa.length - 1 ? '10px' : 0, borderBottom: i < qa.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text)', marginBottom: '2px' }}>{q}</p>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.55 }}>{a}</p>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
 
-          {/* Why an agent */}
-          <div style={{
-            background: 'var(--bg-surface)', border: '1px solid var(--border)',
-            borderRadius: 'var(--radius)', padding: '20px',
-          }}>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: '14px' }}>
-              WHY AN AGENT?
-            </p>
-            {[
-              { q: 'Does the model select tools?', a: 'Yes — Gemini Flash evaluates the docket profile and selects the execution strategy, determining whether and how deeply CourtListener runs.' },
-              { q: 'Does execution branch?', a: 'Yes — two conditional branches: CourtListener depth (model-driven), documentation remediation (threshold-driven). Both logged.' },
-              { q: 'Is retrieval used in reasoning?', a: 'Yes — Atlas $vectorSearch results are passed verbatim into the Gemini Pro recommendation prompt.' },
-              { q: 'Is there human oversight?', a: 'Yes — critical recommendations are flagged for attorney authorization. No legal action is autonomous.' },
-              { q: 'Is the trace auditable?', a: 'Yes — every step, decision, and model call is persisted to MongoDB with timing and tool attribution.' },
-            ].map(({ q, a }, i) => (
-              <div key={i} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
-                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '3px' }}>{q}</p>
-                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.55 }}>{a}</p>
+        {/* Live infrastructure health */}
+        <VectorSearchHealth />
+      </section>
+
+      {/* ── 8b. Google Cloud infrastructure ──────────────────────────────── */}
+      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
+        <SectionLabel sub>GOOGLE CLOUD INFRASTRUCTURE</SectionLabel>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px' }}>
+          {[
+            {
+              service:  'Vertex AI',
+              instance: 'Gemini Pro',
+              role:     'Recommendations & executive report',
+              step:     'Steps 6 & 7',
+              color:    '#4338CA',
+            },
+            {
+              service:  'Vertex AI',
+              instance: 'Gemini Flash',
+              role:     'Model decision — strategy selection',
+              step:     'Step 4',
+              color:    '#4338CA',
+            },
+            {
+              service:  'Cloud Logging',
+              instance: 'justicequeue.agent',
+              role:     'Structured run telemetry per docket',
+              step:     'After Step 8',
+              color:    '#2563EB',
+            },
+            {
+              service:  'Firebase Auth',
+              instance: 'JWT verification',
+              role:     'All authenticated API routes',
+              step:     'Every request',
+              color:    '#C2710C',
+            },
+            {
+              service:  'OAuth 2.0',
+              instance: 'Bearer token',
+              role:     'Vertex AI + Cloud Logging access',
+              step:     'Token refresh cache',
+              color:    '#57534E',
+            },
+          ].map(({ service, instance, role, step, color }) => (
+            <div key={instance} style={{
+              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', padding: '12px 14px',
+            }}>
+              <div style={{ marginBottom: '6px' }}>
+                <span style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+                  color, padding: '1px 6px',
+                  background: `${color}12`, border: `1px solid ${color}25`,
+                  borderRadius: '3px',
+                }}>
+                  {service}
+                </span>
               </div>
-            ))}
-          </div>
-
-          {/* Live infrastructure status */}
-          <VectorSearchHealth />
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '3px' }}>
+                {instance}
+              </p>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.45, marginBottom: '6px' }}>
+                {role}
+              </p>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                {step}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 
