@@ -628,6 +628,108 @@ function RunDetail({ run }) {
         </div>
       )}
 
+      {/* ── Retrieval Evaluation — causal chain: Retrieve → Evaluate → Expand → Results ── */}
+      {(() => {
+        // Find the adaptive retrieval decisions from the decisions log
+        const retrievalEvalDecision = run.decisions?.find((d) =>
+          d.decision?.includes('$vectorSearch quality') ||
+          d.decision?.includes('adaptive $vectorSearch') ||
+          d.decision?.includes('Adaptive search found')
+        )
+        const adaptiveTriggerDecision = run.decisions?.find((d) =>
+          d.decision?.includes('adaptive $vectorSearch') && d.evidence?.adaptive_action === 'expand'
+        )
+        const adaptiveResultDecision = run.decisions?.find((d) =>
+          d.decision?.includes('Adaptive search found')
+        )
+        if (!retrievalEvalDecision) return null
+
+        const wasExpanded   = !!adaptiveTriggerDecision
+        const qualityScore  = retrievalEvalDecision.evidence?.quality_score
+        const initialCount  = retrievalEvalDecision.evidence?.initial_matches ?? retrievalEvalDecision.evidence?.matches ?? 0
+        const addedCount    = adaptiveResultDecision?.evidence?.additional_matches ?? 0
+        const finalCount    = adaptiveResultDecision?.evidence?.total_matches_now ?? initialCount
+        const outcomeMix    = retrievalEvalDecision.evidence?.outcome_mix
+        const diversity     = retrievalEvalDecision.evidence?.outcome_diversity
+
+        return (
+          <div style={{ marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em' }}>
+                RETRIEVAL EVALUATION
+              </p>
+              <span style={{
+                fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500, padding: '1px 7px',
+                background: 'rgba(67,56,202,0.07)', color: 'var(--accent)',
+                border: '1px solid rgba(67,56,202,0.18)', borderRadius: '3px',
+              }}>
+                Gemini Flash evaluated Atlas results
+              </span>
+            </div>
+
+            {/* Causal chain: Retrieve → Evaluate → [Expand / Accept] → Final */}
+            <div style={{
+              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', overflow: 'hidden',
+            }}>
+              {[
+                {
+                  step: '1',
+                  label: 'Atlas $vectorSearch executed',
+                  detail: `${run.steps?.find(s => s.id === 'vector_search')?.result?.searches_attempted ?? '—'} searches · ${initialCount} matches · ${run.steps?.find(s => s.id === 'vector_search')?.result?.top_similarity_score != null ? (run.steps.find(s => s.id === 'vector_search').result.top_similarity_score * 100).toFixed(1) + '% top similarity' : '—'}`,
+                  color: '#16A34A',
+                },
+                {
+                  step: '2',
+                  label: 'Gemini Flash evaluated retrieval quality',
+                  detail: `Quality: ${qualityScore || 'assessed'} · Outcome diversity: ${diversity ?? '—'} types (${outcomeMix || '—'}) · ${retrievalEvalDecision.reasoning}`,
+                  color: 'var(--accent)',
+                },
+                {
+                  step: '3',
+                  label: wasExpanded
+                    ? `Model decided: expand scope → ${addedCount} additional matches`
+                    : 'Model decided: accept results — quality sufficient',
+                  detail: wasExpanded
+                    ? `Broader case-type queries executed · total matches grew ${initialCount} → ${finalCount}`
+                    : retrievalEvalDecision.reasoning,
+                  color: wasExpanded ? '#C2710C' : '#16A34A',
+                  highlight: wasExpanded,
+                },
+                wasExpanded && adaptiveResultDecision ? {
+                  step: '4',
+                  label: `Final corpus: ${finalCount} historical matches incorporated into recommendations`,
+                  detail: adaptiveResultDecision.reasoning,
+                  color: '#16A34A',
+                } : null,
+              ].filter(Boolean).map((row, i, arr) => (
+                <div key={i} style={{
+                  display: 'flex', gap: '12px', alignItems: 'flex-start',
+                  padding: '10px 14px',
+                  borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none',
+                  background: row.highlight ? 'rgba(194,113,12,0.03)' : 'var(--bg-surface)',
+                }}>
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700,
+                    color: row.color, flexShrink: 0, lineHeight: '18px', minWidth: '16px',
+                  }}>
+                    {row.step}
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '2px' }}>
+                      {row.label}
+                    </p>
+                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.5 }}>
+                      {row.detail}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Real Atlas $vectorSearch results — one card per case searched */}
       {result?.vector_search_results && result.vector_search_results.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
@@ -1094,17 +1196,38 @@ function RunDetail({ run }) {
                   <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>
                     {item.action}
                   </p>
-                  {/* Model-generated authorization reason — specific legal compliance rationale */}
+                  {/* Model-generated authorization reason with risk assessment */}
                   {item.authorization_reason && (
-                    <p style={{
-                      fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#C2710C',
-                      marginTop: '5px', lineHeight: 1.5,
-                      padding: '4px 8px',
+                    <div style={{
+                      marginTop: '6px', padding: '6px 9px',
                       background: 'rgba(194,113,12,0.05)', borderRadius: '3px',
                       borderLeft: '2px solid rgba(194,113,12,0.35)',
                     }}>
-                      Authorization required: {item.authorization_reason}
-                    </p>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, color: '#C2710C' }}>
+                          Authorization required
+                        </span>
+                        {item.risk_assessment && (
+                          <span style={{
+                            fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700,
+                            padding: '1px 5px', borderRadius: '2px',
+                            background: item.risk_assessment === 'high' ? 'rgba(220,38,38,0.1)' : 'rgba(194,113,12,0.1)',
+                            color: item.risk_assessment === 'high' ? '#DC2626' : '#C2710C',
+                            border: `1px solid ${item.risk_assessment === 'high' ? 'rgba(220,38,38,0.2)' : 'rgba(194,113,12,0.2)'}`,
+                          }}>
+                            {item.risk_assessment?.toUpperCase()} RISK
+                          </span>
+                        )}
+                        {item.oversight_confidence != null && (
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)' }}>
+                            {(item.oversight_confidence * 100).toFixed(0)}% confidence
+                          </span>
+                        )}
+                      </div>
+                      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                        {item.authorization_reason}
+                      </p>
+                    </div>
                   )}
                   {item.deadline_warning && (
                     <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#DC2626', marginTop: '3px', fontWeight: 500 }}>

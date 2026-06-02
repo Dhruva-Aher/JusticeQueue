@@ -68,10 +68,44 @@ function VectorSearchHealth() {
       </div>
 
       {health?.checks?.vector_search_latency_ms != null && (
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', marginTop: '10px' }}>
-          $vectorSearch latency: {health.checks.vector_search_latency_ms}ms · checked {new Date(health.checked_at).toLocaleTimeString()}
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', marginTop: '8px' }}>
+          $vectorSearch latency: {health.checks.vector_search_latency_ms}ms · model: {health.checks.embedding_model || '—'} · {health.checks.embedding_dimensions || '—'}d
         </p>
       )}
+
+      {/* Corpus analytics from live Atlas aggregation */}
+      {health?.checks?.corpus_outcome_distribution && (
+        <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px solid var(--border)' }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: '6px' }}>
+            CORPUS ANALYTICS · live Atlas $group aggregation
+          </p>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+            {Object.entries(health.checks.corpus_outcome_distribution).map(([outcome, count]) => (
+              <span key={outcome} style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-2)' }}>
+                {outcome}: <strong>{count}</strong>
+              </span>
+            ))}
+            {health.checks.corpus_year_range && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)' }}>
+                years: {health.checks.corpus_year_range}
+              </span>
+            )}
+          </div>
+          {health.checks.corpus_category_distribution && (
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '4px' }}>
+              {Object.entries(health.checks.corpus_category_distribution).map(([cat, count]) => (
+                <span key={cat} style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)' }}>
+                  {cat.replace('_', ' ')}:{count}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', marginTop: '8px' }}>
+        checked {health?.checked_at ? new Date(health.checked_at).toLocaleTimeString() : '—'}
+      </p>
     </div>
   )
 }

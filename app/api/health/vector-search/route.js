@@ -27,22 +27,28 @@ export async function GET() {
       description_embedding: { $exists: true, $not: { $size: 0 } },
     })
 
-    // ── Check 2b: outcome distribution via Atlas aggregation pipeline ────────
-    // This is a real $group aggregation — demonstrates MongoDB beyond countDocuments
-    let outcomeDistribution = null
-    let corpusYearRange     = null
+    // ── Check 2b: corpus analytics via Atlas aggregation pipelines ──────────
+    // Three real $group aggregations — outcome distribution, year range, category spread
+    let outcomeDistribution  = null
+    let corpusYearRange      = null
+    let categoryDistribution = null
     try {
-      const [distResult, yearResult] = await Promise.all([
+      const [distResult, yearResult, catResult] = await Promise.all([
         collection.aggregate([
-          { $group: { _id: '$outcome', count: { $sum: 1 } } },
+          { $group: { _id: '$outcome',   count: { $sum: 1 } } },
           { $sort:  { count: -1 } },
         ]).toArray(),
         collection.aggregate([
           { $group: { _id: null, min_year: { $min: '$year' }, max_year: { $max: '$year' } } },
         ]).toArray(),
+        collection.aggregate([
+          { $group: { _id: '$case_type', count: { $sum: 1 } } },
+          { $sort:  { count: -1 } },
+        ]).toArray(),
       ])
-      outcomeDistribution = Object.fromEntries(distResult.map((d) => [d._id || 'unknown', d.count]))
-      corpusYearRange     = yearResult[0] ? `${yearResult[0].min_year}–${yearResult[0].max_year}` : null
+      outcomeDistribution  = Object.fromEntries(distResult.map((d) => [d._id || 'unknown', d.count]))
+      corpusYearRange      = yearResult[0] ? `${yearResult[0].min_year}–${yearResult[0].max_year}` : null
+      categoryDistribution = Object.fromEntries(catResult.map((d) => [d._id || 'unknown', d.count]))
     } catch {
       // Non-fatal — aggregation stats are informational only
     }
@@ -96,8 +102,9 @@ export async function GET() {
         vector_search_results:         vectorSearchCount,
         vector_search_via:             vectorSearchVia,
         vector_search_error:           vectorSearchError ?? null,
-        // Atlas aggregation pipeline results
+        // Atlas aggregation pipeline results (three separate $group pipelines)
         corpus_outcome_distribution:   outcomeDistribution,
+        corpus_category_distribution:  categoryDistribution,
         corpus_year_range:             corpusYearRange,
       },
       labels: {
@@ -111,7 +118,7 @@ export async function GET() {
           ? `Embeddings Present (${withEmbedding}/${totalCount})`
           : withEmbedding > 0
             ? `Partial Embeddings (${withEmbedding}/${totalCount}) — re-run seed`
-            : 'No Embeddings — set VOYAGE_API_KEY and re-run seed',
+            : 'No Embeddings — verify Vertex AI credentials and re-run POST /api/seed/past-cases',
         vector_search:     vectorSearchOk
           ? `Vector Search Ready (${vectorSearchMs}ms, ${vectorSearchCount} probe results)`
           : withEmbedding === 0

@@ -493,6 +493,40 @@ function BriefInner() {
                       ⚑ {item.deadline_warning}
                     </p>
                   )}
+
+                  {/* Authorization requirement — model-generated compliance rationale */}
+                  {item.authorization_required && item.authorization_reason && (
+                    <div style={{
+                      marginTop: '8px',
+                      padding: '6px 10px',
+                      background: 'rgba(194,113,12,0.06)',
+                      border: '1px solid rgba(194,113,12,0.20)',
+                      borderRadius: '4px',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                        <span style={{
+                          fontFamily: 'var(--font-sans)', fontSize: '10px',
+                          fontWeight: 700, color: '#C2710C', letterSpacing: '0.04em',
+                        }}>
+                          ATTORNEY AUTHORIZATION REQUIRED
+                        </span>
+                        {item.risk_assessment && (
+                          <span style={{
+                            fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700,
+                            color: item.risk_assessment === 'high' ? '#DC2626' : '#C2710C',
+                          }}>
+                            [{item.risk_assessment.toUpperCase()} RISK]
+                          </span>
+                        )}
+                      </div>
+                      <p style={{
+                        fontFamily: 'var(--font-sans)', fontSize: '11px',
+                        color: '#7a5c1e', lineHeight: 1.5,
+                      }}>
+                        {item.authorization_reason}
+                      </p>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

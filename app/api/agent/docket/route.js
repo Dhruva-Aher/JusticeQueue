@@ -427,20 +427,38 @@ Return this JSON object (fill every field):
     // results are merged into the context passed to Gemini Pro.
     let adaptiveSearchTriggered = false
 
+    // Compute outcome diversity for the evaluation prompt
+    const outcomeCounts = vectorSearchResults.reduce((acc, r) => {
+      r.results?.forEach((res) => { if (res.outcome) acc[res.outcome] = (acc[res.outcome] || 0) + 1 })
+      return acc
+    }, {})
+    const uniqueOutcomes  = Object.keys(outcomeCounts).length
+    const outcomesSummary = Object.entries(outcomeCounts).map(([k, v]) => `${k}:${v}`).join(', ') || 'none'
+
     if (searchTargets.length > 0 && realCasesWithMatches < Math.ceil(searchTargets.length / 2)) {
       // Fewer than half the searched cases found matches — ask model to evaluate
-      const adaptPrompt = `Atlas $vectorSearch returned sparse results for this docket:
-searches_attempted: ${searchTargets.length} | cases_with_matches: ${realCasesWithMatches} | total_matches: ${realVectorMatches} | top_similarity: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'none'} | via: ${searchVia}
+      // Now includes outcome diversity so the model can assess both quantity AND quality
+      const adaptPrompt = `Atlas $vectorSearch returned results for this docket. Evaluate retrieval quality:
 
-This may indicate an empty past_cases corpus, low overlap between search text and stored descriptions, or genuinely novel fact patterns with no precedent.
+QUANTITY:  searches_attempted=${searchTargets.length} | cases_with_matches=${realCasesWithMatches} | total_matches=${realVectorMatches}
+QUALITY:   top_similarity=${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'none'} | via=${searchVia}
+DIVERSITY: unique_outcomes=${uniqueOutcomes} | outcome_mix=${outcomesSummary}
 
-Should I attempt a broader search using case-type-level queries (less specific, higher recall)?
+Evaluate: are these results sufficient for grounding attorney recommendations in historical precedent?
+Consider ALL three dimensions:
+  1. Quantity — are enough cases matched?
+  2. Quality  — are similarity scores high enough to be meaningful?
+  3. Diversity — do results cover multiple outcome types (won/settled/declined)?
 
-Return JSON only: {"action":"proceed"|"expand","reasoning":"one sentence"}`
+If any dimension is insufficient, a broader search may improve recommendation quality.
+
+Return JSON only: {"action":"proceed"|"expand","reasoning":"one sentence covering all three dimensions","quality_score":"high|medium|low"}`
 
       try {
         const adaptRaw    = await callGeminiFlash('Evaluate Atlas $vectorSearch result quality. Return JSON only, no markdown.', adaptPrompt)
         const adaptResult = JSON.parse(adaptRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+
+        const adaptQuality = adaptResult.quality_score || 'unknown'
 
         if (adaptResult.action === 'expand') {
           adaptiveSearchTriggered = true
@@ -452,6 +470,9 @@ Return JSON only: {"action":"proceed"|"expand","reasoning":"one sentence"}`
               initial_matches:      realVectorMatches,
               cases_with_matches:   realCasesWithMatches,
               top_similarity:       topSimilarity,
+              outcome_diversity:    uniqueOutcomes,
+              outcome_mix:          outcomesSummary,
+              quality_score:        adaptQuality,
               threshold_triggered:  Math.ceil(searchTargets.length / 2),
               adaptive_action:      'expand',
               model:                process.env.GEMINI_MODEL_FLASH,
@@ -512,10 +533,17 @@ Return JSON only: {"action":"proceed"|"expand","reasoning":"one sentence"}`
           }
         } else {
           logDecision(
-            'Model assessed $vectorSearch quality — proceeding with sparse results',
+            'Model assessed $vectorSearch quality — proceeding with current results',
             adaptResult.reasoning,
-            { matches: realVectorMatches, top_similarity: topSimilarity, action: 'proceed' },
-            'Recommendations will rely on deadline analysis and vulnerability scoring; historical context limited'
+            {
+              matches:           realVectorMatches,
+              top_similarity:    topSimilarity,
+              outcome_diversity: uniqueOutcomes,
+              outcome_mix:       outcomesSummary,
+              quality_score:     adaptQuality,
+              action:            'proceed',
+            },
+            'Retrieval quality accepted; recommendations will incorporate existing historical context'
           )
         }
       } catch {
@@ -681,11 +709,15 @@ Return ONLY a valid JSON array:
       const oversightPrompt = `GENERATED ATTORNEY RECOMMENDATIONS (critical/high priority):
 ${criticalRecs.map((r, i) => `${i + 1}. ${r.client_name} (${r.case_type}): ${r.action}`).join('\n')}
 
-For each item: does this action require mandatory attorney authorization before ANY step is taken?
-Consider: court filings, client contact on urgent matters, emergency motions, rights waivers.
+For each item evaluate:
+  1. requires_authorization: does this action require mandatory attorney sign-off before ANY step?
+     (Consider: court filings, emergency motions, federal proceedings, rights waivers, client contact on imminent deadlines)
+  2. authorization_reason: if yes, the specific legal compliance reason (cite bar rules or legal risk if applicable)
+  3. risk_assessment: "high" | "medium" | "low" — potential harm if action is taken without attorney review
+  4. confidence: 0.0–1.0 — how confident are you in this oversight assessment?
 
-Return JSON array (one entry per item):
-[{"client_name":"exact","requires_authorization":true|false,"authorization_reason":"specific legal reason why attorney must review first, or null if not required"}]`
+Return JSON array (one entry per recommendation):
+[{"client_name":"exact","requires_authorization":true|false,"authorization_reason":"specific reason or null","risk_assessment":"high|medium|low","confidence":0.0}]`
 
       try {
         const oversightRaw    = await callGeminiFlash(
@@ -702,6 +734,8 @@ Return JSON array (one entry per item):
             if (rec) {
               rec.authorization_required = true
               rec.authorization_reason   = item.authorization_reason
+              rec.risk_assessment        = item.risk_assessment || 'high'
+              rec.oversight_confidence   = typeof item.confidence === 'number' ? item.confidence : null
               flaggedCount++
             }
           }
