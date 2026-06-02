@@ -1069,6 +1069,15 @@ function RunDetail({ run }) {
               }}>
                 Gemini Flash self-critique loop
               </span>
+              {cr.execution_effect?.applied && (
+                <span style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, padding: '1px 7px',
+                  background: 'rgba(194,113,12,0.07)', color: '#C2710C',
+                  border: '1px solid rgba(194,113,12,0.18)', borderRadius: '3px',
+                }}>
+                  Execution changed
+                </span>
+              )}
             </div>
             <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
               <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', borderLeft: '3px solid #DC2626' }}>
@@ -1098,6 +1107,15 @@ function RunDetail({ run }) {
                   <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', marginBottom: '2px' }}>RECOMMENDED FOLLOW-UP</p>
                   <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)' }}>{cr.recommended_follow_up || '—'}</p>
                 </div>
+                {cr.execution_effect?.applied && (
+                  <div style={{ flexBasis: '100%' }}>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', marginBottom: '2px' }}>EXECUTION EFFECT</p>
+                    <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#C2710C', fontWeight: 500 }}>
+                      {cr.execution_effect.authorization_required ? 'Attorney authorization required' : 'Execution state updated'}
+                      {cr.execution_effect.priority_adjusted ? ` · priority ${cr.execution_effect.previous_priority} -> ${cr.execution_effect.new_priority}` : ''}
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
