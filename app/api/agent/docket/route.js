@@ -327,14 +327,241 @@ Return this JSON object (fill every field):
       )
     }
 
-    // ── STEP 4: Atlas $vectorSearch — real call against past_cases collection ─
+    // ────────────────────────────────────────────────────────────────────────────
+    // PRIORITY 1: MODEL-DIRECTED TOOL SELECTION
+    // Flash explicitly selects which tools to run — replacing the implicit boolean
+    // logic that previously hard-coded CourtListener execution. The model receives
+    // case characteristics and chooses from four tool combinations, rejecting tools
+    // that don't serve the current docket profile.
+    // ────────────────────────────────────────────────────────────────────────────
     s = elapsed()
-    // Search for the top priority cases only (critical first, then urgent)
-    const searchTargets = [
+    let toolSelection = null
+    let toolSelectionFallback = false
+
+    const caseTypeSummary = (() => {
+      const counts = {}
+      cases.forEach((c) => { if (c.case_type) counts[c.case_type] = (counts[c.case_type] || 0) + 1 })
+      return Object.entries(counts).map(([t, n]) => `${t}(${n})`).join(', ') || 'none'
+    })()
+
+    const TOOL_SELECTION_PROMPT = `SELECT TOOLS FOR THIS LEGAL AID DOCKET.
+
+DOCKET PROFILE:
+- Total cases: ${cases.length}
+- Critical (≤3 days): ${criticalCases.length}
+- Urgent (≤7 days): ${urgentCases.length}
+- Case types: ${caseTypeSummary}
+- Documentation gap rate: ${docGapRatePct}%
+- Strategy: ${modelDecision.strategy}
+
+AVAILABLE TOOLS:
+- Atlas $vectorSearch: similarity matching against ${cases.length} historical case outcomes
+- CourtListener API: live judicial opinions from public legal database
+- Escalation: flag docket for senior attorney review before recommendations proceed
+
+TOOL COMBINATIONS:
+- "atlas_only": historical similarity sufficient; no live opinions needed (monitoring/routine dockets)
+- "atlas_courtlistener": both tools needed for comprehensive coverage (standard urgent dockets)
+- "courtlistener_only": novel fact patterns with no historical match; live precedent more valuable
+- "atlas_courtlistener_escalate": high complexity or extreme urgency; senior attorney review required
+
+Select the optimal tool combination. Reject tools explicitly.
+
+Return JSON only:
+{
+  "tools": "atlas_only"|"atlas_courtlistener"|"courtlistener_only"|"atlas_courtlistener_escalate",
+  "selected_tools": ["tool names selected"],
+  "rejected_tools": ["tool names rejected with reason"],
+  "reasoning": "1-2 sentences explaining what drove this selection",
+  "confidence": 0.0
+}`
+
+    try {
+      const tsRaw    = await callGeminiFlash('Legal operations tool selector. Return JSON only. No markdown.', TOOL_SELECTION_PROMPT)
+      const tsParsed = JSON.parse(tsRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+      const validTools = ['atlas_only', 'atlas_courtlistener', 'courtlistener_only', 'atlas_courtlistener_escalate']
+      if (validTools.includes(tsParsed.tools)) {
+        toolSelection = {
+          tools:          tsParsed.tools,
+          selected_tools: Array.isArray(tsParsed.selected_tools) ? tsParsed.selected_tools : [],
+          rejected_tools: Array.isArray(tsParsed.rejected_tools) ? tsParsed.rejected_tools : [],
+          reasoning:      tsParsed.reasoning || '',
+          confidence:     typeof tsParsed.confidence === 'number' ? tsParsed.confidence : null,
+          fallback_used:  false,
+        }
+      }
+    } catch {
+      toolSelectionFallback = true
+    }
+
+    // Fallback: derive tool selection from existing model_decision
+    if (!toolSelection) {
+      const fallbackTools = modelDecision.precedent_research
+        ? modelDecision.strategy === 'emergency' ? 'atlas_courtlistener_escalate' : 'atlas_courtlistener'
+        : 'atlas_only'
+      toolSelection = {
+        tools:          fallbackTools,
+        selected_tools: fallbackTools.includes('courtlistener') ? ['Atlas $vectorSearch', 'CourtListener API'] : ['Atlas $vectorSearch'],
+        rejected_tools: fallbackTools === 'atlas_only' ? ['CourtListener API (no urgent cases)'] : [],
+        reasoning:      'Fallback selection based on strategy and urgency threshold',
+        confidence:     null,
+        fallback_used:  true,
+      }
+      toolSelectionFallback = true
+    }
+
+    steps.push(makeStep('tool_selection',
+      `Model selects tools: ${toolSelection.selected_tools.join(' + ')} — rejects: ${toolSelection.rejected_tools.length > 0 ? toolSelection.rejected_tools.join(', ') : 'none'}`,
+      'Gemini Flash',
+      s, elapsed() - s,
+      {
+        tools:          toolSelection.tools,
+        selected_tools: toolSelection.selected_tools,
+        rejected_tools: toolSelection.rejected_tools,
+        confidence:     toolSelection.confidence,
+        fallback_used:  toolSelectionFallback,
+      }
+    ))
+
+    logDecision(
+      `Tool selection: ${toolSelection.tools} — ${toolSelection.selected_tools.join(', ')} selected`,
+      toolSelection.reasoning,
+      {
+        tools:           toolSelection.tools,
+        selected:        toolSelection.selected_tools,
+        rejected:        toolSelection.rejected_tools,
+        confidence:      toolSelection.confidence,
+        model:           process.env.GEMINI_MODEL_FLASH,
+        fallback_used:   toolSelectionFallback,
+        escalation:      toolSelection.tools.includes('escalate'),
+      },
+      toolSelection.tools.includes('escalate')
+        ? 'Senior attorney escalation added to workflow'
+        : `Execution continues with ${toolSelection.selected_tools.join(' + ')}`
+    )
+
+    // Derive whether each tool runs from the model's selection
+    const runAtlas         = !toolSelection.tools.includes('courtlistener_only')
+    const runCourtListener = toolSelection.tools.includes('courtlistener') || toolSelection.tools.includes('atlas_courtlistener')
+    // runEscalation: flag the entire docket for senior attorney review
+    // Recorded in tool_selection and surfaced in the human oversight panel
+    if (toolSelection.tools.includes('escalate')) {
+      logDecision(
+        'Tool selection: docket-level escalation flagged by model',
+        'Model assessed case complexity and urgency as requiring senior attorney review before recommendations are acted upon',
+        { tool_selection: toolSelection.tools, escalation: true },
+        'Docket flagged for senior attorney review — all action items require escalated authorization'
+      )
+    }
+
+    // ────────────────────────────────────────────────────────────────────────────
+    // PRIORITY 2: MODEL-DIRECTED CASE SELECTION
+    // Flash selects which cases receive retrieval resources — replacing the
+    // algorithmic top-N slice. The model evaluates the top 10 candidates and
+    // decides which 5 will benefit most from historical similarity search.
+    // ────────────────────────────────────────────────────────────────────────────
+    s = elapsed()
+    const candidatePool = [
       ...criticalCases,
       ...urgentCases.filter((c) => !criticalCases.some((x) => String(x._id) === String(c._id))),
       ...highScoreCases.filter((c) => !urgentCases.some((x) => String(x._id) === String(c._id))),
-    ].slice(0, 5)
+    ].slice(0, 10)  // give the model up to 10 candidates to choose from
+
+    let caseSelection = null
+    let caseSelectionFallback = false
+
+    if (candidatePool.length > 5 && runAtlas) {
+      const caseList = candidatePool.map((c, i) =>
+        `${i}: ${c.client_name || 'Unknown'} | ${c.case_type} | deadline=${c.deadline_days ?? '?'}d | score=${c.priority_score ?? '?'} | missing=${c.missing_info?.length ?? 0} docs`
+      ).join('\n')
+
+      const CASE_SELECTION_PROMPT = `SELECT WHICH CASES DESERVE RETRIEVAL RESOURCES.
+
+You have ${candidatePool.length} candidate cases. Select the 5 that will benefit most from Atlas $vectorSearch.
+Prioritize cases where historical precedent would most influence the attorney recommendation.
+Consider: cases with novel fact patterns, complex legal issues, or insufficient context.
+
+CANDIDATES:
+${caseList}
+
+Return the indices (0-based) of exactly 5 cases. Explain your selection criteria.
+
+Return JSON only:
+{
+  "selected_indices": [0, 1, 2, 3, 4],
+  "reasoning": "1-2 sentences on what drove case selection",
+  "selection_criteria": "the factors that determined which cases were chosen vs skipped"
+}`
+
+      try {
+        const csRaw    = await callGeminiFlash('Legal case resource allocator. Select exactly 5 cases. Return JSON only.', CASE_SELECTION_PROMPT)
+        const csParsed = JSON.parse(csRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+        if (Array.isArray(csParsed.selected_indices) && csParsed.selected_indices.length >= 3) {
+          const validIdx    = csParsed.selected_indices.filter((i) => typeof i === 'number' && i >= 0 && i < candidatePool.length).slice(0, 5)
+          const rejectedIdx = candidatePool.map((_, i) => i).filter((i) => !validIdx.includes(i))
+          caseSelection = {
+            selected_case_ids:  validIdx.map((i) => String(candidatePool[i]._id)),
+            rejected_case_ids:  rejectedIdx.map((i) => String(candidatePool[i]._id)),
+            selected_count:     validIdx.length,
+            rejected_count:     rejectedIdx.length,
+            reasoning:          csParsed.reasoning || '',
+            selection_criteria: csParsed.selection_criteria || '',
+            fallback_used:      false,
+          }
+        }
+      } catch {
+        caseSelectionFallback = true
+      }
+    }
+
+    // Fallback: use algorithmic top-5
+    if (!caseSelection) {
+      const top5    = candidatePool.slice(0, 5)
+      const skipped = candidatePool.slice(5)
+      caseSelection = {
+        selected_case_ids:  top5.map((c) => String(c._id)),
+        rejected_case_ids:  skipped.map((c) => String(c._id)),
+        selected_count:     top5.length,
+        rejected_count:     skipped.length,
+        reasoning:          'Fallback: top 5 by urgency score (model selection unavailable)',
+        selection_criteria: 'deadline proximity, vulnerability score, case type severity',
+        fallback_used:      true,
+      }
+      caseSelectionFallback = true
+    }
+
+    if (candidatePool.length > 5) {
+      steps.push(makeStep('case_selection',
+        `Model selects ${caseSelection.selected_count} of ${candidatePool.length} candidates for retrieval — ${caseSelection.rejected_count} skipped`,
+        'Gemini Flash',
+        s, elapsed() - s,
+        {
+          candidates_evaluated: candidatePool.length,
+          cases_selected:       caseSelection.selected_count,
+          cases_skipped:        caseSelection.rejected_count,
+          selection_criteria:   caseSelection.selection_criteria,
+          fallback_used:        caseSelectionFallback,
+        }
+      ))
+
+      logDecision(
+        `Case selection: ${caseSelection.selected_count} of ${candidatePool.length} cases allocated retrieval resources`,
+        caseSelection.reasoning,
+        {
+          total_candidates: candidatePool.length,
+          selected:         caseSelection.selected_count,
+          skipped:          caseSelection.rejected_count,
+          criteria:         caseSelection.selection_criteria,
+          fallback_used:    caseSelectionFallback,
+        },
+        `Atlas $vectorSearch will run for ${caseSelection.selected_count} model-selected cases; ${caseSelection.rejected_count} will use deadline/vulnerability scoring only`
+      )
+    }
+
+    // Resolve the final search targets from model selection
+    const searchTargets = runAtlas
+      ? candidatePool.filter((c) => caseSelection.selected_case_ids.includes(String(c._id))).slice(0, 5)
+      : []
 
     const vectorSearchResults = []
 
@@ -555,11 +782,168 @@ Return JSON only: {"action":"proceed"|"expand","reasoning":"one sentence coverin
     const finalVectorMatches     = vectorSearchResults.reduce((sum, r) => sum + r.matched_cases, 0)
     const finalCasesWithMatches  = vectorSearchResults.length
 
-    // ── STEP 5: CourtListener — conditional on DECISION A ───────────────────
+    // ────────────────────────────────────────────────────────────────────────────
+    // PRIORITY 3: MODEL-DIRECTED EVIDENCE SUFFICIENCY EVALUATION
+    // Flash evaluates whether the retrieved historical evidence is sufficient
+    // to generate reliable attorney recommendations — or whether more retrieval
+    // is needed, or whether the complexity warrants escalation.
+    // Three outcomes: sufficient | retrieve_more | escalate
+    // ────────────────────────────────────────────────────────────────────────────
+    s = elapsed()
+    let evidenceSufficiency = null
+    let evidenceFallback    = false
+
+    if (searchTargets.length > 0) {
+      const outcomeDist = vectorSearchResults.reduce((acc, r) => {
+        r.results?.forEach((res) => { if (res.outcome) acc[res.outcome] = (acc[res.outcome] || 0) + 1 })
+        return acc
+      }, {})
+      const outcomeSummary = Object.entries(outcomeDist).map(([k, v]) => `${k}:${v}`).join(', ') || 'none'
+      const uniqueOut = Object.keys(outcomeDist).length
+      const caseTypesWithoutMatches = searchTargets
+        .filter((c) => !vectorSearchResults.find((r) => r.case_id === String(c._id)))
+        .map((c) => c.case_type)
+
+      const EVIDENCE_PROMPT = `EVALUATE RETRIEVAL SUFFICIENCY FOR RECOMMENDATION GENERATION.
+
+RETRIEVAL RESULTS:
+- Cases searched: ${searchTargets.length}
+- Cases with historical matches: ${finalCasesWithMatches}
+- Total historical matches: ${finalVectorMatches}
+- Top similarity score: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'none'}
+- Outcome distribution: ${outcomeSummary}
+- Outcome type diversity: ${uniqueOut} distinct outcomes
+- Case types without matches: ${caseTypesWithoutMatches.join(', ') || 'none'}
+- Critical cases (≤3d deadline): ${criticalCases.length}
+
+Is this evidence sufficient to generate reliable attorney recommendations?
+
+"sufficient": historical context covers the priority cases adequately
+"retrieve_more": one or more high-priority case types lack historical context; another retrieval pass would improve recommendations
+"escalate": evidence is inadequate AND complexity warrants senior attorney review before recommendations proceed
+
+Return JSON only:
+{
+  "verdict": "sufficient"|"retrieve_more"|"escalate",
+  "match_quality": "high"|"medium"|"low",
+  "missing_context": "which case types or fact patterns lack historical context, or null",
+  "reasoning": "1 sentence"
+}`
+
+      try {
+        const evRaw    = await callGeminiFlash('Legal evidence quality reviewer. Return JSON only.', EVIDENCE_PROMPT)
+        const evParsed = JSON.parse(evRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+        const validVerdicts = ['sufficient', 'retrieve_more', 'escalate']
+        if (validVerdicts.includes(evParsed.verdict)) {
+          evidenceSufficiency = {
+            verdict:               evParsed.verdict,
+            match_quality:         evParsed.match_quality || 'medium',
+            missing_context:       evParsed.missing_context || null,
+            reasoning:             evParsed.reasoning || '',
+            second_pass_triggered: false,
+            fallback_used:         false,
+          }
+        }
+      } catch {
+        evidenceFallback = true
+      }
+
+      if (!evidenceSufficiency) {
+        evidenceSufficiency = {
+          verdict:               finalVectorMatches > 0 ? 'sufficient' : 'retrieve_more',
+          match_quality:         topSimilarity != null && topSimilarity >= 0.8 ? 'high' : 'medium',
+          missing_context:       null,
+          reasoning:             'Fallback verdict based on match count',
+          second_pass_triggered: false,
+          fallback_used:         true,
+        }
+        evidenceFallback = true
+      }
+
+      // If model says retrieve_more: run one additional broad retrieval pass
+      if (evidenceSufficiency.verdict === 'retrieve_more') {
+        evidenceSufficiency.second_pass_triggered = true
+        const BROAD_FALLBACK = {
+          eviction: 'tenant housing emergency relief', immigration: 'immigration removal appeal',
+          custody: 'child custody emergency order', wage_theft: 'wage labor rights claim',
+          employment: 'wrongful termination rights', domestic_violence: 'protective order safety',
+          other: 'legal aid due process',
+        }
+        const missingTypes = caseTypesWithoutMatches.length > 0
+          ? caseTypesWithoutMatches
+          : [...new Set(searchTargets.map((c) => c.case_type))]
+        const secondPassPromises = missingTypes.slice(0, 3).map(async (ct) => {
+          try {
+            const { results } = await findSimilarCases(BROAD_FALLBACK[ct] || BROAD_FALLBACK.other, 3)
+            return results.map((r) => ({ ...r, second_pass: true }))
+          } catch { return [] }
+        })
+        const spSettled = await Promise.allSettled(secondPassPromises)
+        const existingIds = new Set(vectorSearchResults.flatMap((v) => v.results.map((r) => r.id).filter(Boolean)))
+        let spAdded = 0
+        for (const r of spSettled) {
+          if (r.status !== 'fulfilled' || !r.value.length) continue
+          const fresh = r.value.filter((res) => !existingIds.has(res.id))
+          if (!fresh.length) continue
+          spAdded += fresh.length
+          vectorSearchResults.push({
+            case_id: 'evidence_pass_2', client_name: 'Second Pass', case_type: 'multi',
+            matched_cases: fresh.length, via: 'evidence-sufficiency-pass2',
+            top_similarity: fresh[0]?.similarity_score ?? null, top_outcome: fresh[0]?.outcome ?? null,
+            top_outcome_notes: fresh[0]?.outcome_notes ?? null, results: fresh.slice(0, 3),
+          })
+        }
+
+        logDecision(
+          `Evidence insufficiency triggered second retrieval pass — ${spAdded} additional matches`,
+          evidenceSufficiency.reasoning,
+          {
+            verdict:       'retrieve_more',
+            second_pass:   true,
+            added_matches: spAdded,
+            missing_types: missingTypes,
+          },
+          `Second Atlas $vectorSearch pass retrieved ${spAdded} additional historical cases`
+        )
+      } else if (evidenceSufficiency.verdict === 'escalate') {
+        logDecision(
+          'Evidence evaluation: escalation required — retrieval insufficient for reliable recommendations',
+          evidenceSufficiency.reasoning,
+          { verdict: 'escalate', match_quality: evidenceSufficiency.match_quality },
+          'Docket flagged for senior attorney review before recommendations are acted upon'
+        )
+      } else {
+        logDecision(
+          `Evidence evaluation: ${evidenceSufficiency.match_quality} quality — sufficient for recommendations`,
+          evidenceSufficiency.reasoning,
+          { verdict: 'sufficient', match_quality: evidenceSufficiency.match_quality, total_matches: finalVectorMatches },
+          'Proceeding to recommendation generation with current historical context'
+        )
+      }
+
+      steps.push(makeStep('evidence_sufficiency',
+        `Model evaluates retrieval quality → verdict: "${evidenceSufficiency.verdict}"${evidenceSufficiency.second_pass_triggered ? ' → second pass triggered' : ''}`,
+        'Gemini Flash',
+        s, elapsed() - s,
+        {
+          verdict:               evidenceSufficiency.verdict,
+          match_quality:         evidenceSufficiency.match_quality,
+          missing_context:       evidenceSufficiency.missing_context,
+          second_pass_triggered: evidenceSufficiency.second_pass_triggered,
+          fallback_used:         evidenceFallback,
+        }
+      ))
+    }
+
+    // Update final totals after evidence sufficiency may have added a second pass
+    const finalVectorMatchesPost     = vectorSearchResults.reduce((sum, r) => sum + r.matched_cases, 0)
+    const finalCasesWithMatchesPost  = vectorSearchResults.length
+
+    // ── STEP 5: CourtListener — now driven by tool_selection ──────────────────
     s = elapsed()
     let courtOpinions = []
 
-    if (proceedToPrecedents) {
+    if (runCourtListener) {
       const caseTypesToSearch = [...new Set(
         urgentCases.map((c) => c.case_type).filter(Boolean)
       )].slice(0, 3)
@@ -769,6 +1153,99 @@ Return JSON array (one entry per recommendation):
         flagged_for_authorization: recommendations.filter((r) => r.authorization_required).length,
       }))
 
+    // ────────────────────────────────────────────────────────────────────────────
+    // PRIORITY 4: RECOMMENDATION CHALLENGE LOOP
+    // Flash reads its own generated recommendations and identifies the most
+    // uncertain case, missing evidence, and gaps in reasoning. This is a genuine
+    // self-critique loop: the model challenges content it just produced.
+    // ────────────────────────────────────────────────────────────────────────────
+    let challengeReview = null
+    let challengeFallback = false
+
+    if (recommendations.length > 0) {
+      s = elapsed()
+      const recSummary = recommendations.slice(0, 6).map((r, i) =>
+        `${i + 1}. ${r.client_name} (${r.case_type}) — ${r.priority} — "${r.action}"\n   Rationale: ${r.rationale || 'none'}`
+      ).join('\n\n')
+
+      const CHALLENGE_PROMPT = `YOU GENERATED THESE ATTORNEY RECOMMENDATIONS. NOW CHALLENGE THEM.
+
+${recSummary}
+
+As a rigorous legal operations quality reviewer, identify weaknesses in these recommendations.
+Be critical. The goal is to surface uncertainty before attorneys act.
+
+Answer:
+1. Which recommendation is MOST LIKELY to be wrong or insufficient, and why?
+2. What specific evidence is MISSING that would make these recommendations more reliable?
+3. What is your OVERALL CONFIDENCE in this recommendation set?
+4. What single follow-up action would most improve confidence?
+
+Return JSON only:
+{
+  "most_uncertain_case": "client name",
+  "uncertainty_reason": "specific reason this recommendation may be wrong or insufficient",
+  "missing_evidence": ["piece of missing evidence 1", "piece 2"],
+  "confidence_assessment": "high|medium|low — with brief explanation",
+  "recommended_follow_up": "single most valuable action to take before proceeding"
+}`
+
+      try {
+        const crRaw    = await callGeminiFlash('Legal recommendation quality auditor. Be critical. Return JSON only.', CHALLENGE_PROMPT)
+        const crParsed = JSON.parse(crRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+        if (crParsed.most_uncertain_case && crParsed.uncertainty_reason) {
+          challengeReview = {
+            most_uncertain_case:   crParsed.most_uncertain_case,
+            uncertainty_reason:    crParsed.uncertainty_reason,
+            missing_evidence:      Array.isArray(crParsed.missing_evidence) ? crParsed.missing_evidence : [],
+            confidence_assessment: crParsed.confidence_assessment || '',
+            recommended_follow_up: crParsed.recommended_follow_up || '',
+            fallback_used:         false,
+          }
+        }
+      } catch {
+        challengeFallback = true
+      }
+
+      if (!challengeReview) {
+        challengeReview = {
+          most_uncertain_case:   recommendations[0]?.client_name ?? 'Unknown',
+          uncertainty_reason:    'Challenge review unavailable — model call failed',
+          missing_evidence:      [],
+          confidence_assessment: 'medium — fallback',
+          recommended_follow_up: 'Manual attorney review recommended',
+          fallback_used:         true,
+        }
+        challengeFallback = true
+      }
+
+      steps.push(makeStep('challenge_review',
+        `Model self-critique: most uncertain — ${challengeReview.most_uncertain_case} · confidence: ${challengeReview.confidence_assessment?.split(' ')[0] || 'assessed'}`,
+        'Gemini Flash',
+        s, elapsed() - s,
+        {
+          most_uncertain_case:   challengeReview.most_uncertain_case,
+          uncertainty_reason:    challengeReview.uncertainty_reason,
+          missing_evidence_count: challengeReview.missing_evidence.length,
+          confidence:            challengeReview.confidence_assessment?.split(' ')[0] || 'unknown',
+          fallback_used:         challengeFallback,
+        }
+      ))
+
+      logDecision(
+        `Challenge review: most uncertain recommendation is "${challengeReview.most_uncertain_case}"`,
+        challengeReview.uncertainty_reason,
+        {
+          missing_evidence:      challengeReview.missing_evidence,
+          confidence_assessment: challengeReview.confidence_assessment,
+          recommended_follow_up: challengeReview.recommended_follow_up,
+          loop:                  'self-critique',
+          model:                 process.env.GEMINI_MODEL_FLASH,
+        },
+        `Self-critique complete. Follow-up: ${challengeReview.recommended_follow_up}`
+      )
+    }
+
     // ── STEP 7: Executive report ─────────────────────────────────────────────
     s = elapsed()
     const opinionCitations = courtOpinions.slice(0, 4).map((op) =>
@@ -776,14 +1253,14 @@ Return JSON array (one entry per recommendation):
     ).join('; ') || 'None retrieved'
 
     const vectorSummary = vectorSearchResults.length > 0
-      ? `Atlas $vectorSearch retrieved ${finalVectorMatches} historical matches across ${finalCasesWithMatches} cases (index: description_embedding_index). Top outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.`
+      ? `Atlas $vectorSearch retrieved ${finalVectorMatchesPost} historical matches across ${finalCasesWithMatchesPost} cases (index: description_embedding_index). Top outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.`
       : 'Historical case database returned no matches for current caseload.'
 
-    const reportPrompt = `DOCKET: ${cases.length} cases · ${criticalCases.length} critical (≤3d) · ${urgentCases.length} urgent (≤7d) · ${withMissingDocs.length} docs missing (${docGapRatePct}%) · ${recommendations.length} recommendations · ${courtOpinions.length} precedents · ${finalVectorMatches} historical matches${adaptiveSearchTriggered ? ' (includes adaptive search results)' : ''}
+    const reportPrompt = `DOCKET: ${cases.length} cases · ${criticalCases.length} critical (≤3d) · ${urgentCases.length} urgent (≤7d) · ${withMissingDocs.length} docs missing (${docGapRatePct}%) · ${recommendations.length} recommendations · ${courtOpinions.length} precedents · ${finalVectorMatchesPost} historical matches${adaptiveSearchTriggered ? ' (includes adaptive search results)' : ''}
 STRATEGY: ${modelDecision?.strategy || 'standard'} · escalation: ${modelDecision?.escalation_level || 'routine'}
 TOP CASES: ${priorityQueue.slice(0, 5).map((c, i) => `${i + 1}. ${c.client_name || 'Unknown'} (${c.case_type}, ${c.deadline_days != null ? c.deadline_days + 'd' : '?'}, score ${c.priority_score ?? '?'})`).join(' | ')}
 ${courtOpinions.length > 0 ? `PRECEDENTS: ${opinionCitations}` : ''}
-${finalVectorMatches > 0 ? `HISTORICAL: ${vectorSummary}` : ''}
+${finalVectorMatchesPost > 0 ? `HISTORICAL: ${vectorSummary}` : ''}
 
 Write a concise 3-paragraph executive docket report:
 P1: Current docket status and risk assessment
@@ -795,7 +1272,7 @@ Authoritative, formal, specific, actionable. No boilerplate.`
     try {
       executiveReport = await callGeminiPro(reportPrompt)
     } catch {
-      executiveReport = `Docket analysis complete. ${cases.length} cases active. ${criticalCases.length > 0 ? `${criticalCases.length} cases have deadlines within 72 hours and require immediate attorney assignment.` : 'No cases have critical 72-hour deadlines.'} ${urgentCases.length} cases fall within the 7-day urgency threshold. ${withMissingDocs.length} cases have documentation gaps. ${finalVectorMatches > 0 ? `Atlas $vectorSearch retrieved ${finalVectorMatches} historical matches to inform recommendations${adaptiveSearchTriggered ? ' (adaptive search triggered)' : ''}.` : ''} ${recommendations.length} specific recommended actions have been prepared.`
+      executiveReport = `Docket analysis complete. ${cases.length} cases active. ${criticalCases.length > 0 ? `${criticalCases.length} cases have deadlines within 72 hours and require immediate attorney assignment.` : 'No cases have critical 72-hour deadlines.'} ${urgentCases.length} cases fall within the 7-day urgency threshold. ${withMissingDocs.length} cases have documentation gaps. ${finalVectorMatchesPost > 0 ? `Atlas $vectorSearch retrieved ${finalVectorMatchesPost} historical matches to inform recommendations${adaptiveSearchTriggered ? ' (adaptive search triggered)' : ''}.` : ''} ${recommendations.length} specific recommended actions have been prepared.`
     }
     steps.push(makeStep('executive_report', "Compile executive docket report for tomorrow's operations", 'Gemini Pro',
       s, elapsed() - s, { report_length: executiveReport.length, word_count: executiveReport.split(/\s+/).length }))
@@ -829,15 +1306,15 @@ Authoritative, formal, specific, actionable. No boilerplate.`
           ? `${Math.round((criticalCases.length / cases.length) * 100)}% of active caseload meets the critical threshold requiring same-day attorney attention`
           : null,
         finalCasesWithMatches > 0
-          ? `Atlas $vectorSearch returned ${finalVectorMatches} historical match${finalVectorMatches !== 1 ? 'es' : ''} across ${finalCasesWithMatches} case${finalCasesWithMatches !== 1 ? 's' : ''} (index: description_embedding_index${adaptiveSearchTriggered ? ', adaptive scope triggered' : ''})`
+          ? `Atlas $vectorSearch returned ${finalVectorMatchesPost} historical match${finalVectorMatchesPost !== 1 ? 'es' : ''} across ${finalCasesWithMatchesPost} case${finalCasesWithMatchesPost !== 1 ? 's' : ''} (index: description_embedding_index${adaptiveSearchTriggered ? ', adaptive scope triggered' : ''})`
           : 'No historical matches returned from Atlas $vectorSearch — past_cases collection may need seeding',
         withMissingDocs.length > 0
           ? `Documentation gaps in ${docGapRatePct}% of caseload${highDocGapRate ? ' — remediation branch activated' : ''}`
           : null,
         courtOpinions.length > 0
-          ? `${courtOpinions.length} legal precedents retrieved from CourtListener (${proceedToPrecedents ? 'urgent cases present' : 'n/a'})`
-          : !proceedToPrecedents
-            ? 'CourtListener search skipped — no urgent cases (branching decision logged)'
+          ? `${courtOpinions.length} legal precedents retrieved from CourtListener (${runCourtListener ? 'tool selection included CourtListener' : 'skipped by tool selection'})`
+          : !runCourtListener
+            ? 'CourtListener skipped by tool selection — no urgent cases (branching decision logged)'
             : null,
         recommendations.filter((r) => r.priority === 'critical').length > 0
           ? `${recommendations.filter((r) => r.priority === 'critical').length} recommendation${recommendations.filter((r) => r.priority === 'critical').length !== 1 ? 's' : ''} escalated for mandatory attorney review before action`
@@ -845,10 +1322,10 @@ Authoritative, formal, specific, actionable. No boilerplate.`
       ].filter(Boolean),
 
       historical_findings: finalCasesWithMatches > 0
-        ? `Atlas $vectorSearch (index: description_embedding_index, collection: past_cases) retrieved ${finalVectorMatches} historical case match${finalVectorMatches !== 1 ? 'es' : ''} across ${finalCasesWithMatches} case${finalCasesWithMatches !== 1 ? 's' : ''}. Top cosine similarity: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'n/a'}. Observed outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.${adaptiveSearchTriggered ? ' Adaptive broad search was triggered after model evaluated initial results as insufficient.' : ''}`
+        ? `Atlas $vectorSearch (index: description_embedding_index, collection: past_cases) retrieved ${finalVectorMatchesPost} historical case match${finalVectorMatchesPost !== 1 ? 'es' : ''} across ${finalCasesWithMatchesPost} case${finalCasesWithMatchesPost !== 1 ? 's' : ''}. Top cosine similarity: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'n/a'}. Observed outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.${adaptiveSearchTriggered ? ' Adaptive broad search was triggered after model evaluated initial results as insufficient.' : ''}`
         : `Atlas $vectorSearch executed against description_embedding_index but returned no matches (via: ${searchVia}). Recommendations rely on deadline analysis, vulnerability scoring, and documentation review. To enable historical retrieval: (1) set GOOGLE_CLOUD_PROJECT_ID and Vertex AI credentials, (2) create description_embedding_index on past_cases collection (768-dim), (3) run POST /api/seed/past-cases.`,
 
-      confidence_assessment: `High confidence in deadline-based prioritization (objective court date records). Moderate confidence in vulnerability scoring (${fileCompleteRate}% of files are complete). ${finalCasesWithMatches > 0 ? `Historical context from Atlas $vectorSearch (${finalVectorMatches} matches at up to ${topSimilarity !== null ? (topSimilarity * 100).toFixed(0) + '%' : 'n/a'} similarity) incorporated into recommendations.${adaptiveSearchTriggered ? ' Adaptive search expanded scope.' : ''}` : 'No historical context available.'} All recommendations must be reviewed by a supervising attorney before action is taken.`,
+      confidence_assessment: `High confidence in deadline-based prioritization (objective court date records). Moderate confidence in vulnerability scoring (${fileCompleteRate}% of files are complete). ${finalCasesWithMatchesPost > 0 ? `Historical context from Atlas $vectorSearch (${finalVectorMatchesPost} matches at up to ${topSimilarity !== null ? (topSimilarity * 100).toFixed(0) + '%' : 'n/a'} similarity) incorporated into recommendations.${adaptiveSearchTriggered ? ' Adaptive search expanded scope.' : ''}` : 'No historical context available.'} All recommendations must be reviewed by a supervising attorney before action is taken.`,
     }
 
     // ── STEP 8: Persist trace ─────────────────────────────────────────────────
@@ -887,6 +1364,11 @@ Authoritative, formal, specific, actionable. No boilerplate.`
             executive_report:      executiveReport,
             action_items:          actionItems,
             vector_search_results: vectorSearchResults,
+            // Model-directed execution decisions
+            tool_selection:       toolSelection,
+            case_selection:       caseSelection,
+            evidence_sufficiency: evidenceSufficiency,
+            challenge_review:     challengeReview,
             reasoning_summary,
           },
         },
@@ -912,7 +1394,7 @@ Authoritative, formal, specific, actionable. No boilerplate.`
       duration_ms:               totalMs,
       cases_reviewed:            cases.length,
       critical_cases:            criticalCases.length,
-      vector_matches:            finalVectorMatches,
+      vector_matches:            finalVectorMatchesPost,
       recommendations:           recommendations.length,
       decisions_logged:          decisions.length,
       adaptive_search_triggered: adaptiveSearchTriggered,
@@ -930,7 +1412,7 @@ Authoritative, formal, specific, actionable. No boilerplate.`
       model_strategy:      modelDecision?.strategy ?? 'unknown',
       model_fallback:      modelDecisionFallback,
       precedent_research:  modelDecision?.precedent_research ?? false,
-      vector_matches:            finalVectorMatches,
+      vector_matches:            finalVectorMatchesPost,
       vector_via:                searchVia,
       adaptive_search_triggered: adaptiveSearchTriggered,
       court_opinions:      courtOpinions.length,

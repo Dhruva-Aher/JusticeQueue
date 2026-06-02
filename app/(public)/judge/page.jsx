@@ -115,22 +115,23 @@ function VectorSearchHealth() {
 const JUDGE_BASE_DATE = '2026-05-30T09:41:02.000Z'
 
 const MOCK_STEPS = [
-  { id: 'retrieve_cases',  label: 'Retrieve all active cases from MongoDB Atlas',                              tool: 'MongoDB Atlas',         started_ms: 0,     duration_ms: 312,  result: { count: 1247 } },
-  { id: 'analyze_urgency', label: 'Analyze deadline urgency across all cases',                                 tool: 'Reasoning Engine',      started_ms: 312,   duration_ms: 83,   result: { critical: 38, urgent: 71, high_score: 124, total: 1247 } },
-  { id: 'detect_gaps',     label: 'Detect cases with incomplete or missing documentation',                     tool: 'Reasoning Engine',      started_ms: 395,   duration_ms: 51,   result: { cases_with_gaps: 7, gap_rate: 1 } },
-  { id: 'model_decision',  label: 'Gemini evaluates docket profile → selects "standard" strategy',            tool: 'Gemini Flash',          started_ms: 446,   duration_ms: 1190, result: { strategy: 'standard', escalation_level: 'urgent', precedent_research: true, courtlistener_depth: 'targeted', fallback_used: false, alternatives_count: 3 } },
-  { id: 'vector_search',   label: 'Run Atlas $vectorSearch against historical case database',                  tool: 'MongoDB Vector Search', started_ms: 1636,  duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mongoose_fallback' } },
-  { id: 'courtlistener',   label: 'Query CourtListener API for relevant legal precedents',                     tool: 'CourtListener API',     started_ms: 3478,  duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9, branched: true } },
-  { id: 'recommendations', label: 'Generate AI-powered triage recommendations with Gemini Flash',             tool: 'Gemini Flash',          started_ms: 10682, duration_ms: 3812, result: { recommendations_generated: 8, critical: 3, high: 4, vector_data_used: true } },
-  { id: 'exec_report',     label: "Compile executive docket report for tomorrow's operations",                tool: 'Gemini Pro',            started_ms: 14494, duration_ms: 6823, result: { report_length: 1847, word_count: 312 } },
-  { id: 'persist',         label: 'Persist trace, model decision, adapted plan, and vector results to Atlas', tool: 'MongoDB Atlas',         started_ms: 21317, duration_ms: 180,  result: { documents_written: 1, steps_recorded: 9, decisions_logged: 4, vector_results_stored: 5, model_decision_stored: true, adapted_plan_steps: 9 } },
+  { id: 'retrieve_cases',       label: 'Retrieve all active cases from MongoDB Atlas',                                                   tool: 'MongoDB Atlas',         started_ms: 0,     duration_ms: 312,  result: { count: 1247 } },
+  { id: 'analyze_urgency',      label: 'Analyze deadline urgency across all cases',                                                      tool: 'Reasoning Engine',      started_ms: 312,   duration_ms: 83,   result: { critical: 38, urgent: 71, high_score: 124, total: 1247 } },
+  { id: 'detect_gaps',          label: 'Detect cases with incomplete or missing documentation',                                           tool: 'Reasoning Engine',      started_ms: 395,   duration_ms: 51,   result: { cases_with_gaps: 7, gap_rate: 1 } },
+  { id: 'model_decision',       label: 'Gemini evaluates docket profile → selects "standard" strategy',                                  tool: 'Gemini Flash',          started_ms: 446,   duration_ms: 1190, result: { strategy: 'standard', escalation_level: 'urgent', precedent_research: true, courtlistener_depth: 'targeted', fallback_used: false, alternatives_count: 3 } },
+  { id: 'tool_selection',       label: 'Model selects tools: Atlas $vectorSearch + CourtListener — rejects: Escalation',                 tool: 'Gemini Flash',          started_ms: 1636,  duration_ms: 890,  result: { tools: 'atlas_courtlistener', selected_tools: ['Atlas $vectorSearch', 'CourtListener API'], rejected_tools: ['Escalation (severity below threshold)'], confidence: 0.91, fallback_used: false } },
+  { id: 'case_selection',       label: 'Model selects 5 of 10 candidates for retrieval — 5 skipped',                                     tool: 'Gemini Flash',          started_ms: 2526,  duration_ms: 1040, result: { cases_selected: 5, cases_skipped: 5, selection_criteria: 'immigration + eviction cases with novel patterns prioritized', fallback_used: false } },
+  { id: 'vector_search',        label: 'Run Atlas $vectorSearch against model-selected cases',                                            tool: 'MongoDB Vector Search', started_ms: 3566,  duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mongoose_fallback' } },
+  { id: 'evidence_sufficiency', label: 'Model evaluates retrieval quality → verdict: "sufficient"',                                      tool: 'Gemini Flash',          started_ms: 5408,  duration_ms: 780,  result: { verdict: 'sufficient', match_quality: 'high', second_pass_triggered: false, fallback_used: false } },
+  { id: 'courtlistener',        label: 'Query CourtListener API for relevant legal precedents',                                           tool: 'CourtListener API',     started_ms: 6188,  duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9, branched: true } },
+  { id: 'recommendations',      label: 'Generate AI-powered triage recommendations with Gemini Flash',                                   tool: 'Gemini Flash',          started_ms: 13392, duration_ms: 3812, result: { recommendations_generated: 8, critical: 3, high: 4, vector_data_used: true, oversight_reviewed: 7, flagged_for_authorization: 3 } },
+  { id: 'challenge_review',     label: 'Model self-critique: most uncertain — James Okafor · confidence: medium',                        tool: 'Gemini Flash',          started_ms: 17204, duration_ms: 1105, result: { most_uncertain_case: 'James Okafor', confidence: 'medium', missing_evidence_count: 2, fallback_used: false } },
+  { id: 'exec_report',          label: "Compile executive docket report for tomorrow's operations",                                      tool: 'Gemini Pro',            started_ms: 18309, duration_ms: 6823, result: { report_length: 1847, word_count: 312 } },
+  { id: 'persist',              label: 'Persist trace, model decisions, and all result fields to MongoDB Atlas',                          tool: 'MongoDB Atlas',         started_ms: 25132, duration_ms: 180,  result: { documents_written: 1, steps_recorded: 13, decisions_logged: 8, vector_results_stored: 5, model_decision_stored: true, tool_selection_stored: true, challenge_review_stored: true } },
 ]
 
-// Recommendations step changed to Flash: started_ms 10682 + 3812ms = 14494, then exec_report at 14494
-// exec_report: 14494 + 6823 = 21317, persist: 21317 + 180 = 21497
-// But keeping exec_report started_ms and downstream timing consistent:
-// persist: 25917 → 21317 (exec_report ends), +180 = 21497
-const TOTAL_MS = 21497
+// 13-step pipeline: persist ends at 25132 + 180 = 25312
+const TOTAL_MS = 25312
 
 // Decisions made during the run — includes one model-driven decision (Gemini Flash)
 // and three code-level branching decisions
@@ -209,16 +210,20 @@ function fmtD(ms) {
 function stepEvidence(step) {
   const r = step.result
   switch (step.id) {
-    case 'retrieve_cases':  return `${r.count.toLocaleString()} cases`
-    case 'analyze_urgency': return `${r.critical} critical · ${r.urgent} urgent`
-    case 'detect_gaps':     return `${r.cases_with_gaps} gaps · ${r.gap_rate}%`
-    case 'model_decision':  return `"${r.strategy}" · ${r.escalation_level} · ${r.alternatives_count} alternatives`
-    case 'vector_search':   return `${r.similar_cases_found} matches · ${r.top_similarity_score != null ? (r.top_similarity_score * 100).toFixed(1) + '% top' : ''}`
-    case 'courtlistener':   return `${r.opinions_retrieved} opinions · ${r.branched ? 'model selected' : 'skipped'}`
-    case 'recommendations': return `${r.recommendations_generated} recs · ${r.vector_data_used ? 'vector ✓' : 'no vector'}`
-    case 'exec_report':     return `${r.word_count} words`
-    case 'persist':         return `${r.decisions_logged} decisions · ${r.vector_results_stored} vectors · model ✓`
-    default:                return ''
+    case 'retrieve_cases':       return `${r.count.toLocaleString()} cases`
+    case 'analyze_urgency':      return `${r.critical} critical · ${r.urgent} urgent`
+    case 'detect_gaps':          return `${r.cases_with_gaps} gaps · ${r.gap_rate}%`
+    case 'model_decision':       return `"${r.strategy}" · ${r.escalation_level} · ${r.alternatives_count} alternatives`
+    case 'tool_selection':       return `${r.tools} · ${r.selected_tools?.length ?? 0} selected · ${r.rejected_tools?.length ?? 0} rejected`
+    case 'case_selection':       return `${r.cases_selected} of ${(r.cases_selected ?? 0) + (r.cases_skipped ?? 0)} cases selected`
+    case 'vector_search':        return `${r.similar_cases_found} matches · ${r.top_similarity_score != null ? (r.top_similarity_score * 100).toFixed(1) + '% top' : ''}`
+    case 'evidence_sufficiency': return `verdict: ${r.verdict} · quality: ${r.match_quality}${r.second_pass_triggered ? ' · 2nd pass' : ''}`
+    case 'courtlistener':        return `${r.opinions_retrieved} opinions · ${r.branched ? 'model selected' : 'skipped'}`
+    case 'recommendations':      return `${r.recommendations_generated} recs · ${r.flagged_for_authorization ?? 0} flagged`
+    case 'challenge_review':     return `uncertain: ${r.most_uncertain_case} · confidence: ${r.confidence}`
+    case 'exec_report':          return `${r.word_count} words`
+    case 'persist':              return `${r.decisions_logged} decisions · ${r.steps_recorded} steps`
+    default:                     return ''
   }
 }
 
@@ -381,7 +386,7 @@ export default function JudgePage() {
           {[
             { value: '1,247', label: 'Active cases analyzed',         color: 'var(--text)' },
             { value: '38',    label: 'Critical matters surfaced',      color: 'var(--urgent)' },
-            { value: '~21s',  label: 'Agent execution time',           color: 'var(--accent)' },
+            { value: '~25s',  label: 'Agent execution time',           color: 'var(--accent)' },
             { value: '~42h',  label: 'Equivalent manual review time',  color: 'var(--text-2)' },
           ].map(({ value, label, color }) => (
             <div key={label} style={{ background: 'var(--bg-surface)', padding: '1rem 1.25rem' }}>
@@ -406,7 +411,7 @@ export default function JudgePage() {
           fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
           marginBottom: '16px',
         }}>
-          Run #demo9x4k2a · May 30, 2026 · 09:41:02 — 09:41:23
+          Run #demo9x4k2a · May 30, 2026 · 09:41:02 — 09:41:27
         </p>
 
         {/* Trace table */}
@@ -765,7 +770,7 @@ export default function JudgePage() {
             { title: 'Agent Memory',    value: '1,247', label: 'Active cases in MongoDB Atlas',         sub: 'Retrieved via mongoose + Atlas connection' },
             { title: 'Vector Retrieval', value: '14',   label: 'Matches · 89.2% top similarity',       sub: 'Atlas $vectorSearch · index: description_embedding_index' },
             { title: 'Legal Precedents', value: '9',    label: 'Court opinions retrieved',              sub: 'CourtListener API · Free Law Project' },
-            { title: 'Audit Persistence', value: '✓',   label: 'Execution trace stored',               sub: 'Run #demo9x4k2a · 9 steps · Complete' },
+            { title: 'Audit Persistence', value: '✓',   label: 'Execution trace stored',               sub: 'Run #demo9x4k2a · 13 steps · 8 model decisions · Complete' },
           ].map(({ title, value, label, sub }) => (
             <div key={title} style={{ background: 'var(--bg-surface)', padding: '16px 20px' }}>
               <span style={{

@@ -39,6 +39,20 @@ function stepResultSummary(result) {
   if (result.escalation_level != null)       parts.push(result.escalation_level)
   if (result.alternatives_count != null && result.alternatives_count > 0) parts.push(`${result.alternatives_count} alternatives evaluated`)
   if (result.fallback_used)                  parts.push('fallback')
+  // tool_selection step
+  if (result.tools != null)                  parts.push(`tools: ${result.tools}`)
+  if (result.selected_tools?.length > 0)     parts.push(`selected: ${result.selected_tools.join(', ')}`)
+  if (result.rejected_tools?.length > 0)     parts.push(`rejected: ${result.rejected_tools.length}`)
+  // case_selection step
+  if (result.cases_selected != null)         parts.push(`${result.cases_selected} of ${(result.cases_selected ?? 0) + (result.cases_skipped ?? 0)} cases`)
+  if (result.selection_criteria != null)     parts.push(result.selection_criteria.slice(0, 40))
+  // evidence_sufficiency step
+  if (result.verdict != null)                parts.push(`verdict: ${result.verdict}`)
+  if (result.match_quality != null)          parts.push(`quality: ${result.match_quality}`)
+  if (result.second_pass_triggered)          parts.push('second pass triggered')
+  // challenge_review step
+  if (result.most_uncertain_case != null)    parts.push(`uncertain: ${result.most_uncertain_case}`)
+  if (result.confidence != null)             parts.push(`confidence: ${result.confidence}`)
   // standard steps
   if (result.count != null)                  parts.push(`${result.count} cases`)
   if (result.critical != null && result.critical > 0) parts.push(`${result.critical} critical`)
@@ -398,6 +412,59 @@ function RunDetail({ run }) {
         </div>
       )}
 
+      {/* ── EXECUTION GRAPH — model-directed vs deterministic steps at a glance ── */}
+      {result && (run.result?.tool_selection || run.result?.case_selection || run.result?.evidence_sufficiency || run.result?.challenge_review) && (() => {
+        const ts = run.result?.tool_selection
+        const cs = run.result?.case_selection
+        const es = run.result?.evidence_sufficiency
+        const cr = run.result?.challenge_review
+        const nodes = [
+          { label: 'Strategy',        detail: run.model_decision?.strategy ?? '—',              type: 'model',   icon: '◆', color: 'var(--accent)' },
+          ts ? { label: 'Tool Selection',  detail: (ts.tools ?? '—').replace(/_/g, ' + '), sub: ts.rejected_tools?.length > 0 ? `rejected: ${ts.rejected_tools.join(', ')}` : null, type: 'model', icon: '◆', color: 'var(--accent)' } : null,
+          cs ? { label: 'Case Selection',  detail: `${cs.selected_count ?? '?'} of ${(cs.selected_count ?? 0) + (cs.rejected_count ?? 0)} cases`, sub: cs.selection_criteria ?? null, type: 'model', icon: '◆', color: 'var(--accent)' } : null,
+          { label: 'Atlas $vectorSearch', detail: `${result.vector_search_results?.length ?? 0} cases searched`, type: 'tool', icon: '●', color: '#16A34A' },
+          es ? { label: 'Evidence Review', detail: `verdict: ${es.verdict ?? '—'}`, sub: es.second_pass_triggered ? '→ Second retrieval pass triggered' : null, type: 'model', icon: '◆', color: es.verdict === 'escalate' ? '#DC2626' : es.verdict === 'retrieve_more' ? '#C2710C' : 'var(--accent)', highlight: es.verdict !== 'sufficient' } : null,
+          ts?.tools?.includes('courtlistener')
+            ? { label: 'CourtListener',   detail: `${result.court_opinions_count ?? 0} opinions retrieved`,   type: 'tool',    icon: '●', color: '#2563EB' }
+            : { label: 'CourtListener',   detail: 'skipped by tool selection',                                 type: 'skipped', icon: '○', color: 'var(--text-3)' },
+          { label: 'Recommendations',     detail: `${result.recommendations_count ?? 0} generated`,            type: 'tool',    icon: '●', color: '#16A34A' },
+          cr ? { label: 'Challenge Review', detail: `uncertain: ${cr.most_uncertain_case ?? '—'}`, sub: cr.confidence_assessment?.split('—')[0]?.trim() ?? null, type: 'model', icon: '◆', color: 'var(--accent)' } : null,
+          { label: 'Authorization Review', detail: `${result.action_items?.filter(i => i.authorization_required).length ?? 0} flagged for attorney sign-off`, type: 'model', icon: '◆', color: '#C2710C' },
+          { label: 'Executive Report',    detail: 'Gemini Pro',                                                type: 'tool',    icon: '●', color: '#4338CA' },
+        ].filter(Boolean)
+
+        return (
+          <div style={{ marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em' }}>
+                EXECUTION GRAPH
+              </p>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)' }}>
+                ◆ model-directed &nbsp;·&nbsp; ● tool execution &nbsp;·&nbsp; ○ skipped
+              </span>
+            </div>
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: '14px 18px', display: 'flex', flexDirection: 'column' }}>
+              {nodes.map((node, i) => (
+                <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '14px', flexShrink: 0 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', fontWeight: 700, color: node.type === 'skipped' ? 'var(--border-mid)' : node.color, lineHeight: '20px' }}>{node.icon}</span>
+                    {i < nodes.length - 1 && <div style={{ width: '1px', flexGrow: 1, minHeight: '10px', background: 'var(--border)', margin: '1px 0' }} />}
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0, paddingBottom: i < nodes.length - 1 ? '5px' : 0, paddingTop: '1px', paddingLeft: node.highlight ? '6px' : 0, borderLeft: node.highlight ? '2px solid rgba(194,113,12,0.4)' : 'none' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexWrap: 'wrap' }}>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: node.type === 'skipped' ? 'var(--text-3)' : 'var(--text)', textDecoration: node.type === 'skipped' ? 'line-through' : 'none' }}>{node.label}</span>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)' }}>{node.detail}</span>
+                      {node.type === 'model' && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', fontWeight: 700, color: node.color, padding: '0 4px', background: `${node.color}12`, borderRadius: '2px', border: `1px solid ${node.color}25` }}>model</span>}
+                    </div>
+                    {node.sub && <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)', marginTop: '1px' }}>{node.sub}</p>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+      })()}
+
       {/* Execution timeline */}
       {run.steps && run.steps.length > 0 && (
         <div style={{ marginBottom: '2rem' }}>
@@ -457,13 +524,19 @@ function RunDetail({ run }) {
                       {fmtAbsTime(run.started_at, step.started_ms)}
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0 }}>
-                      <span style={{ fontSize: '9px', color: step.id === 'model_decision' ? 'var(--accent)' : '#16A34A', flexShrink: 0 }}>
-                        {step.id === 'model_decision' ? '◆' : '●'}
-                      </span>
+                      {(() => {
+                        const isModelStep = ['model_decision','tool_selection','case_selection','evidence_sufficiency','challenge_review'].includes(step.id)
+                        const isSkipped   = step.result?.skipped === true
+                        return (
+                          <span style={{ fontSize: '9px', color: isSkipped ? 'var(--border-mid)' : isModelStep ? 'var(--accent)' : '#16A34A', flexShrink: 0 }}>
+                            {isSkipped ? '○' : isModelStep ? '◆' : '●'}
+                          </span>
+                        )
+                      })()}
                       <span style={{
                         fontFamily: 'var(--font-sans)', fontSize: '12px',
-                        color: step.id === 'model_decision' ? 'var(--accent)' : 'var(--text)',
-                        fontWeight: step.id === 'model_decision' ? 600 : 500,
+                        color: ['model_decision','tool_selection','case_selection','evidence_sufficiency','challenge_review'].includes(step.id) ? 'var(--accent)' : step.result?.skipped ? 'var(--text-3)' : 'var(--text)',
+                        fontWeight: ['model_decision','tool_selection','case_selection','evidence_sufficiency','challenge_review'].includes(step.id) ? 600 : 500,
                         overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                       }}>
                         {step.label}
@@ -958,6 +1031,57 @@ function RunDetail({ run }) {
           </div>
         </div>
       )}
+
+      {/* Challenge Review — self-critique loop */}
+      {run.result?.challenge_review && !run.result.challenge_review.fallback_used && (() => {
+        const cr = run.result.challenge_review
+        return (
+          <div style={{ marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em' }}>
+                CHALLENGE REVIEW
+              </p>
+              <span style={{
+                fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500, padding: '1px 7px',
+                background: 'rgba(67,56,202,0.07)', color: 'var(--accent)',
+                border: '1px solid rgba(67,56,202,0.18)', borderRadius: '3px',
+              }}>
+                Gemini Flash self-critique loop
+              </span>
+            </div>
+            <div style={{ background: 'var(--bg-surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+              <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', borderLeft: '3px solid #DC2626' }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', marginBottom: '4px' }}>MOST UNCERTAIN RECOMMENDATION</p>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '3px' }}>{cr.most_uncertain_case}</p>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>{cr.uncertainty_reason}</p>
+              </div>
+              {cr.missing_evidence?.length > 0 && (
+                <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: '6px' }}>MISSING EVIDENCE IDENTIFIED</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    {cr.missing_evidence.map((e, i) => (
+                      <div key={i} style={{ display: 'flex', gap: '8px' }}>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: '#DC2626', fontWeight: 700, flexShrink: 0, lineHeight: '18px' }}>!</span>
+                        <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.5 }}>{e}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div style={{ padding: '10px 16px', background: 'var(--bg-raised)', display: 'flex', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                <div>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', marginBottom: '2px' }}>CONFIDENCE</p>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)' }}>{cr.confidence_assessment || '—'}</p>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--text-3)', marginBottom: '2px' }}>RECOMMENDED FOLLOW-UP</p>
+                  <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)' }}>{cr.recommended_follow_up || '—'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Agent Reasoning Summary — Priority 1 */}
       {result?.reasoning_summary && (
