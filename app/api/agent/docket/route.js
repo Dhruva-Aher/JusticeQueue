@@ -517,31 +517,21 @@ Example format: { "eviction": "emergency tenant stay unlawful detainer housing c
         `- ${op.case_name} (${op.court}): ${op.snippet || 'No excerpt available'}`
       ).join('\n')
 
-      const recPrompt = `You are a senior legal operations analyst at a legal aid clinic preparing tomorrow's docket.
-
-CASES REQUIRING IMMEDIATE ATTENTION (${priorityQueue.length} total):
+      // Recommendations use Flash — structured JSON output, tight format spec, no quality loss vs Pro
+      const recPrompt = `CASES (${priorityQueue.length}):
 ${caseList}
 
-${courtOpinions.length > 0 ? `RELEVANT LEGAL PRECEDENTS FROM COURTLISTENER:\n${precedentContext}` : 'No CourtListener precedents retrieved for this docket (low-urgency session).'}
+${courtOpinions.length > 0 ? `COURTLISTENER PRECEDENTS:\n${precedentContext}` : ''}
+${vectorSearchResults.length > 0 ? `HISTORICAL MATCHES:\n${vectorSearchResults.map(r => `- ${r.client_name} (${r.case_type}): ${r.top_outcome?.toUpperCase() || 'n/a'} at ${r.top_similarity ? (r.top_similarity * 100).toFixed(0) + '%' : 'n/a'} — ${r.top_outcome_notes || ''}`).join('\n')}` : ''}
 
-${vectorSearchResults.length > 0 ? `HISTORICAL CASE MATCHES (Atlas $vectorSearch, index: description_embedding_index):\n${vectorSearchResults.map(r => `- ${r.client_name} (${r.case_type}): best match ${r.top_outcome?.toUpperCase() || 'n/a'} at ${r.top_similarity ? (r.top_similarity * 100).toFixed(0) + '%' : 'n/a'} similarity — ${r.top_outcome_notes || 'no notes'}`).join('\n')}` : ''}
-
-Generate specific recommended actions for each case. Return ONLY a valid JSON array in this exact format:
-[
-  {
-    "client_name": "exact name from list",
-    "case_type": "type",
-    "priority": "critical|high|medium",
-    "action": "Specific action the attorney must take TODAY or TOMORROW",
-    "rationale": "Brief legal rationale citing urgency, historical outcomes, or precedent (1 sentence)",
-    "deadline_warning": "Specific deadline context e.g. '2 days until filing deadline'"
-  }
-]
-
-Be specific. Be actionable. Reference historical outcomes and precedents where relevant. No hedging.`
+Return ONLY a valid JSON array:
+[{"client_name":"exact","case_type":"type","priority":"critical|high|medium","action":"Specific attorney action TODAY/TOMORROW","rationale":"1 sentence with urgency/outcome/precedent","deadline_warning":"deadline context"}]`
 
       try {
-        const raw = await callGeminiPro(recPrompt)
+        const raw = await callGeminiFlash(
+          'You are a senior legal operations analyst. Generate specific, actionable attorney recommendations. Be direct. No hedging. Return only the JSON array.',
+          recPrompt
+        )
         const match = raw.match(/\[[\s\S]*?\]/)
         if (match) {
           const parsed = JSON.parse(match[0])
@@ -572,7 +562,7 @@ Be specific. Be actionable. Reference historical outcomes and precedents where r
       })
     }
 
-    steps.push(makeStep('recommendations', 'Generate AI-powered triage recommendations with Gemini Pro', 'Gemini Pro',
+    steps.push(makeStep('recommendations', 'Generate AI-powered triage recommendations with Gemini Flash', 'Gemini Flash',
       s, elapsed() - s, {
         recommendations_generated: recommendations.length,
         critical:    recommendations.filter((r) => r.priority === 'critical').length,
@@ -590,34 +580,17 @@ Be specific. Be actionable. Reference historical outcomes and precedents where r
       ? `Atlas $vectorSearch retrieved ${realVectorMatches} historical matches across ${realCasesWithMatches} cases (index: description_embedding_index). Top outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.`
       : 'Historical case database returned no matches for current caseload.'
 
-    const reportPrompt = `You are the Director of Legal Operations at a legal aid clinic. Write a professional executive docket report for tomorrow's operations.
+    const reportPrompt = `DOCKET: ${cases.length} cases · ${criticalCases.length} critical (≤3d) · ${urgentCases.length} urgent (≤7d) · ${withMissingDocs.length} docs missing (${docGapRatePct}%) · ${recommendations.length} recommendations · ${courtOpinions.length} precedents · ${realVectorMatches} historical matches
+STRATEGY: ${modelDecision?.strategy || 'standard'} · escalation: ${modelDecision?.escalation_level || 'routine'}
+TOP CASES: ${priorityQueue.slice(0, 5).map((c, i) => `${i + 1}. ${c.client_name || 'Unknown'} (${c.case_type}, ${c.deadline_days != null ? c.deadline_days + 'd' : '?'}, score ${c.priority_score ?? '?'})`).join(' | ')}
+${courtOpinions.length > 0 ? `PRECEDENTS: ${opinionCitations}` : ''}
+${realVectorMatches > 0 ? `HISTORICAL: ${vectorSummary}` : ''}
 
-OPERATIONAL INTELLIGENCE:
-- Total active cases: ${cases.length}
-- Critical cases (≤3 days to deadline): ${criticalCases.length}
-- Urgent cases (≤7 days): ${urgentCases.length}
-- Cases missing documentation: ${withMissingDocs.length} (${docGapRatePct}%)
-- High-priority cases (score ≥75): ${highScoreCases.length}
-- Recommendations prepared: ${recommendations.length}
-- Legal precedents retrieved: ${courtOpinions.length}${!proceedToPrecedents ? ' (skipped — no urgent cases)' : ''}
-- Historical case matches (Atlas $vectorSearch): ${realVectorMatches} across ${realCasesWithMatches} cases
-
-AGENT DECISIONS:
-${decisions.map(d => `- ${d.decision}: ${d.outcome}`).join('\n')}
-
-TOP PRIORITY CASES:
-${priorityQueue.slice(0, 5).map((c, i) => `${i + 1}. ${c.client_name || 'Unknown'} — ${c.case_type} — ${c.deadline_days != null ? c.deadline_days + 'd' : 'no deadline'} — Score: ${c.priority_score ?? '?'}`).join('\n')}
-
-HISTORICAL CONTEXT: ${vectorSummary}
-
-${courtOpinions.length > 0 ? `RELEVANT LEGAL PRECEDENTS: ${opinionCitations}` : ''}
-
-Write a concise 3-paragraph executive report:
-Paragraph 1: Current docket status and overall risk assessment
-Paragraph 2: Most critical matters requiring immediate attorney action with specific urgency indicators
-Paragraph 3: Operational recommendations and resource allocation guidance for tomorrow
-
-Use authoritative, formal legal operations language. Be specific and actionable. No boilerplate.`
+Write a concise 3-paragraph executive docket report:
+P1: Current docket status and risk assessment
+P2: Critical matters requiring immediate attorney action
+P3: Operational recommendations for tomorrow
+Authoritative, formal, specific, actionable. No boilerplate.`
 
     let executiveReport = ''
     try {
