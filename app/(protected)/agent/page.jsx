@@ -136,6 +136,13 @@ function RunDetail({ run }) {
   const vectorCount = vectorSearchStep?.result?.similar_cases_found ?? 0
   const vectorVia   = vectorSearchStep?.result?.via ?? null
   const vectorIndex = vectorSearchStep?.result?.index ?? 'description_embedding_index'
+  const authorizationCount = result?.action_items?.filter((i) => i.authorization_required).length ?? 0
+  const runSummaryItems = result ? [
+    { label: 'Cases reviewed', value: result.cases_reviewed ?? '—', accent: null },
+    { label: 'Critical', value: result.critical_cases ?? '—', accent: result.critical_cases > 0 ? '#DC2626' : null },
+    { label: 'Model strategy', value: run.model_decision?.strategy ?? '—', accent: 'var(--accent)' },
+    { label: 'Attorney authorization', value: authorizationCount, accent: authorizationCount > 0 ? '#C2710C' : null },
+  ] : []
 
   return (
     <div style={{ padding: '2rem', overflowY: 'auto', height: '100%' }}>
@@ -249,6 +256,60 @@ function RunDetail({ run }) {
           )
         })()}
       </div>
+
+      {result && (
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+            gap: '1px',
+            background: 'var(--border)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            overflow: 'hidden',
+          }}>
+            {runSummaryItems.map((item) => (
+              <div key={item.label} style={{ background: 'var(--bg-surface)', padding: '14px 16px' }}>
+                <div style={{
+                  fontFamily: 'var(--font-sans)',
+                  fontSize: '20px',
+                  fontWeight: 700,
+                  color: item.accent || 'var(--text)',
+                  letterSpacing: '-0.025em',
+                  lineHeight: 1,
+                  marginBottom: '6px',
+                  textTransform: item.label === 'Model strategy' ? 'capitalize' : 'none',
+                }}>
+                  {item.value}
+                </div>
+                <div style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>
+                  {item.label}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div style={{
+            marginTop: '8px',
+            padding: '10px 14px',
+            background: authorizationCount > 0 ? 'rgba(194,113,12,0.06)' : 'var(--bg-surface)',
+            border: `1px solid ${authorizationCount > 0 ? 'rgba(194,113,12,0.18)' : 'var(--border)'}`,
+            borderRadius: 'var(--radius)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+          }}>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>
+              {authorizationCount > 0
+                ? `${authorizationCount} action${authorizationCount !== 1 ? 's' : ''} require attorney sign-off before execution.`
+                : 'No action items are currently flagged for attorney authorization.'}
+            </span>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', whiteSpace: 'nowrap' }}>
+              {result.recommendations_count ?? 0} recommendations · {result.court_opinions_count ?? 0} precedents
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* ── MODEL DECISION — first thing judges see; Gemini Flash drove this ── */}
       {run.model_decision && (
