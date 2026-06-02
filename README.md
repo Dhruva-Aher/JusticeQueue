@@ -54,14 +54,15 @@ JusticeQueue addresses the triage bottleneck specifically. It accepts CSV, TXT, 
 │               │   │  1. MongoDB query    → cases collection         │
 │ Gemini Flash  │   │  2. JS filter        → urgency buckets          │
 │  (extract)    │   │  3. JS filter        → missing_info detection   │
-│               │   │  4. Voyage AI emb.   → Atlas $vectorSearch      │
-│ Voyage AI     │   │  5. CourtListener    → legal opinions (cond.)   │
-│  (embed)      │   │  6. Gemini Pro       → recommendations          │
-│               │   │  7. Gemini Pro       → executive report         │
-│ $vectorSearch │   │  8. MongoDB write    → AgentRun document        │
-│  (retrieve)   │   │                                                  │
-│               │   │  Every branch decision logged to decisions[]    │
-│ computeScore()│   └──────────────────────────────────────────────────┘
+│               │   │  4. Gemini Flash     → strategy selection       │
+│ Voyage AI     │   │  5. Voyage AI emb.   → Atlas $vectorSearch      │
+│  (embed)      │   │  6. CourtListener    → legal opinions (cond.)   │
+│               │   │  7. Gemini Pro       → recommendations          │
+│ $vectorSearch │   │  8. Gemini Pro       → executive report         │
+│  (retrieve)   │   │  9. MongoDB write    → AgentRun document        │
+│               │   │                                                  │
+│ computeScore()│   │  Every branch decision logged to decisions[]    │
+│  (score)      │   └──────────────────────────────────────────────────┘
 │  (score)      │
 │               │
 │ Gemini Pro    │
@@ -544,7 +545,7 @@ npm run dev
 
 ## Known Limitations
 
-**Workflow-driven, not LLM-orchestrated.** The agent does not use the language model to decide which tools to call or in what order. The step sequence is fixed code. The model is called in two places: fact extraction during intake, and recommendation/report generation during docket preparation. This is deliberate (see design decisions above) but should not be described as autonomous planning.
+**Workflow-driven, not LLM-orchestrated.** The step sequence is fixed code. The language model is called at five points in the docket pipeline: (1) strategy selection via Gemini Flash, which determines whether and how CourtListener executes; (2) CourtListener query generation via Gemini Flash, which parameterizes the external API call; (3) recommendation generation via Gemini Pro; (4) executive report generation via Gemini Pro; and separately during intake: (5) fact extraction via Gemini Flash. The model does not receive tool results and decide next steps — it generates text and structured JSON at defined points in a predetermined sequence. This is a workflow that uses LLMs at specific decision points, not an autonomous planning loop.
 
 **MCP disabled in production.** The MongoDB MCP Server integration (`lib/mcpClient.js`) is wired but not usable in Vercel serverless functions: spawning a stdio subprocess per request is incompatible with the serverless execution model. In production, vector search always runs via direct Mongoose aggregation (`via: "mongoose_fallback"`). MCP functions correctly in local development when `MCP_ENABLED=true`.
 
