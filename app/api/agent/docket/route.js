@@ -12,7 +12,8 @@ import Case                               from '../../../../lib/models/Case.js'
 import AgentRun                           from '../../../../lib/models/AgentRun.js'
 import { callGeminiPro, callGeminiFlash } from '../../../../lib/gemini.js'
 import { findSimilarCases }               from '../../../../lib/vectorSearch.js'
-import { logToCloud }                     from '../../../../lib/cloudLogging.js'
+import { logToCloud }           from '../../../../lib/cloudLogging.js'
+import { recordDocketMetrics }  from '../../../../lib/cloudMonitoring.js'
 
 // ── CourtListener public API ────────────────────────────────────────────────
 // Fallback queries used when Gemini Flash query generation fails
@@ -418,6 +419,114 @@ Return this JSON object (fill every field):
         : 'Recommendations will rely on deadline analysis, vulnerability scoring, and documentation review only'
     )
 
+    // ── ADAPTIVE SEARCH: model evaluates retrieval quality → can expand scope ─
+    // This is a genuine feedback loop: the model receives actual Atlas $vectorSearch
+    // results (similarity scores, match counts) and decides whether the corpus
+    // produced sufficient context, or whether a broader search is warranted.
+    // If it chooses to expand, it triggers additional Atlas queries and the
+    // results are merged into the context passed to Gemini Pro.
+    let adaptiveSearchTriggered = false
+
+    if (searchTargets.length > 0 && realCasesWithMatches < Math.ceil(searchTargets.length / 2)) {
+      // Fewer than half the searched cases found matches — ask model to evaluate
+      const adaptPrompt = `Atlas $vectorSearch returned sparse results for this docket:
+searches_attempted: ${searchTargets.length} | cases_with_matches: ${realCasesWithMatches} | total_matches: ${realVectorMatches} | top_similarity: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'none'} | via: ${searchVia}
+
+This may indicate an empty past_cases corpus, low overlap between search text and stored descriptions, or genuinely novel fact patterns with no precedent.
+
+Should I attempt a broader search using case-type-level queries (less specific, higher recall)?
+
+Return JSON only: {"action":"proceed"|"expand","reasoning":"one sentence"}`
+
+      try {
+        const adaptRaw    = await callGeminiFlash('Evaluate Atlas $vectorSearch result quality. Return JSON only, no markdown.', adaptPrompt)
+        const adaptResult = JSON.parse(adaptRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+
+        if (adaptResult.action === 'expand') {
+          adaptiveSearchTriggered = true
+
+          logDecision(
+            'Model triggered adaptive $vectorSearch — expanding to case-type-level queries',
+            adaptResult.reasoning,
+            {
+              initial_matches:      realVectorMatches,
+              cases_with_matches:   realCasesWithMatches,
+              top_similarity:       topSimilarity,
+              threshold_triggered:  Math.ceil(searchTargets.length / 2),
+              adaptive_action:      'expand',
+              model:                process.env.GEMINI_MODEL_FLASH,
+            },
+            'Running broader Atlas $vectorSearch with case-type keyword queries; results merged into recommendation context'
+          )
+
+          // Broader queries: general legal keywords per case type instead of specific summaries
+          const BROAD_TEMPLATES = {
+            eviction:          'tenant eviction housing emergency family deadline relief',
+            immigration:       'immigration removal deportation appeal emergency stay relief',
+            custody:           'child custody emergency modification safety protective order',
+            wage_theft:        'wage theft unpaid overtime labor rights employee claim',
+            employment:        'wrongful termination discrimination retaliation employee rights',
+            domestic_violence: 'domestic violence protective order safety emergency victim',
+            other:             'legal aid emergency relief due process civil rights',
+          }
+
+          const broadTypes = [...new Set(searchTargets.map((c) => c.case_type))]
+          const adaptSearchPromises = broadTypes.map(async (caseType) => {
+            try {
+              const { results } = await findSimilarCases(BROAD_TEMPLATES[caseType] || BROAD_TEMPLATES.other, 3)
+              return { caseType, results }
+            } catch {
+              return { caseType, results: [] }
+            }
+          })
+
+          const adaptSettled = await Promise.allSettled(adaptSearchPromises)
+          const existingIds  = new Set(vectorSearchResults.flatMap((v) => v.results.map((r) => r.id).filter(Boolean)))
+          let   adaptAdded   = 0
+
+          for (const r of adaptSettled) {
+            if (r.status !== 'fulfilled' || !r.value.results.length) continue
+            const newResults = r.value.results.filter((res) => !existingIds.has(res.id))
+            if (newResults.length === 0) continue
+            adaptAdded += newResults.length
+            vectorSearchResults.push({
+              case_id:           `adaptive_${r.value.caseType}`,
+              client_name:       `Adaptive (${r.value.caseType})`,
+              case_type:         r.value.caseType,
+              matched_cases:     newResults.length,
+              via:               'adaptive-broad',
+              top_similarity:    newResults[0]?.similarity_score ?? null,
+              top_outcome:       newResults[0]?.outcome ?? null,
+              top_outcome_notes: newResults[0]?.outcome_notes ?? null,
+              results:           newResults.slice(0, 3),
+            })
+          }
+
+          if (adaptAdded > 0) {
+            logDecision(
+              `Adaptive search found ${adaptAdded} additional historical case${adaptAdded !== 1 ? 's' : ''}`,
+              `Broader case-type queries against description_embedding_index returned ${adaptAdded} previously-unmatched results`,
+              { additional_matches: adaptAdded, total_matches_now: vectorSearchResults.reduce((s, r) => s + r.matched_cases, 0) },
+              'Additional historical context merged into Gemini Pro recommendation prompt'
+            )
+          }
+        } else {
+          logDecision(
+            'Model assessed $vectorSearch quality — proceeding with sparse results',
+            adaptResult.reasoning,
+            { matches: realVectorMatches, top_similarity: topSimilarity, action: 'proceed' },
+            'Recommendations will rely on deadline analysis and vulnerability scoring; historical context limited'
+          )
+        }
+      } catch {
+        // Non-fatal — proceed with original results unchanged
+      }
+    }
+
+    // Final totals after any adaptive search
+    const finalVectorMatches     = vectorSearchResults.reduce((sum, r) => sum + r.matched_cases, 0)
+    const finalCasesWithMatches  = vectorSearchResults.length
+
     // ── STEP 5: CourtListener — conditional on DECISION A ───────────────────
     s = elapsed()
     let courtOpinions = []
@@ -577,14 +686,14 @@ Return ONLY a valid JSON array:
     ).join('; ') || 'None retrieved'
 
     const vectorSummary = vectorSearchResults.length > 0
-      ? `Atlas $vectorSearch retrieved ${realVectorMatches} historical matches across ${realCasesWithMatches} cases (index: description_embedding_index). Top outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.`
+      ? `Atlas $vectorSearch retrieved ${finalVectorMatches} historical matches across ${finalCasesWithMatches} cases (index: description_embedding_index). Top outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.`
       : 'Historical case database returned no matches for current caseload.'
 
-    const reportPrompt = `DOCKET: ${cases.length} cases · ${criticalCases.length} critical (≤3d) · ${urgentCases.length} urgent (≤7d) · ${withMissingDocs.length} docs missing (${docGapRatePct}%) · ${recommendations.length} recommendations · ${courtOpinions.length} precedents · ${realVectorMatches} historical matches
+    const reportPrompt = `DOCKET: ${cases.length} cases · ${criticalCases.length} critical (≤3d) · ${urgentCases.length} urgent (≤7d) · ${withMissingDocs.length} docs missing (${docGapRatePct}%) · ${recommendations.length} recommendations · ${courtOpinions.length} precedents · ${finalVectorMatches} historical matches${adaptiveSearchTriggered ? ' (includes adaptive search results)' : ''}
 STRATEGY: ${modelDecision?.strategy || 'standard'} · escalation: ${modelDecision?.escalation_level || 'routine'}
 TOP CASES: ${priorityQueue.slice(0, 5).map((c, i) => `${i + 1}. ${c.client_name || 'Unknown'} (${c.case_type}, ${c.deadline_days != null ? c.deadline_days + 'd' : '?'}, score ${c.priority_score ?? '?'})`).join(' | ')}
 ${courtOpinions.length > 0 ? `PRECEDENTS: ${opinionCitations}` : ''}
-${realVectorMatches > 0 ? `HISTORICAL: ${vectorSummary}` : ''}
+${finalVectorMatches > 0 ? `HISTORICAL: ${vectorSummary}` : ''}
 
 Write a concise 3-paragraph executive docket report:
 P1: Current docket status and risk assessment
@@ -596,7 +705,7 @@ Authoritative, formal, specific, actionable. No boilerplate.`
     try {
       executiveReport = await callGeminiPro(reportPrompt)
     } catch {
-      executiveReport = `Docket analysis complete. ${cases.length} cases active. ${criticalCases.length > 0 ? `${criticalCases.length} cases have deadlines within 72 hours and require immediate attorney assignment.` : 'No cases have critical 72-hour deadlines.'} ${urgentCases.length} cases fall within the 7-day urgency threshold. ${withMissingDocs.length} cases have documentation gaps. ${realVectorMatches > 0 ? `Atlas $vectorSearch retrieved ${realVectorMatches} historical matches to inform recommendations.` : ''} ${recommendations.length} specific recommended actions have been prepared.`
+      executiveReport = `Docket analysis complete. ${cases.length} cases active. ${criticalCases.length > 0 ? `${criticalCases.length} cases have deadlines within 72 hours and require immediate attorney assignment.` : 'No cases have critical 72-hour deadlines.'} ${urgentCases.length} cases fall within the 7-day urgency threshold. ${withMissingDocs.length} cases have documentation gaps. ${finalVectorMatches > 0 ? `Atlas $vectorSearch retrieved ${finalVectorMatches} historical matches to inform recommendations${adaptiveSearchTriggered ? ' (adaptive search triggered)' : ''}.` : ''} ${recommendations.length} specific recommended actions have been prepared.`
     }
     steps.push(makeStep('executive_report', "Compile executive docket report for tomorrow's operations", 'Gemini Pro',
       s, elapsed() - s, { report_length: executiveReport.length, word_count: executiveReport.split(/\s+/).length }))
@@ -629,8 +738,8 @@ Authoritative, formal, specific, actionable. No boilerplate.`
         cases.length > 0
           ? `${Math.round((criticalCases.length / cases.length) * 100)}% of active caseload meets the critical threshold requiring same-day attorney attention`
           : null,
-        realCasesWithMatches > 0
-          ? `Atlas $vectorSearch returned ${realVectorMatches} historical match${realVectorMatches !== 1 ? 'es' : ''} across ${realCasesWithMatches} case${realCasesWithMatches !== 1 ? 's' : ''} (index: description_embedding_index, via: ${searchVia})`
+        finalCasesWithMatches > 0
+          ? `Atlas $vectorSearch returned ${finalVectorMatches} historical match${finalVectorMatches !== 1 ? 'es' : ''} across ${finalCasesWithMatches} case${finalCasesWithMatches !== 1 ? 's' : ''} (index: description_embedding_index${adaptiveSearchTriggered ? ', adaptive scope triggered' : ''})`
           : 'No historical matches returned from Atlas $vectorSearch — past_cases collection may need seeding',
         withMissingDocs.length > 0
           ? `Documentation gaps in ${docGapRatePct}% of caseload${highDocGapRate ? ' — remediation branch activated' : ''}`
@@ -645,11 +754,11 @@ Authoritative, formal, specific, actionable. No boilerplate.`
           : null,
       ].filter(Boolean),
 
-      historical_findings: realCasesWithMatches > 0
-        ? `Atlas $vectorSearch (index: description_embedding_index, collection: past_cases) retrieved ${realVectorMatches} historical case match${realVectorMatches !== 1 ? 'es' : ''} across ${realCasesWithMatches} active matter${realCasesWithMatches !== 1 ? 's' : ''}. Top cosine similarity: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'n/a'}. Observed historical outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}. Historical data incorporated into Gemini recommendation prompt.`
+      historical_findings: finalCasesWithMatches > 0
+        ? `Atlas $vectorSearch (index: description_embedding_index, collection: past_cases) retrieved ${finalVectorMatches} historical case match${finalVectorMatches !== 1 ? 'es' : ''} across ${finalCasesWithMatches} case${finalCasesWithMatches !== 1 ? 's' : ''}. Top cosine similarity: ${topSimilarity !== null ? (topSimilarity * 100).toFixed(1) + '%' : 'n/a'}. Observed outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.${adaptiveSearchTriggered ? ' Adaptive broad search was triggered after model evaluated initial results as insufficient.' : ''}`
         : `Atlas $vectorSearch executed against description_embedding_index but returned no matches (via: ${searchVia}). Recommendations rely on deadline analysis, vulnerability scoring, and documentation review. To enable historical retrieval: (1) set VOYAGE_API_KEY, (2) create description_embedding_index on past_cases collection, (3) run POST /api/seed/past-cases.`,
 
-      confidence_assessment: `High confidence in deadline-based prioritization (objective court date records). Moderate confidence in vulnerability scoring (${fileCompleteRate}% of files are complete). ${realCasesWithMatches > 0 ? `Historical context from Atlas $vectorSearch (${realVectorMatches} matches at up to ${topSimilarity !== null ? (topSimilarity * 100).toFixed(0) + '%' : 'n/a'} similarity) incorporated into recommendations.` : 'No historical context available.'} All recommendations must be reviewed by a supervising attorney before action is taken.`,
+      confidence_assessment: `High confidence in deadline-based prioritization (objective court date records). Moderate confidence in vulnerability scoring (${fileCompleteRate}% of files are complete). ${finalCasesWithMatches > 0 ? `Historical context from Atlas $vectorSearch (${finalVectorMatches} matches at up to ${topSimilarity !== null ? (topSimilarity * 100).toFixed(0) + '%' : 'n/a'} similarity) incorporated into recommendations.${adaptiveSearchTriggered ? ' Adaptive search expanded scope.' : ''}` : 'No historical context available.'} All recommendations must be reviewed by a supervising attorney before action is taken.`,
     }
 
     // ── STEP 8: Persist trace ─────────────────────────────────────────────────
@@ -699,13 +808,27 @@ Authoritative, formal, specific, actionable. No boilerplate.`
         documents_written:     1,
         steps_recorded:        steps.length,
         decisions_logged:      decisions.length,
-        vector_results_stored: vectorSearchResults.length,
-        action_items:          actionItems.length,
-        model_decision_stored: true,
-        adapted_plan_steps:    adaptedPlan.length,
+        vector_results_stored:    vectorSearchResults.length,
+        adaptive_search_triggered: adaptiveSearchTriggered,
+        action_items:             actionItems.length,
+        model_decision_stored:    true,
+        adapted_plan_steps:       adaptedPlan.length,
       }))
 
-    // ── Cloud Logging: fire-and-forget telemetry to Google Cloud Logging ────────
+    // ── Cloud Logging + Cloud Monitoring: fire-and-forget telemetry ─────────────
+    // Cloud Logging: structured run log (GCP Console → Log Explorer → justicequeue.agent)
+    // Cloud Monitoring: time series metrics (GCP Console → Monitoring → Metrics Explorer)
+    recordDocketMetrics({
+      duration_ms:               totalMs,
+      cases_reviewed:            cases.length,
+      critical_cases:            criticalCases.length,
+      vector_matches:            finalVectorMatches,
+      recommendations:           recommendations.length,
+      decisions_logged:          decisions.length,
+      adaptive_search_triggered: adaptiveSearchTriggered,
+      model_strategy:            modelDecision?.strategy,
+    })
+
     logToCloud({
       event:               'docket_run_complete',
       run_id:              runId,
@@ -717,8 +840,9 @@ Authoritative, formal, specific, actionable. No boilerplate.`
       model_strategy:      modelDecision?.strategy ?? 'unknown',
       model_fallback:      modelDecisionFallback,
       precedent_research:  modelDecision?.precedent_research ?? false,
-      vector_matches:      realVectorMatches,
-      vector_via:          searchVia,
+      vector_matches:            finalVectorMatches,
+      vector_via:                searchVia,
+      adaptive_search_triggered: adaptiveSearchTriggered,
       court_opinions:      courtOpinions.length,
       recommendations:     recommendations.length,
       decisions_logged:    decisions.length,

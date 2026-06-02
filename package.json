@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed": "node seed/seedPastCases.js"
+    "seed": "node seed/seedPastCases.js",
+    "build:corpus": "node scripts/buildCourtListenerCorpus.js"
   },
   "type": "module",
   "dependencies": {

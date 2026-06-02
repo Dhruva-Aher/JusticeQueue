@@ -1,6 +1,13 @@
 // POST /api/seed/past-cases
-// Seeds the past_cases collection with 30 historical legal aid case outcomes
+// Seeds the past_cases collection with historical legal aid case outcomes
 // and generates Voyage AI embeddings (description_embedding) for Atlas $vectorSearch.
+//
+// Two corpus options:
+//   Default: 30 synthetic cases (representative patterns, immediate availability)
+//   Real:    60 cases built from CourtListener public legal opinions via:
+//              npm run build:corpus  → generates seed/data/past_cases_real.json
+//              Then copy to seed/data/past_cases.json before seeding
+//            Attribution: CourtListener / Free Law Project (courtlistener.com)
 //
 // Prerequisites:
 //   1. VOYAGE_API_KEY env var set (https://voyageai.com → API Keys)

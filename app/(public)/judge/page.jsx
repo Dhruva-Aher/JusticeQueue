@@ -792,9 +792,9 @@ export default function JudgePage() {
               heading: 'Why Google Cloud?',
               color: '#2563EB',
               qa: [
-                { q: 'Which GCP services run?', a: 'Vertex AI (Gemini Pro for recommendations/reports), Vertex AI (Gemini Flash for model decisions), Cloud Logging (run telemetry), Firebase Auth (JWT).' },
+                { q: 'Which GCP services run?', a: 'Vertex AI (Gemini Pro + Flash), Cloud Logging (structured run logs), Cloud Monitoring (7 custom time series per run), Firebase Auth (JWT). 5 distinct GCP integrations.' },
                 { q: 'Why Vertex AI over API keys?', a: 'OAuth 2.0 Bearer token via aiplatform.googleapis.com — compatible with enterprise GCP org policies that block API key usage.' },
-                { q: 'What goes to Cloud Logging?', a: 'Per-run structured JSON: run_id, strategy, vector_via, duration_ms, decision count. Visible in GCP Log Explorer.' },
+                { q: 'What goes to Cloud Monitoring?', a: 'Per-run custom metrics: run_duration_ms, cases_reviewed, critical_cases, vector_matches, recommendations, decisions_logged, adaptive_search. Visible in Metrics Explorer.' },
               ],
             },
             {
@@ -851,8 +851,15 @@ export default function JudgePage() {
             {
               service:  'Cloud Logging',
               instance: 'justicequeue.agent',
-              role:     'Structured run telemetry per docket',
-              step:     'After Step 8',
+              role:     'Structured run telemetry — Log Explorer',
+              step:     'After Step 9',
+              color:    '#2563EB',
+            },
+            {
+              service:  'Cloud Monitoring',
+              instance: 'custom metrics',
+              role:     '7 time series per run — Metrics Explorer',
+              step:     'After Step 9',
               color:    '#2563EB',
             },
             {
@@ -865,7 +872,7 @@ export default function JudgePage() {
             {
               service:  'OAuth 2.0',
               instance: 'Bearer token',
-              role:     'Vertex AI + Cloud Logging access',
+              role:     'Vertex AI + Cloud Logging + Monitoring',
               step:     'Token refresh cache',
               color:    '#57534E',
             },
