@@ -5,13 +5,14 @@ export const dynamic    = 'force-dynamic'
 export const maxDuration = 120  // seconds — Vercel Pro; raised from 60 to give real headroom
                                  // for concurrent Voyage AI calls + two Gemini calls + CourtListener
 
-import { verifyToken }      from '../../../../lib/verifyToken.js'
-import { apiError }         from '../../../../lib/apiError.js'
-import { connectDB }        from '../../../../lib/mongodb.js'
-import Case                 from '../../../../lib/models/Case.js'
-import AgentRun             from '../../../../lib/models/AgentRun.js'
-import { callGeminiPro }    from '../../../../lib/gemini.js'
-import { findSimilarCases } from '../../../../lib/vectorSearch.js'
+import { verifyToken }                    from '../../../../lib/verifyToken.js'
+import { apiError }                       from '../../../../lib/apiError.js'
+import { connectDB }                      from '../../../../lib/mongodb.js'
+import Case                               from '../../../../lib/models/Case.js'
+import AgentRun                           from '../../../../lib/models/AgentRun.js'
+import { callGeminiPro, callGeminiFlash } from '../../../../lib/gemini.js'
+import { findSimilarCases }               from '../../../../lib/vectorSearch.js'
+import { logToCloud }                     from '../../../../lib/cloudLogging.js'
 
 // ── CourtListener public API ────────────────────────────────────────────────
 const COURT_QUERIES = {
@@ -68,21 +69,26 @@ export async function POST(request) {
   try {
     await connectDB()
 
+    // Static plan — describes the intended workflow before case data is known.
+    // After Step 3, an adapted_plan is generated that reflects actual execution.
+    const STATIC_PLAN = [
+      'Connect to MongoDB Atlas and retrieve all active cases',
+      'Analyze deadline urgency — identify critical (≤3 days) and urgent (≤7 days) matters',
+      'Detect cases with incomplete or missing documentation',
+      'Gemini evaluates docket state and selects execution strategy',
+      'Run Atlas $vectorSearch against historical case database for top priority cases',
+      'Execute CourtListener precedent research (depth determined by model decision)',
+      'Generate AI-powered triage recommendations with Gemini Pro',
+      'Compile executive docket report for tomorrow\'s operations',
+      'Persist complete execution trace, decisions, and vector results to MongoDB',
+    ]
+
     // Create run record so the UI can find it immediately
     const runDoc = new AgentRun({
       uid:        decoded.uid,
       run_id:     runId,
       goal:       "Prepare Tomorrow's Docket",
-      plan: [
-        'Connect to MongoDB Atlas and retrieve all active cases',
-        'Analyze deadline urgency — identify critical (≤3 days) and urgent (≤7 days) matters',
-        'Detect cases with incomplete or missing documentation',
-        'Run Atlas $vectorSearch against historical case database for top priority cases',
-        'Branch: query CourtListener API only if urgent cases are present',
-        'Generate AI-powered triage recommendations with Gemini Pro',
-        'Compile executive docket report for tomorrow\'s operations',
-        'Persist complete execution trace, decisions, and vector results to MongoDB',
-      ],
+      plan:       STATIC_PLAN,
       status:     'running',
       started_at: new Date(),
       steps:      [],
@@ -155,8 +161,145 @@ export async function POST(request) {
         gap_rate:        docGapRatePct,
       }))
 
-    // ── DECISION A: Branch — CourtListener only runs when urgent cases exist ─
-    const proceedToPrecedents = urgentCases.length > 0
+    // ── MODEL DECISION: Gemini evaluates docket state → selects execution strategy ──
+    // This is the model-driven decision point. Gemini Flash evaluates the case profile
+    // (counts, types, gap rate) and selects a strategy that determines:
+    //   (a) whether CourtListener runs and at what depth
+    //   (b) the escalation level communicated in the executive report
+    // The decision is persisted to MongoDB and displayed in the Agent Activity UI.
+    s = elapsed()
+    let modelDecision = null
+    let modelDecisionFallback = false
+
+    const STRATEGY_SYSTEM = `You are a legal operations AI. Evaluate a case docket and select the optimal execution strategy. Return ONLY valid JSON — no markdown, no explanation outside the object.`
+
+    const caseTypesSummary = (() => {
+      const counts = {}
+      urgentCases.forEach((c) => { if (c.case_type) counts[c.case_type] = (counts[c.case_type] || 0) + 1 })
+      return Object.entries(counts).map(([t, n]) => `${t}(${n})`).join(', ') || 'none'
+    })()
+
+    const STRATEGY_PROMPT = `DOCKET STATE:
+- Total active cases: ${cases.length}
+- Critical cases (deadline ≤3 days): ${criticalCases.length}
+- Urgent cases (deadline ≤7 days): ${urgentCases.length}
+- Documentation gap rate: ${docGapRatePct}%
+- High-priority cases (score ≥75): ${highScoreCases.length}
+- Urgent case types: ${caseTypesSummary}
+
+AVAILABLE STRATEGIES:
+- "emergency": Critical deadline volume requires comprehensive precedent research and immediate escalation
+- "standard": Normal docket — targeted precedent research for urgent matters
+- "documentation-focus": High gap rate blocks case advancement — prioritize remediation over precedents
+- "monitoring": No deadline urgency — lightweight recommendations, skip precedent research
+
+Return this JSON object (fill every field):
+{
+  "strategy": "emergency" | "standard" | "documentation-focus" | "monitoring",
+  "escalation_level": "immediate" | "urgent" | "routine",
+  "precedent_research": true | false,
+  "courtlistener_depth": "comprehensive" | "targeted" | "none",
+  "alternatives_considered": [
+    { "option": "<strategy_name>", "rejected_reason": "<brief reason>" }
+  ],
+  "reasoning": "<1-2 sentences explaining this selection>"
+}`
+
+    try {
+      const raw = await callGeminiFlash(STRATEGY_SYSTEM, STRATEGY_PROMPT)
+      const cleaned = raw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      const parsed = JSON.parse(cleaned)
+      if (parsed.strategy && typeof parsed.precedent_research === 'boolean') {
+        modelDecision = {
+          strategy:               parsed.strategy,
+          escalation_level:       parsed.escalation_level || 'routine',
+          precedent_research:     parsed.precedent_research,
+          courtlistener_depth:    parsed.courtlistener_depth || 'none',
+          reasoning:              parsed.reasoning || '',
+          alternatives_considered: Array.isArray(parsed.alternatives_considered) ? parsed.alternatives_considered : [],
+          model:                  process.env.GEMINI_MODEL_FLASH || 'gemini-flash',
+          timestamp_ms:           elapsed(),
+          fallback_used:          false,
+        }
+      }
+    } catch {
+      modelDecisionFallback = true
+    }
+
+    // Fallback: deterministic strategy selection if Gemini call failed
+    if (!modelDecision) {
+      const fallbackStrategy = cases.length === 0
+        ? 'monitoring'
+        : criticalCases.length >= 3 || (criticalCases.length / Math.max(cases.length, 1)) >= 0.1
+          ? 'emergency'
+          : docGapRatePct >= 50 && urgentCases.length === 0
+            ? 'documentation-focus'
+            : urgentCases.length === 0
+              ? 'monitoring'
+              : 'standard'
+
+      modelDecision = {
+        strategy:            fallbackStrategy,
+        escalation_level:    fallbackStrategy === 'emergency' ? 'immediate' : fallbackStrategy === 'monitoring' ? 'routine' : 'urgent',
+        precedent_research:  fallbackStrategy !== 'monitoring' && urgentCases.length > 0,
+        courtlistener_depth: fallbackStrategy === 'emergency' ? 'comprehensive' : fallbackStrategy === 'standard' ? 'targeted' : 'none',
+        reasoning:           `Fallback selection (Gemini unavailable): determined by case counts — ${urgentCases.length} urgent, ${criticalCases.length} critical, ${docGapRatePct}% gap rate.`,
+        alternatives_considered: [],
+        model:               'deterministic-fallback',
+        timestamp_ms:        elapsed(),
+        fallback_used:       true,
+      }
+      modelDecisionFallback = true
+    }
+
+    steps.push(makeStep(
+      'model_decision',
+      `Gemini evaluates docket profile → selects "${modelDecision.strategy}" strategy`,
+      'Gemini Flash',
+      s, elapsed() - s,
+      {
+        strategy:            modelDecision.strategy,
+        escalation_level:    modelDecision.escalation_level,
+        precedent_research:  modelDecision.precedent_research,
+        courtlistener_depth: modelDecision.courtlistener_depth,
+        fallback_used:       modelDecisionFallback,
+        alternatives_count:  modelDecision.alternatives_considered.length,
+      }
+    ))
+
+    logDecision(
+      `Model selected "${modelDecision.strategy}" strategy — ${modelDecision.escalation_level} escalation`,
+      modelDecision.reasoning,
+      {
+        strategy:            modelDecision.strategy,
+        precedent_research:  modelDecision.precedent_research,
+        courtlistener_depth: modelDecision.courtlistener_depth,
+        model:               modelDecision.model,
+        fallback_used:       modelDecisionFallback,
+        alternatives_evaluated: modelDecision.alternatives_considered.length,
+      },
+      modelDecision.precedent_research
+        ? `CourtListener will execute at "${modelDecision.courtlistener_depth}" depth`
+        : 'CourtListener skipped — model determined no precedent research required'
+    )
+
+    // ── Generate adapted plan — reflects actual execution based on model decision ──
+    const adaptedPlan = [
+      `Retrieved ${cases.length} active cases from MongoDB Atlas`,
+      `Identified ${criticalCases.length} critical (≤3d) and ${urgentCases.length} urgent (≤7d) matters`,
+      `Detected ${withMissingDocs.length} documentation gaps (${docGapRatePct}% of caseload)${highDocGapRate ? ' → remediation branch activated' : ''}`,
+      `Gemini Flash selected "${modelDecision.strategy}" strategy (escalation: ${modelDecision.escalation_level})${modelDecisionFallback ? ' [fallback]' : ''}`,
+      `Run Atlas $vectorSearch for up to 5 priority cases (index: description_embedding_index)`,
+      modelDecision.precedent_research
+        ? `Query CourtListener at "${modelDecision.courtlistener_depth}" depth — model determined precedent research warranted`
+        : `Skip CourtListener — model strategy "${modelDecision.strategy}" does not require precedent research`,
+      `Generate ${priorityQueue?.length || 0} attorney recommendations with Gemini Pro`,
+      `Compile executive docket report (escalation level: ${modelDecision.escalation_level})`,
+      `Persist execution trace, model decision, adapted plan, and vector results to MongoDB Atlas`,
+    ]
+
+    // ── DECISION A: replaced by model_decision above — log for backwards compat ─
+    const proceedToPrecedents = modelDecision.precedent_research
     logDecision(
       proceedToPrecedents
         ? 'Retrieve legal precedents from CourtListener API'
@@ -506,11 +649,13 @@ Use authoritative, formal legal operations language. Be specific and actionable.
       { run_id: runId },
       {
         $set: {
-          status:       'complete',
-          completed_at: new Date(),
-          duration_ms:  totalMs,
+          status:        'complete',
+          completed_at:  new Date(),
+          duration_ms:   totalMs,
           steps,
           decisions,
+          model_decision: modelDecision,
+          adapted_plan:   adaptedPlan,
           result: {
             cases_reviewed:        cases.length,
             critical_cases:        criticalCases.length,
@@ -529,14 +674,35 @@ Use authoritative, formal legal operations language. Be specific and actionable.
       }
     )
 
-    steps.push(makeStep('persist', 'Persist execution trace, decisions, and vector results to MongoDB Atlas', 'MongoDB Atlas',
+    steps.push(makeStep('persist', 'Persist trace, model decision, adapted plan, and vector results to MongoDB Atlas', 'MongoDB Atlas',
       s, elapsed() - s, {
         documents_written:     1,
         steps_recorded:        steps.length,
         decisions_logged:      decisions.length,
         vector_results_stored: vectorSearchResults.length,
         action_items:          actionItems.length,
+        model_decision_stored: true,
+        adapted_plan_steps:    adaptedPlan.length,
       }))
+
+    // ── Cloud Logging: fire-and-forget telemetry to Google Cloud Logging ────────
+    logToCloud({
+      event:               'docket_run_complete',
+      run_id:              runId,
+      uid_hash:            decoded.uid.slice(0, 8),  // partial UID for privacy
+      duration_ms:         totalMs,
+      cases_reviewed:      cases.length,
+      critical_cases:      criticalCases.length,
+      urgent_cases:        urgentCases.length,
+      model_strategy:      modelDecision?.strategy ?? 'unknown',
+      model_fallback:      modelDecisionFallback,
+      precedent_research:  modelDecision?.precedent_research ?? false,
+      vector_matches:      realVectorMatches,
+      vector_via:          searchVia,
+      court_opinions:      courtOpinions.length,
+      recommendations:     recommendations.length,
+      decisions_logged:    decisions.length,
+    })
 
     return Response.json({
       run_id:      runId,
@@ -551,6 +717,7 @@ Use authoritative, formal legal operations language. Be specific and actionable.
         missing_documents:  withMissingDocs.length,
         vector_matches:     realVectorMatches,
         decisions_made:     decisions.length,
+        model_strategy:     modelDecision?.strategy,
       },
     })
 

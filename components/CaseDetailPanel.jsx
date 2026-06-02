@@ -546,6 +546,44 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
             {/* Score breakdown */}
             <UrgencyBreakdown breakdown={caseData.score_breakdown} caseType={caseData.case_type} />
 
+            {/* Retrieval impact — shows how much Atlas $vectorSearch contributed to the score */}
+            {caseData.score_without_retrieval != null &&
+             caseData.priority_score != null &&
+             caseData.priority_score !== caseData.score_without_retrieval && (
+              <div style={{
+                marginTop: '12px',
+                padding: '10px 12px',
+                background: 'rgba(22,163,74,0.05)',
+                border: '1px solid rgba(22,163,74,0.18)',
+                borderRadius: 'var(--radius-sm)',
+              }}>
+                <p style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+                  color: '#16A34A', letterSpacing: '0.06em', marginBottom: '6px',
+                }}>
+                  HISTORICAL RETRIEVAL IMPACT
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)' }}>
+                    Without retrieval: <strong style={{ color: 'var(--text-2)' }}>{caseData.score_without_retrieval}</strong>
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#16A34A', fontWeight: 700 }}>
+                    +{caseData.priority_score - caseData.score_without_retrieval} →
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-2)' }}>
+                    With retrieval: <strong>{caseData.priority_score}</strong>
+                  </span>
+                </div>
+                <p style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)',
+                  marginTop: '4px', lineHeight: 1.5,
+                }}>
+                  Atlas $vectorSearch added {caseData.priority_score - caseData.score_without_retrieval} points
+                  via {caseData.similar_cases?.length ?? 0} historical case match{(caseData.similar_cases?.length ?? 0) !== 1 ? 'es' : ''}.
+                </p>
+              </div>
+            )}
+
             <Divider />
 
             {/* Extracted facts */}

@@ -167,7 +167,7 @@ export async function POST(request) {
   const caseDocs = settled
     .map((r, i) => {
       if (r.status === 'rejected') return null
-      const { extracted, similarCases, score, breakdown, reason_string, recommendation, rawText, agent_trace, mongodb_via, mcp_config } = r.value
+      const { extracted, similarCases, score, scoreWithoutRetrieval, breakdown, reason_string, recommendation, rawText, agent_trace, mongodb_via, mcp_config } = r.value
       return {
         uid:               decoded.uid,
         batch_id:          batchId,
@@ -177,7 +177,8 @@ export async function POST(request) {
         deadline_days:     extracted.deadline_days,
         vulnerability_flags: extracted.vulnerability_flags,
         missing_info:      extracted.missing_info,
-        priority_score:    score,
+        priority_score:            score,
+        score_without_retrieval:   scoreWithoutRetrieval ?? null,
         score_breakdown:   breakdown,
         priority_reason:   reason_string,
         similar_cases:     similarCases,

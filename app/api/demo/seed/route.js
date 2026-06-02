@@ -858,12 +858,18 @@ export async function POST(request) {
         { case_type: c.case_type, deadline_days: c.deadline_days, vulnerability_flags: c.vulnerability_flags },
         normalizedSimilar
       )
+      // Baseline score without vector retrieval — shows the marginal value of Atlas $vectorSearch
+      const { score: scoreWithoutRetrieval } = computeScore(
+        { case_type: c.case_type, deadline_days: c.deadline_days, vulnerability_flags: c.vulnerability_flags },
+        []
+      )
 
       return {
         ...c,
-        similar_cases:   normalizedSimilar,
-        priority_score:  score,
-        score_breakdown: breakdown,
+        similar_cases:           normalizedSimilar,
+        priority_score:          score,
+        score_without_retrieval: scoreWithoutRetrieval,
+        score_breakdown:         breakdown,
         // Keep human-written priority_reason if present; fall back to formula output
         priority_reason: c.priority_reason || reason_string,
         uid:         decoded.uid,

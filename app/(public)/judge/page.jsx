@@ -1,47 +1,129 @@
 'use client'
+import { useState, useEffect } from 'react'
+
+// ─── Live MongoDB Vector Search health indicator ──────────────────────────────
+// Fetches GET /api/health/vector-search and displays real Atlas status.
+// This is a live component — it shows the actual state of the deployed system.
+function VectorSearchHealth() {
+  const [health, setHealth] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/health/vector-search')
+      .then((r) => r.json())
+      .then(setHealth)
+      .catch(() => setHealth({ status: 'unavailable', checks: {} }))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const statusColor = {
+    healthy:     '#16A34A',
+    partial:     '#C2710C',
+    degraded:    '#C2710C',
+    no_data:     '#C2710C',
+    unavailable: '#DC2626',
+  }[health?.status] ?? '#57534E'
+
+  const indicators = health?.labels
+    ? Object.values(health.labels)
+    : loading ? ['Checking…'] : ['Unavailable']
+
+  return (
+    <div style={{
+      background: 'var(--bg-surface)', border: '1px solid var(--border)',
+      borderRadius: 'var(--radius)', padding: '20px',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+        <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.06em' }}>
+          LIVE INFRASTRUCTURE STATUS
+        </p>
+        {health && (
+          <span style={{
+            fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+            padding: '2px 8px', borderRadius: '3px',
+            background: `${statusColor}14`,
+            color: statusColor,
+            border: `1px solid ${statusColor}30`,
+          }}>
+            {health.status?.toUpperCase().replace('_', ' ')}
+          </span>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        {loading ? (
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>Querying Atlas…</p>
+        ) : indicators.map((label, i) => {
+          const isOk = label.includes('Ready') || label.includes('Connected') || label.includes('Present')
+          const isWarn = label.includes('Partial') || label.includes('Blocked')
+          const icon = isOk ? '✓' : isWarn ? '⚠' : '✗'
+          const color = isOk ? '#16A34A' : isWarn ? '#C2710C' : '#DC2626'
+          return (
+            <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color, fontWeight: 700, flexShrink: 0, lineHeight: '18px' }}>{icon}</span>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.5 }}>{label}</span>
+            </div>
+          )
+        })}
+      </div>
+
+      {health?.checks?.vector_search_latency_ms != null && (
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', marginTop: '10px' }}>
+          $vectorSearch latency: {health.checks.vector_search_latency_ms}ms · checked {new Date(health.checked_at).toLocaleTimeString()}
+        </p>
+      )}
+    </div>
+  )
+}
 
 // ─── Static mock data ─────────────────────────────────────────────────────────
 
 const JUDGE_BASE_DATE = '2026-05-30T09:41:02.000Z'
 
 const MOCK_STEPS = [
-  { id: 'retrieve_cases',  label: 'Retrieve all active cases from MongoDB Atlas',                   tool: 'MongoDB Atlas',         started_ms: 0,     duration_ms: 312,  result: { count: 1247 } },
-  { id: 'analyze_urgency', label: 'Analyze deadline urgency across all cases',                      tool: 'Reasoning Engine',      started_ms: 312,   duration_ms: 83,   result: { critical: 38, urgent: 71, high_score: 124, total: 1247 } },
-  { id: 'detect_gaps',     label: 'Detect cases with incomplete or missing documentation',          tool: 'Reasoning Engine',      started_ms: 395,   duration_ms: 51,   result: { cases_with_gaps: 7, gap_rate: 1 } },
-  { id: 'vector_search',   label: 'Run Atlas $vectorSearch against historical case database',       tool: 'MongoDB Vector Search', started_ms: 446,   duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mongoose_fallback' } },
-  { id: 'courtlistener',   label: 'Query CourtListener API for relevant legal precedents',          tool: 'CourtListener API',     started_ms: 2288,  duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9, branched: true } },
-  { id: 'recommendations', label: 'Generate AI-powered triage recommendations with Gemini Pro',    tool: 'Gemini Pro',            started_ms: 9492,  duration_ms: 8412, result: { recommendations_generated: 8, critical: 3, high: 4, vector_data_used: true } },
-  { id: 'exec_report',     label: "Compile executive docket report for tomorrow's operations",     tool: 'Gemini Pro',            started_ms: 17904, duration_ms: 6823, result: { report_length: 1847, word_count: 312 } },
-  { id: 'persist',         label: 'Persist trace, decisions, and vector results to MongoDB Atlas', tool: 'MongoDB Atlas',         started_ms: 24727, duration_ms: 180,  result: { documents_written: 1, steps_recorded: 8, decisions_logged: 4, vector_results_stored: 5 } },
+  { id: 'retrieve_cases',  label: 'Retrieve all active cases from MongoDB Atlas',                              tool: 'MongoDB Atlas',         started_ms: 0,     duration_ms: 312,  result: { count: 1247 } },
+  { id: 'analyze_urgency', label: 'Analyze deadline urgency across all cases',                                 tool: 'Reasoning Engine',      started_ms: 312,   duration_ms: 83,   result: { critical: 38, urgent: 71, high_score: 124, total: 1247 } },
+  { id: 'detect_gaps',     label: 'Detect cases with incomplete or missing documentation',                     tool: 'Reasoning Engine',      started_ms: 395,   duration_ms: 51,   result: { cases_with_gaps: 7, gap_rate: 1 } },
+  { id: 'model_decision',  label: 'Gemini evaluates docket profile → selects "standard" strategy',            tool: 'Gemini Flash',          started_ms: 446,   duration_ms: 1190, result: { strategy: 'standard', escalation_level: 'urgent', precedent_research: true, courtlistener_depth: 'targeted', fallback_used: false, alternatives_count: 3 } },
+  { id: 'vector_search',   label: 'Run Atlas $vectorSearch against historical case database',                  tool: 'MongoDB Vector Search', started_ms: 1636,  duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mongoose_fallback' } },
+  { id: 'courtlistener',   label: 'Query CourtListener API for relevant legal precedents',                     tool: 'CourtListener API',     started_ms: 3478,  duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9, branched: true } },
+  { id: 'recommendations', label: 'Generate AI-powered triage recommendations with Gemini Pro',               tool: 'Gemini Pro',            started_ms: 10682, duration_ms: 8412, result: { recommendations_generated: 8, critical: 3, high: 4, vector_data_used: true } },
+  { id: 'exec_report',     label: "Compile executive docket report for tomorrow's operations",                tool: 'Gemini Pro',            started_ms: 19094, duration_ms: 6823, result: { report_length: 1847, word_count: 312 } },
+  { id: 'persist',         label: 'Persist trace, model decision, adapted plan, and vector results to Atlas', tool: 'MongoDB Atlas',         started_ms: 25917, duration_ms: 180,  result: { documents_written: 1, steps_recorded: 9, decisions_logged: 4, vector_results_stored: 5, model_decision_stored: true, adapted_plan_steps: 9 } },
 ]
 
-const TOTAL_MS = 32444 // unchanged — cosmetic display value
+const TOTAL_MS = 26097 // 25917 + 180 (persist)
 
-// Decisions made during the run — logged by the branching logic
+// Decisions made during the run — includes one model-driven decision (Gemini Flash)
+// and three code-level branching decisions
 const MOCK_DECISIONS = [
   {
-    decision: 'Retrieve legal precedents from CourtListener API',
-    reason: '71 cases detected within the 7-day urgency window — attorney-ready precedents required.',
-    evidence: { urgent_cases: 71, critical_cases: 38, threshold_days: 7 },
-    outcome: 'CourtListener query executed in Step 5',
+    decision: 'Model selected "standard" strategy — urgent escalation',
+    reason: '71 urgent cases and 38 critical cases present. Standard strategy with targeted precedent research selected. Emergency strategy rejected (critical rate 3% < 10% threshold). Monitoring rejected (urgent cases present).',
+    evidence: { strategy: 'standard', escalation_level: 'urgent', precedent_research: true, courtlistener_depth: 'targeted', model: 'gemini-flash', fallback_used: false, alternatives_evaluated: 3 },
+    outcome: 'CourtListener will execute at "targeted" depth — model determined precedent research warranted',
+    model_driven: true,
   },
   {
     decision: 'Documentation gap rate acceptable — no remediation branch',
     reason: '1% documentation gap rate is below the 40% threshold for activating remediation workflow.',
     evidence: { cases_with_gaps: 7, total_cases: 1247, gap_rate_pct: 1, threshold_pct: 40 },
     outcome: 'Standard recommendation workflow proceeds',
+    model_driven: false,
   },
   {
     decision: 'Historical precedents found for 5 cases via Atlas $vectorSearch',
     reason: 'Top cosine similarity score: 89.2%. Historical outcome data (won, settled) incorporated into attorney recommendations.',
     evidence: { searches_attempted: 5, cases_with_matches: 5, total_matches: 14, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mongoose_fallback' },
     outcome: 'Historical outcome data incorporated into Gemini recommendation prompt',
+    model_driven: false,
   },
   {
     decision: 'Escalate 3 critical recommendations for mandatory human review',
     reason: 'Emergency court filings and safety-risk matters require attorney authorization before action.',
     evidence: { critical_recommendations: 3, human_review_threshold: 'critical' },
     outcome: 'Items flagged in human oversight panel — no autonomous action taken',
+    model_driven: false,
   },
 ]
 
@@ -92,11 +174,12 @@ function stepEvidence(step) {
     case 'retrieve_cases':  return `${r.count.toLocaleString()} cases`
     case 'analyze_urgency': return `${r.critical} critical · ${r.urgent} urgent`
     case 'detect_gaps':     return `${r.cases_with_gaps} gaps · ${r.gap_rate}%`
+    case 'model_decision':  return `"${r.strategy}" · ${r.escalation_level} · ${r.alternatives_count} alternatives`
     case 'vector_search':   return `${r.similar_cases_found} matches · ${r.top_similarity_score != null ? (r.top_similarity_score * 100).toFixed(1) + '% top' : ''}`
-    case 'courtlistener':   return `${r.opinions_retrieved} opinions · ${r.branched ? 'branched' : 'skipped'}`
+    case 'courtlistener':   return `${r.opinions_retrieved} opinions · ${r.branched ? 'model selected' : 'skipped'}`
     case 'recommendations': return `${r.recommendations_generated} recs · ${r.vector_data_used ? 'vector ✓' : 'no vector'}`
     case 'exec_report':     return `${r.word_count} words`
-    case 'persist':         return `${r.decisions_logged} decisions · ${r.vector_results_stored} vectors`
+    case 'persist':         return `${r.decisions_logged} decisions · ${r.vector_results_stored} vectors · model ✓`
     default:                return ''
   }
 }
@@ -553,21 +636,33 @@ export default function JudgePage() {
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
         <SectionLabel sub>DECISION LOG</SectionLabel>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginBottom: '16px' }}>
-          Every branching decision made by the agent is logged with the evidence that drove it.
+          Every branching decision is logged with the evidence that drove it. Decisions marked <span style={{ color: 'var(--accent)', fontWeight: 600 }}>model-driven</span> were made by Gemini Flash evaluating the case profile.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
           {MOCK_DECISIONS.map((d, i) => (
             <div key={i} style={{
-              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+              background: 'var(--bg-surface)',
+              border: `1px solid ${d.model_driven ? 'rgba(67,56,202,0.25)' : 'var(--border)'}`,
+              borderLeft: d.model_driven ? '3px solid var(--accent)' : '1px solid var(--border)',
               borderRadius: 'var(--radius)', padding: '12px 16px',
             }}>
               <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', marginBottom: '6px' }}>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--accent)', fontWeight: 700, flexShrink: 0, lineHeight: '18px' }}>
                   {String(i + 1).padStart(2, '0')}
                 </span>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4 }}>
+                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, flex: 1 }}>
                   {d.decision}
                 </span>
+                {d.model_driven && (
+                  <span style={{
+                    fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+                    padding: '1px 6px', flexShrink: 0,
+                    background: 'rgba(67,56,202,0.07)', color: 'var(--accent)',
+                    border: '1px solid rgba(67,56,202,0.18)', borderRadius: '3px',
+                  }}>
+                    model-driven
+                  </span>
+                )}
               </div>
               <div style={{ paddingLeft: '26px' }}>
                 <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.55, marginBottom: '6px' }}>
@@ -635,6 +730,39 @@ export default function JudgePage() {
               </div>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* ── 8a. Why an Agent? + Live infrastructure status ──────────────── */}
+      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
+        <SectionLabel sub>SYSTEM REVIEW</SectionLabel>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+
+          {/* Why an agent */}
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)', padding: '20px',
+          }}>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: '14px' }}>
+              WHY AN AGENT?
+            </p>
+            {[
+              { q: 'Does the model select tools?', a: 'Yes — Gemini Flash evaluates the docket profile and selects the execution strategy, determining whether and how deeply CourtListener runs.' },
+              { q: 'Does execution branch?', a: 'Yes — two conditional branches: CourtListener depth (model-driven), documentation remediation (threshold-driven). Both logged.' },
+              { q: 'Is retrieval used in reasoning?', a: 'Yes — Atlas $vectorSearch results are passed verbatim into the Gemini Pro recommendation prompt.' },
+              { q: 'Is there human oversight?', a: 'Yes — critical recommendations are flagged for attorney authorization. No legal action is autonomous.' },
+              { q: 'Is the trace auditable?', a: 'Yes — every step, decision, and model call is persisted to MongoDB with timing and tool attribution.' },
+            ].map(({ q, a }, i) => (
+              <div key={i} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: i < 4 ? '1px solid var(--border)' : 'none' }}>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 600, color: 'var(--text)', marginBottom: '3px' }}>{q}</p>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.55 }}>{a}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Live infrastructure status */}
+          <VectorSearchHealth />
         </div>
       </section>
 

@@ -158,13 +158,25 @@ function RunDetail({ run }) {
           </div>
         )}
 
-        {/* Plan */}
-        {run.plan && run.plan.length > 0 && (
+        {/* Plan — static (initial) and adapted (post-analysis) */}
+        {(run.adapted_plan?.length > 0 || run.plan?.length > 0) && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', marginBottom: '6px' }}>
-              Execution Plan
-            </p>
-            {run.plan.map((step, i) => (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)' }}>
+                {run.adapted_plan?.length > 0 ? 'Adapted Execution Plan' : 'Execution Plan'}
+              </p>
+              {run.adapted_plan?.length > 0 && (
+                <span style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+                  padding: '1px 6px',
+                  background: 'rgba(22,163,74,0.07)', color: '#16A34A',
+                  border: '1px solid rgba(22,163,74,0.18)', borderRadius: '3px',
+                }}>
+                  Generated from case analysis
+                </span>
+              )}
+            </div>
+            {(run.adapted_plan || run.plan).map((step, i) => (
               <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--accent)', fontWeight: 600, minWidth: '20px', marginTop: '1px' }}>
                   {String(i + 1).padStart(2, '0')}
@@ -550,6 +562,105 @@ function RunDetail({ run }) {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* Model Decision — Gemini's strategy selection that drove execution */}
+      {run.model_decision && (
+        <div style={{ marginBottom: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+            <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.08em' }}>
+              MODEL DECISION
+            </p>
+            <span style={{
+              fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+              padding: '1px 7px',
+              background: 'rgba(67,56,202,0.07)', color: 'var(--accent)',
+              border: '1px solid rgba(67,56,202,0.18)', borderRadius: '3px',
+            }}>
+              {run.model_decision.fallback_used ? 'Deterministic Fallback' : run.model_decision.model || 'Gemini Flash'}
+            </span>
+            {run.model_decision.fallback_used && (
+              <span style={{
+                fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+                padding: '1px 7px',
+                background: 'rgba(194,113,12,0.07)', color: '#C2710C',
+                border: '1px solid rgba(194,113,12,0.18)', borderRadius: '3px',
+              }}>
+                Gemini unavailable
+              </span>
+            )}
+          </div>
+
+          <div style={{
+            background: 'var(--bg-surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)', overflow: 'hidden',
+          }}>
+            {/* Strategy + escalation */}
+            <div style={{
+              padding: '14px 18px',
+              borderBottom: '1px solid var(--border)',
+              borderLeft: '3px solid var(--accent)',
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px',
+            }}>
+              <div>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--text)', marginBottom: '3px' }}>
+                  Strategy: <span style={{ textTransform: 'capitalize' }}>{run.model_decision.strategy}</span>
+                </p>
+                <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                  {run.model_decision.reasoning}
+                </p>
+              </div>
+              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                <div style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500,
+                  padding: '2px 9px',
+                  background: run.model_decision.escalation_level === 'immediate'
+                    ? 'rgba(220,38,38,0.08)' : run.model_decision.escalation_level === 'urgent'
+                    ? 'rgba(194,113,12,0.08)' : 'rgba(0,0,0,0.04)',
+                  color: run.model_decision.escalation_level === 'immediate'
+                    ? '#DC2626' : run.model_decision.escalation_level === 'urgent'
+                    ? '#C2710C' : '#57534E',
+                  border: '1px solid ' + (run.model_decision.escalation_level === 'immediate'
+                    ? 'rgba(220,38,38,0.18)' : run.model_decision.escalation_level === 'urgent'
+                    ? 'rgba(194,113,12,0.18)' : 'rgba(0,0,0,0.10)'),
+                  borderRadius: '3px', marginBottom: '4px',
+                }}>
+                  {run.model_decision.escalation_level?.toUpperCase()} ESCALATION
+                </div>
+                <div style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)' }}>
+                  CourtListener: {run.model_decision.precedent_research ? `${run.model_decision.courtlistener_depth}` : 'skipped'}
+                </div>
+              </div>
+            </div>
+
+            {/* Alternatives considered */}
+            {run.model_decision.alternatives_considered?.length > 0 && (
+              <div style={{ padding: '12px 18px' }}>
+                <p style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+                  color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: '8px',
+                }}>
+                  ALTERNATIVES EVALUATED
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {run.model_decision.alternatives_considered.map((alt, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                      <span style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)',
+                        flexShrink: 0, lineHeight: '16px', textDecoration: 'line-through',
+                      }}>
+                        {alt.option}
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.4 }}>
+                        — {alt.rejected_reason}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
