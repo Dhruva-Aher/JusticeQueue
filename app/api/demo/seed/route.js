@@ -1,8 +1,41 @@
 export const dynamic = 'force-dynamic'
-import { verifyToken } from '../../../../lib/verifyToken.js'
-import { apiError }    from '../../../../lib/apiError.js'
-import { connectDB }   from '../../../../lib/mongodb.js'
-import Case            from '../../../../lib/models/Case.js'
+import { verifyToken }   from '../../../../lib/verifyToken.js'
+import { apiError }      from '../../../../lib/apiError.js'
+import { connectDB }     from '../../../../lib/mongodb.js'
+import Case              from '../../../../lib/models/Case.js'
+import { computeScore }  from '../../../../lib/urgencyScore.js'
+
+// Convert legacy similar_cases entries (outcome as free-text narrative, similarity as field name)
+// to the canonical format expected by SimilarCases.jsx and computeScore():
+//   { outcome: 'won'|'settled'|'declined', outcome_notes: string, similarity_score: number, year?: number }
+function normalizeSimilarCase(sc) {
+  if (!sc) return sc
+  // Already in canonical format — pass through
+  if (sc.similarity_score != null && ['won', 'settled', 'declined'].includes(sc.outcome)) return sc
+
+  const text = (sc.outcome || '').toLowerCase()
+  const wonSignals    = ['won', 'upheld', 'granted', 'awarded', 'approved', 'dismissed',
+    'reinstated', 'modified', 'returned', 'ordered', 'recovered', 'stayed', 'filed timely']
+  const settledSignals = ['settled', 'resolved', 'pending']
+
+  let outcome = 'declined'
+  if (settledSignals.some((s) => text.includes(s)) && !wonSignals.some((s) => text.includes(s))) {
+    outcome = 'settled'
+  } else if (wonSignals.some((s) => text.includes(s))) {
+    outcome = 'won'
+  } else if (text.includes('settled') || text.includes('resolved')) {
+    outcome = 'settled'
+  }
+
+  return {
+    id:               sc.id,
+    outcome,
+    outcome_notes:    sc.outcome,              // preserve full narrative as notes
+    similarity_score: sc.similarity ?? sc.similarity_score ?? 0,
+    case_type:        sc.case_type ?? null,
+    year:             sc.year ?? null,
+  }
+}
 
 export async function POST(request) {
   let decoded
@@ -816,19 +849,35 @@ export async function POST(request) {
     ]
 
     const now = new Date()
-    const cases = SEED_CASES.map((c) => ({
-      ...c,
-      uid: decoded.uid,
-      batch_id: 'demo_seed',
-      mongodb_via: 'demo_seed',
-      outreach: { status: 'none' },
-      calendar: { status: 'none' },
-      brief: { available: false },
-      agent_trace: [],
-      raw_text: c.summary,
-      createdAt: now,
-      updatedAt: now,
-    }))
+    const cases = SEED_CASES.map((c) => {
+      // Normalize similar_cases to canonical field names before scoring
+      const normalizedSimilar = (c.similar_cases || []).map(normalizeSimilarCase)
+
+      // Compute score and breakdown from the single source of truth: urgencyScore.js
+      const { score, breakdown, reason_string } = computeScore(
+        { case_type: c.case_type, deadline_days: c.deadline_days, vulnerability_flags: c.vulnerability_flags },
+        normalizedSimilar
+      )
+
+      return {
+        ...c,
+        similar_cases:   normalizedSimilar,
+        priority_score:  score,
+        score_breakdown: breakdown,
+        // Keep human-written priority_reason if present; fall back to formula output
+        priority_reason: c.priority_reason || reason_string,
+        uid:         decoded.uid,
+        batch_id:    'demo_seed',
+        mongodb_via: 'mongoose_fallback',
+        outreach:    { status: 'none' },
+        calendar:    { status: 'none' },
+        brief:       { available: false },
+        agent_trace: [],
+        raw_text:    c.summary,
+        createdAt:   now,
+        updatedAt:   now,
+      }
+    })
 
     await Case.insertMany(cases, { ordered: false })
     return Response.json({ seeded: cases.length, message: 'Demo dataset loaded successfully' })

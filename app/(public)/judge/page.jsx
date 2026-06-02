@@ -214,7 +214,7 @@ export default function JudgePage() {
             color: 'var(--text-2)', lineHeight: 1.7,
             maxWidth: '520px', marginBottom: '1.5rem',
           }}>
-            An 8-step AI agent that autonomously prepares tomorrow&apos;s legal docket. Reasoning, planning, memory, tool use, human oversight — in under 60 seconds.
+            An 8-step AI agent that autonomously prepares tomorrow&apos;s legal docket. Reasoning, planning, memory, tool use, human oversight — typically under two minutes.
           </p>
           {/* Tool badge row */}
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>

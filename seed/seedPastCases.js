@@ -56,7 +56,8 @@ async function seed() {
   const casesWithEmbeddings = []
   for (let i = 0; i < cases.length; i++) {
     const c = cases[i]
-    const textToEmbed = `${c.case_type} ${c.description || ''} ${c.outcome_notes || ''}`.trim()
+    // Embed description only — matches the query vector strategy in lib/vectorSearch.js getEmbedding()
+    const textToEmbed = (c.description || '').trim()
     try {
       const embedding = await getEmbedding(textToEmbed)
       casesWithEmbeddings.push({ ...c, description_embedding: embedding })

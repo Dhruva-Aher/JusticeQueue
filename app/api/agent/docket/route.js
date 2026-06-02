@@ -2,7 +2,8 @@
 // Autonomous agent workflow: retrieve → analyze → detect gaps → Atlas $vectorSearch →
 // (branch) CourtListener precedents → Gemini recommendations → executive report → persist
 export const dynamic    = 'force-dynamic'
-export const maxDuration = 60   // seconds — Vercel Pro allows up to 300
+export const maxDuration = 120  // seconds — Vercel Pro; raised from 60 to give real headroom
+                                 // for concurrent Voyage AI calls + two Gemini calls + CourtListener
 
 import { verifyToken }      from '../../../../lib/verifyToken.js'
 import { apiError }         from '../../../../lib/apiError.js'

@@ -544,7 +544,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
             })()}
 
             {/* Score breakdown */}
-            <UrgencyBreakdown breakdown={caseData.score_breakdown} />
+            <UrgencyBreakdown breakdown={caseData.score_breakdown} caseType={caseData.case_type} />
 
             <Divider />
 

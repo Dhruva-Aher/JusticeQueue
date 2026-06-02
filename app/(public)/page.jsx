@@ -202,7 +202,7 @@ export default function HomePage() {
           }}>
             One click triggers an 8-step autonomous agent: it retrieves your cases, analyzes deadlines,
             searches judicial precedents, and delivers a ranked docket with attorney recommendations —
-            in under 60 seconds.
+            typically in under two minutes.
           </p>
           {/* Tool badges */}
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '2.5rem' }}>
@@ -250,7 +250,7 @@ export default function HomePage() {
             </a>
           </div>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginTop: '1.25rem' }}>
-            No configuration required. Upload an intake file and run the agent — docket ready in under 60 seconds.
+            No configuration required. Upload an intake file and run the agent — docket generated automatically.
           </p>
         </div>
 
@@ -341,10 +341,10 @@ export default function HomePage() {
           gap: '0',
         }}>
           {[
-            { n: '8',      label: 'Autonomous agent steps' },
-            { n: '< 60s',  label: 'Full docket preparation' },
-            { n: '3',      label: 'Live APIs integrated' },
-            { n: '100%',   label: 'Auditable decisions' },
+            { n: '8',     label: 'Autonomous agent steps' },
+            { n: '< 2min', label: 'Full docket preparation' },
+            { n: '3',     label: 'Live APIs integrated' },
+            { n: '100%',  label: 'Auditable decisions' },
           ].map(({ n, label }, i) => (
             <div key={label} style={{
               padding: '2.5rem 2rem',

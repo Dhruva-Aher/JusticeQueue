@@ -1,11 +1,14 @@
 'use client'
 
-const ROWS = [
-  { key: 'deadline_points',      label: 'Deadline urgency',   max: 40, desc: 'Days until legal deadline' },
-  { key: 'vulnerability_points', label: 'Vulnerability',      max: 25, desc: 'Children, medical, language' },
-  { key: 'case_type_points',     label: 'Case severity',      max: 20, desc: 'Type of legal issue' },
-  { key: 'similarity_points',    label: 'Precedent match',    max: 15, desc: 'Similar historical cases' },
-]
+// Mirrors CASE_TYPE_POINTS in lib/urgencyScore.js — must stay in sync.
+const CASE_TYPE_MAX = {
+  immigration: 20,
+  eviction:    18,
+  wage_theft:  12,
+  custody:     10,
+  employment:   8,
+  other:        5,
+}
 
 function barColor(pct) {
   if (pct >= 0.75) return '#e84444'
@@ -13,8 +16,18 @@ function barColor(pct) {
   return '#22c97a'
 }
 
-export default function UrgencyBreakdown({ breakdown }) {
+export default function UrgencyBreakdown({ breakdown, caseType }) {
   if (!breakdown) return null
+
+  const caseTypeMax = CASE_TYPE_MAX[caseType] ?? 20
+
+  const ROWS = [
+    { key: 'deadline_points',      label: 'Deadline urgency', max: 40,          desc: 'Days until legal deadline' },
+    { key: 'vulnerability_points', label: 'Vulnerability',    max: 25,          desc: 'Children, medical, language' },
+    { key: 'case_type_points',     label: 'Case severity',    max: caseTypeMax,  desc: 'Type of legal issue' },
+    { key: 'similarity_points',    label: 'Precedent match',  max: 15,          desc: 'Similar historical cases' },
+  ]
+
   const total = ROWS.reduce((s, { key }) => s + (breakdown[key] ?? 0), 0)
 
   return (
