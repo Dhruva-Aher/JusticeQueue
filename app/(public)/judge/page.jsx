@@ -258,6 +258,191 @@ function SectionLabel({ children, sub, right }) {
   )
 }
 
+function JudgeSummarySection() {
+  const summary = [
+    { label: 'What happened', value: '1,247 cases reviewed', detail: '38 critical and 71 urgent matters surfaced', color: 'var(--text)' },
+    { label: 'Why it happened', value: 'Deadline + risk scoring', detail: 'Urgency, vulnerability, documents, historical matches', color: 'var(--medium)' },
+    { label: 'Model decided', value: 'Standard strategy', detail: 'Atlas + CourtListener selected; escalation rejected', color: 'var(--accent)' },
+    { label: 'Action required', value: '3 authorizations', detail: 'Attorney sign-off required before action', color: 'var(--urgent)' },
+  ]
+
+  return (
+    <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
+      <SectionLabel sub>30-SECOND JUDGE SUMMARY</SectionLabel>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+        gap: '1px',
+        background: 'var(--border)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius)',
+        overflow: 'hidden',
+      }}>
+        {summary.map((item) => (
+          <div key={item.label} style={{ background: 'var(--bg-surface)', padding: '16px' }}>
+            <div style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '10px',
+              fontWeight: 700,
+              color: 'var(--text-3)',
+              letterSpacing: '0.06em',
+              marginBottom: '8px',
+            }}>
+              {item.label.toUpperCase()}
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-sans)',
+              fontSize: '18px',
+              fontWeight: 700,
+              color: item.color,
+              letterSpacing: '-0.025em',
+              lineHeight: 1.15,
+              marginBottom: '6px',
+            }}>
+              {item.value}
+            </div>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)', lineHeight: 1.45 }}>
+              {item.detail}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function JudgeActionsSection() {
+  return (
+    <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
+      <SectionLabel sub right="Attorney actions prepared by Gemini Flash · top 5 of 8 shown">
+        REQUIRED ATTORNEY ACTIONS
+      </SectionLabel>
+      <div style={{ height: '16px' }} />
+
+      {MOCK_RECS.map((rec) => {
+        const ps = PRIORITY_STYLE[rec.priority] || PRIORITY_STYLE.medium
+        return (
+          <div key={rec.rank} style={{
+            background: 'var(--bg-surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)',
+            padding: '16px',
+            marginBottom: '8px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+              <span style={{
+                fontFamily: 'var(--font-mono)', fontSize: '10px',
+                width: '20px', height: '20px', flexShrink: 0,
+                border: '1px solid var(--border)',
+                borderRadius: '50%',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                color: 'var(--text-3)',
+              }}>
+                {rec.rank}
+              </span>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
+                {rec.client}
+              </span>
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
+                {rec.type}
+              </span>
+              <span style={{
+                fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
+                padding: '2px 6px', borderRadius: '3px',
+                background: ps.bg, color: ps.color, border: `1px solid ${ps.border}`,
+              }}>
+                {ps.label}
+              </span>
+              <span style={{
+                fontFamily: 'var(--font-sans)', fontSize: '11px',
+                color: 'var(--urgent)', fontWeight: 500,
+                marginLeft: 'auto', flexShrink: 0,
+              }}>
+                {rec.deadline}
+              </span>
+            </div>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500, color: 'var(--text)', marginTop: '6px', marginBottom: '4px' }}>
+              {rec.action}
+            </p>
+            <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', lineHeight: 1.55 }}>
+              {rec.rationale}
+            </p>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+              {rec.bullets.map((b) => (
+                <span key={b} style={{
+                  fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)',
+                  background: 'var(--bg-raised)', border: '1px solid var(--border)',
+                  borderRadius: '3px', padding: '2px 8px',
+                }}>
+                  {b}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </section>
+  )
+}
+
+function JudgeHumanReviewSection() {
+  return (
+    <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '6px' }}>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.1em' }}>
+          REQUIRES HUMAN REVIEW
+        </span>
+        <span style={{
+          fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500,
+          padding: '2px 8px', borderRadius: '3px',
+          background: 'rgba(194,113,12,0.08)', color: '#C2710C', border: '1px solid rgba(194,113,12,0.18)',
+        }}>
+          3 items pending attorney authorization
+        </span>
+      </div>
+      <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)', marginBottom: '12px', lineHeight: 1.6 }}>
+        The agent flags decisions that require human authorization before action is taken. No high-risk legal action is executed autonomously.
+      </p>
+
+      {HUMAN_REVIEW.map((item) => (
+        <div key={item.client} style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid rgba(194,113,12,0.18)',
+          borderRadius: 'var(--radius)',
+          padding: '14px 16px',
+          marginBottom: '8px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
+              {item.client}
+            </span>
+            <span style={{
+              fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+              padding: '2px 6px', borderRadius: '3px',
+              background: 'rgba(194,113,12,0.08)', color: '#C2710C', border: '1px solid rgba(194,113,12,0.18)',
+            }}>
+              {item.type}
+            </span>
+            <span style={{
+              fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
+              padding: '2px 6px', borderRadius: '3px',
+              background: 'rgba(194,113,12,0.06)', color: '#C2710C', border: '1px solid rgba(194,113,12,0.18)',
+            }}>
+              Awaiting authorization
+            </span>
+          </div>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)', marginTop: '4px' }}>
+            {item.rec}
+          </p>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)', marginTop: '4px', lineHeight: 1.5 }}>
+            {item.reason}
+          </p>
+        </div>
+      ))}
+    </section>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function JudgePage() {
@@ -404,6 +589,10 @@ export default function JudgePage() {
         </div>
       </section>
 
+      <JudgeSummarySection />
+      <JudgeActionsSection />
+      <JudgeHumanReviewSection />
+
       {/* ── 3. Agent execution trace ──────────────────────────────────────── */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
         <SectionLabel sub>AGENT EXECUTION TRACE</SectionLabel>
@@ -528,178 +717,6 @@ export default function JudgePage() {
           </div>
         </div>
       </div>
-
-      {/* ── 5. Generated attorney actions ────────────────────────────────── */}
-      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '2.5rem 2rem' }}>
-        <SectionLabel sub right="Attorney actions prepared by Gemini Pro · top 5 of 8 shown">
-          GENERATED ATTORNEY ACTIONS
-        </SectionLabel>
-        <div style={{ height: '16px' }} />
-
-        {MOCK_RECS.map((rec) => {
-          const ps = PRIORITY_STYLE[rec.priority] || PRIORITY_STYLE.medium
-          const deadlineIsUrgent = rec.deadline.toLowerCase().includes('immediate') || rec.deadline.toLowerCase().includes('human review')
-          return (
-            <div key={rec.rank} style={{
-              background: 'var(--bg-surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)',
-              padding: '16px',
-              marginBottom: '8px',
-            }}>
-              {/* Top row */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                <span style={{
-                  fontFamily: 'var(--font-mono)', fontSize: '10px',
-                  width: '20px', height: '20px', flexShrink: 0,
-                  border: '1px solid var(--border)',
-                  borderRadius: '50%',
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  color: 'var(--text-3)',
-                }}>
-                  {rec.rank}
-                </span>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
-                  {rec.client}
-                </span>
-                <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
-                  {rec.type}
-                </span>
-                <span style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
-                  padding: '2px 6px', borderRadius: '3px',
-                  background: ps.bg, color: ps.color, border: `1px solid ${ps.border}`,
-                }}>
-                  {ps.label}
-                </span>
-                {deadlineIsUrgent && (
-                  <span style={{
-                    fontFamily: 'var(--font-sans)', fontSize: '11px',
-                    color: 'var(--urgent)', fontWeight: 500,
-                    marginLeft: 'auto', flexShrink: 0,
-                  }}>
-                    {rec.deadline}
-                  </span>
-                )}
-                {!deadlineIsUrgent && (
-                  <span style={{
-                    fontFamily: 'var(--font-sans)', fontSize: '11px',
-                    color: 'var(--urgent)', fontWeight: 500,
-                    marginLeft: 'auto', flexShrink: 0,
-                  }}>
-                    {rec.deadline}
-                  </span>
-                )}
-              </div>
-
-              {/* Action */}
-              <p style={{
-                fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 500,
-                color: 'var(--text)', marginTop: '6px', marginBottom: '4px',
-              }}>
-                {rec.action}
-              </p>
-
-              {/* Rationale */}
-              <p style={{
-                fontFamily: 'var(--font-sans)', fontSize: '12px',
-                color: 'var(--text-3)', lineHeight: 1.55,
-              }}>
-                {rec.rationale}
-              </p>
-
-              {/* Bullets */}
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-                {rec.bullets.map((b) => (
-                  <span key={b} style={{
-                    fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)',
-                    background: 'var(--bg-raised)', border: '1px solid var(--border)',
-                    borderRadius: '3px', padding: '2px 8px',
-                  }}>
-                    ● {b}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )
-        })}
-      </section>
-
-      {/* ── 6. Requires human review ──────────────────────────────────────── */}
-      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
-        {/* Header row */}
-        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '6px' }}>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.1em' }}>
-            REQUIRES HUMAN REVIEW
-          </span>
-          <span style={{
-            fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 500,
-            padding: '2px 8px', borderRadius: '3px',
-            background: 'rgba(194,113,12,0.08)', color: '#C2710C', border: '1px solid rgba(194,113,12,0.18)',
-          }}>
-            3 items pending attorney authorization
-          </span>
-        </div>
-
-        {/* Intro */}
-        <p style={{
-          fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)',
-          marginBottom: '12px', lineHeight: 1.6,
-        }}>
-          The agent flags decisions that require human authorization before action is taken. No high-risk legal action is executed autonomously.
-        </p>
-
-        {HUMAN_REVIEW.map((item) => (
-          <div key={item.client} style={{
-            background: 'var(--bg-surface)',
-            border: '1px solid rgba(194,113,12,0.18)',
-            borderRadius: 'var(--radius)',
-            padding: '14px 16px',
-            marginBottom: '8px',
-          }}>
-            {/* Top row */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', color: 'var(--border-strong)', lineHeight: 1 }}>□</span>
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
-                {item.client}
-              </span>
-              <span style={{
-                fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
-                padding: '2px 6px', borderRadius: '3px',
-                background: 'rgba(194,113,12,0.08)', color: '#C2710C', border: '1px solid rgba(194,113,12,0.18)',
-              }}>
-                {item.type}
-              </span>
-            </div>
-
-            {/* Recommendation */}
-            <p style={{
-              fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)',
-              marginTop: '4px',
-            }}>
-              {item.rec}
-            </p>
-
-            {/* Reason */}
-            <p style={{
-              fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)',
-              marginTop: '4px', lineHeight: 1.5,
-            }}>
-              {item.reason}
-            </p>
-
-            {/* Status badge */}
-            <span style={{
-              display: 'inline-block',
-              fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
-              padding: '2px 6px', borderRadius: '3px', marginTop: '8px',
-              background: 'rgba(194,113,12,0.06)', color: '#C2710C', border: '1px solid rgba(194,113,12,0.18)',
-            }}>
-              Awaiting attorney authorization
-            </span>
-          </div>
-        ))}
-      </section>
 
       {/* ── 7a. Decision log ─────────────────────────────────────────────── */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
