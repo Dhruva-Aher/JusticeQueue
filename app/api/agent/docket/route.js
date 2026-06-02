@@ -15,7 +15,8 @@ import { findSimilarCases }               from '../../../../lib/vectorSearch.js'
 import { logToCloud }                     from '../../../../lib/cloudLogging.js'
 
 // ── CourtListener public API ────────────────────────────────────────────────
-const COURT_QUERIES = {
+// Fallback queries used when Gemini Flash query generation fails
+const FALLBACK_QUERIES = {
   eviction:          'tenant eviction unlawful detainer emergency housing relief',
   immigration:       'immigration deportation removal stay emergency proceedings',
   custody:           'child custody emergency protective order best interest',
@@ -25,8 +26,9 @@ const COURT_QUERIES = {
   other:             'legal aid emergency relief due process',
 }
 
-async function searchCourtListener(caseType, pageSize = 3) {
-  const query = COURT_QUERIES[caseType] || COURT_QUERIES.other
+// overrideQuery: Gemini-generated query string if available; falls back to FALLBACK_QUERIES
+async function searchCourtListener(caseType, pageSize = 3, overrideQuery = null) {
+  const query = overrideQuery || FALLBACK_QUERIES[caseType] || FALLBACK_QUERIES.other
   try {
     const url = `https://www.courtlistener.com/api/rest/v4/search/?q=${encodeURIComponent(query)}&type=o&order_by=score+desc&page_size=${pageSize}`
     const res = await fetch(url, {
@@ -425,20 +427,65 @@ Return this JSON object (fill every field):
         urgentCases.map((c) => c.case_type).filter(Boolean)
       )].slice(0, 3)
 
+      // ── Model-generated CourtListener queries (Gemini Flash) ───────────────
+      // Instead of hardcoded query strings, ask the model to generate case-specific
+      // search terms based on the actual facts of the urgent cases.
+      // This is genuine tool parameterization: the model decides WHAT to search for.
+      let modelQueries = {}
+      let queriesVia   = 'hardcoded-fallback'
+
+      const queryContext = urgentCases.slice(0, 4).map((c) =>
+        `${c.case_type}: ${(c.priority_reason || c.summary || '').slice(0, 150)}`
+      ).join('\n')
+
+      if (queryContext.length > 0) {
+        try {
+          const qRaw = await callGeminiFlash(
+            'Return only valid JSON. No markdown. No explanation.',
+            `Generate targeted CourtListener search queries (7-12 words each) to find relevant emergency relief court opinions for these legal aid cases.
+
+URGENT CASES:
+${queryContext}
+
+Return a JSON object mapping case type to search query string. Include only the case types present above.
+Example format: { "eviction": "emergency tenant stay unlawful detainer housing children", "immigration": "..." }`
+          )
+          const parsed = JSON.parse(qRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+          if (typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+            modelQueries = parsed
+            queriesVia   = 'gemini-flash'
+          }
+        } catch {
+          queriesVia = 'hardcoded-fallback'
+        }
+      }
+
+      logDecision(
+        queriesVia === 'gemini-flash'
+          ? 'Gemini Flash generated case-specific CourtListener search queries'
+          : 'Using fallback CourtListener queries — Gemini Flash query generation unavailable',
+        queriesVia === 'gemini-flash'
+          ? `Model generated ${Object.keys(modelQueries).length} targeted search queries from case summaries rather than generic case-type templates`
+          : 'Gemini call failed or context unavailable; proceeding with predefined query templates',
+        { queries_via: queriesVia, case_types: caseTypesToSearch, model_queries: Object.keys(modelQueries) },
+        `CourtListener will execute with ${queriesVia === 'gemini-flash' ? 'model-generated' : 'fallback'} queries`
+      )
+
       for (const ct of caseTypesToSearch) {
-        const opinions = await searchCourtListener(ct, 3)
+        const opinions = await searchCourtListener(ct, 3, modelQueries[ct] ?? null)
         courtOpinions.push(...opinions)
       }
       if (courtOpinions.length === 0 && cases.length > 0) {
         const typeCounts = {}
         cases.forEach((c) => { if (c.case_type) typeCounts[c.case_type] = (typeCounts[c.case_type] || 0) + 1 })
         const topType = Object.entries(typeCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
-        if (topType) courtOpinions.push(...await searchCourtListener(topType, 3))
+        if (topType) courtOpinions.push(...await searchCourtListener(topType, 3, modelQueries[topType] ?? null))
       }
       steps.push(makeStep('courtlistener', 'Query CourtListener API for relevant legal precedents', 'CourtListener API',
         s, elapsed() - s, {
           case_types_searched: Math.max((urgentCases.map((c) => c.case_type).filter(Boolean).length), 1),
           opinions_retrieved:  courtOpinions.length,
+          queries_via:         queriesVia,
           branched:            true,
         }))
     } else {
