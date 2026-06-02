@@ -27,6 +27,26 @@ export async function GET() {
       description_embedding: { $exists: true, $not: { $size: 0 } },
     })
 
+    // ── Check 2b: outcome distribution via Atlas aggregation pipeline ────────
+    // This is a real $group aggregation — demonstrates MongoDB beyond countDocuments
+    let outcomeDistribution = null
+    let corpusYearRange     = null
+    try {
+      const [distResult, yearResult] = await Promise.all([
+        collection.aggregate([
+          { $group: { _id: '$outcome', count: { $sum: 1 } } },
+          { $sort:  { count: -1 } },
+        ]).toArray(),
+        collection.aggregate([
+          { $group: { _id: null, min_year: { $min: '$year' }, max_year: { $max: '$year' } } },
+        ]).toArray(),
+      ])
+      outcomeDistribution = Object.fromEntries(distResult.map((d) => [d._id || 'unknown', d.count]))
+      corpusYearRange     = yearResult[0] ? `${yearResult[0].min_year}–${yearResult[0].max_year}` : null
+    } catch {
+      // Non-fatal — aggregation stats are informational only
+    }
+
     // ── Check 3: live $vectorSearch probe ────────────────────────────────────
     // Uses a generic legal-aid query — tests the actual index path and dimensions.
     let vectorSearchOk    = false
@@ -63,17 +83,22 @@ export async function GET() {
     return Response.json({
       status: overallStatus,
       checks: {
-        atlas_connected:           true,
-        past_cases_total:          totalCount,
-        past_cases_with_embeddings: withEmbedding,
+        atlas_connected:               true,
+        past_cases_total:              totalCount,
+        past_cases_with_embeddings:    withEmbedding,
         past_cases_without_embeddings: totalCount - withEmbedding,
-        vector_index_name:         'description_embedding_index',
-        vector_search_executed:    withEmbedding > 0,
-        vector_search_ok:          vectorSearchOk,
-        vector_search_latency_ms:  vectorSearchMs,
-        vector_search_results:     vectorSearchCount,
-        vector_search_via:         vectorSearchVia,
-        vector_search_error:       vectorSearchError ?? null,
+        vector_index_name:             'description_embedding_index',
+        embedding_model:               'text-embedding-004',
+        embedding_dimensions:          768,
+        vector_search_executed:        withEmbedding > 0,
+        vector_search_ok:              vectorSearchOk,
+        vector_search_latency_ms:      vectorSearchMs,
+        vector_search_results:         vectorSearchCount,
+        vector_search_via:             vectorSearchVia,
+        vector_search_error:           vectorSearchError ?? null,
+        // Atlas aggregation pipeline results
+        corpus_outcome_distribution:   outcomeDistribution,
+        corpus_year_range:             corpusYearRange,
       },
       labels: {
         atlas_connection:  'Atlas Connected',

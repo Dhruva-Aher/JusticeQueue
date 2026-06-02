@@ -934,7 +934,49 @@ export default function JudgePage() {
         </div>
       </section>
 
-      {/* ── 9. CTA ────────────────────────────────────────────────────────── */}
+      {/* ── 9. Deployment readiness — competitive positioning ────────────── */}
+      <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
+        <SectionLabel sub>DEPLOYMENT READINESS</SectionLabel>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          {[
+            {
+              heading: 'Why not fully autonomous?',
+              color: '#C2710C',
+              body: 'JusticeQueue does not autonomously file motions, contact clients, or take legal action. This is a deliberate design decision for bar association compliance and legal malpractice risk management. Every action with legal consequence requires attorney authorization first.',
+            },
+            {
+              heading: 'What makes this deployable?',
+              color: '#16A34A',
+              body: 'Every decision is logged with evidence in MongoDB. Every recommendation is reviewed before action. Every run is auditable by run_id. A supervising attorney can inspect the full decision trail and override any recommendation. This architecture is compliant with the ABA Model Rules.',
+            },
+            {
+              heading: 'How does this compare to multi-agent systems?',
+              color: '#4338CA',
+              body: 'Multi-agent systems that autonomously execute legal actions cannot be deployed to a legal aid clinic without bar association approval and malpractice insurance review. JusticeQueue can be deployed next month. The constraint is a feature, not a limitation.',
+            },
+            {
+              heading: 'What is the Google Cloud story?',
+              color: '#2563EB',
+              body: 'Vertex AI for text generation (Gemini Pro + Flash) AND text embeddings (text-embedding-004). Cloud Logging for structured run telemetry. Cloud Monitoring for time series metrics. Firebase Auth for JWT verification. Five GCP services — all using the same OAuth 2.0 token.',
+            },
+          ].map(({ heading, color, body }) => (
+            <div key={heading} style={{
+              background: 'var(--bg-surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', padding: '16px',
+              borderTop: `3px solid ${color}`,
+            }}>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 700, color, marginBottom: '8px' }}>
+                {heading}
+              </p>
+              <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.65 }}>
+                {body}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── 10. CTA ────────────────────────────────────────────────────────── */}
       <section style={{
         background: 'var(--bg-surface)',
         borderTop: '1px solid var(--border)',

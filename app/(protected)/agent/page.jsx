@@ -1065,7 +1065,7 @@ function RunDetail({ run }) {
             </p>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            {result.action_items.filter((i) => i.priority === 'critical').map((item, i) => (
+            {result.action_items.filter((i) => i.priority === 'critical' || i.authorization_required).map((item, i) => (
               <div key={i} style={{
                 background: 'var(--bg-surface)',
                 border: '1px solid rgba(194,113,12,0.15)',
@@ -1094,6 +1094,18 @@ function RunDetail({ run }) {
                   <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.5 }}>
                     {item.action}
                   </p>
+                  {/* Model-generated authorization reason — specific legal compliance rationale */}
+                  {item.authorization_reason && (
+                    <p style={{
+                      fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#C2710C',
+                      marginTop: '5px', lineHeight: 1.5,
+                      padding: '4px 8px',
+                      background: 'rgba(194,113,12,0.05)', borderRadius: '3px',
+                      borderLeft: '2px solid rgba(194,113,12,0.35)',
+                    }}>
+                      Authorization required: {item.authorization_reason}
+                    </p>
+                  )}
                   {item.deadline_warning && (
                     <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: '#DC2626', marginTop: '3px', fontWeight: 500 }}>
                       ⚑ {item.deadline_warning}

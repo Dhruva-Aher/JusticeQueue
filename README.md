@@ -55,7 +55,7 @@ JusticeQueue addresses the triage bottleneck specifically. It accepts CSV, TXT, 
 │ Gemini Flash  │   │  2. JS filter        → urgency buckets          │
 │  (extract)    │   │  3. JS filter        → missing_info detection   │
 │               │   │  4. Gemini Flash     → strategy selection       │
-│ Voyage AI     │   │  5. Voyage AI emb.   → Atlas $vectorSearch      │
+│ Vertex AI     │   │  5. text-embedding-004 → Atlas $vectorSearch    │
 │  (embed)      │   │  6. CourtListener    → legal opinions (cond.)   │
 │               │   │  7. Gemini Pro       → recommendations          │
 │ $vectorSearch │   │  8. Gemini Pro       → executive report         │
@@ -82,13 +82,13 @@ JusticeQueue addresses the triage bottleneck specifically. It accepts CSV, TXT, 
 │  Vector Search index: description_embedding_index                  │
 │    collection:  past_cases                                         │
 │    path:        description_embedding                              │
-│    dimensions:  1024 (Voyage AI voyage-large-2)                    │
+│    dimensions:  768 (Vertex AI text-embedding-004)                    │
 │    similarity:  cosine                                              │
 └─────────────────────────────────────────────────────────────────────┘
 
 External services
   aiplatform.googleapis.com — Gemini via Vertex AI (OAuth 2.0 Bearer)
-  api.voyageai.com          — voyage-large-2 embeddings
+  Vertex AI (text-embedding-004)  — 768-dim embeddings (same GCP project)
   courtlistener.com         — legal opinions (public API, no key)
   firebase.google.com       — Firebase Authentication
   oauth2.googleapis.com     — GCP OAuth token refresh
@@ -107,7 +107,7 @@ When a file is uploaded to `/api/intake/upload`, each intake record is processed
 Gemini Flash (Vertex AI) receives the raw intake text and returns a structured JSON object with `client_name`, `case_type` (one of: `eviction`, `immigration`, `wage_theft`, `custody`, `employment`, `other`), `summary`, `deadline_days`, `vulnerability_flags` (`minor_children`, `language_barrier`, `medical_condition`), and `missing_info[]`. The model is prompted with a fixed JSON schema; the response is parsed and validated before use.
 
 **Step 2 — `vector_search`**  
-The case summary is embedded using Voyage AI (`voyage-large-2`, 1024 dimensions, truncated to 4,000 characters). The embedding is passed to a MongoDB Atlas `$vectorSearch` aggregation pipeline against the `past_cases` collection, returning up to 3 historically similar cases ranked by cosine similarity. Each result carries the original outcome (`won`, `settled`, or `declined`), outcome notes, and a `similarity_score` between 0 and 1. If `VOYAGE_API_KEY` is not configured, the step fails gracefully and returns zero matches.
+The case summary is embedded using Vertex AI `text-embedding-004` (768 dimensions). The embedding is passed to a MongoDB Atlas `$vectorSearch` aggregation pipeline against the `past_cases` collection, returning up to 3 historically similar cases ranked by cosine similarity. Each result carries the original outcome (`won`, `settled`, or `declined`), outcome notes, and a `similarity_score` between 0 and 1. If the Vertex AI call fails, the step returns zero matches gracefully.
 
 **Step 3 — `score_urgency`**  
 A pure function (`lib/urgencyScore.js`) computes a score from 0–100 using the results of steps 1 and 2. The algorithm is described in the [Urgency Scoring](#urgency-scoring) section.
@@ -140,7 +140,7 @@ Gemini Flash (Vertex AI) receives the live docket profile — case counts, urgen
 > **Model decision stored:** `strategy`, `escalation_level`, `precedent_research`, `courtlistener_depth`, `reasoning`, `alternatives_considered[]`, `model`, `timestamp_ms`, `fallback_used`. This document determines Step 6 behavior.
 
 **Step 5 — Atlas $vectorSearch**  
-For up to 5 cases (critical cases first, then urgent, then high-score), the agent runs `findSimilarCases()` concurrently. Each call generates a Voyage AI embedding for the case summary and executes a `$vectorSearch` aggregation against `description_embedding_index` on `past_cases`. Results include `similarity_score`, `outcome`, `outcome_notes`, and `year`. The `via` field records which execution path was used. Tool: MongoDB Vector Search.
+For up to 5 cases (critical cases first, then urgent, then high-score), the agent runs `findSimilarCases()` concurrently. Each call generates a Vertex AI text-embedding-004 embedding for the case summary and executes a `$vectorSearch` aggregation against `description_embedding_index` on `past_cases`. Results include `similarity_score`, `outcome`, `outcome_notes`, and `year`. The `via` field records which execution path was used. Tool: MongoDB Vector Search.
 
 > **Decision logged after Step 5:** The agent records whether matches were found, the top similarity score, observed outcome distribution, and whether historical data will be incorporated into the Gemini Pro recommendation prompt.
 
@@ -181,7 +181,7 @@ The score breakdown is stored per case and displayed as a bar chart in the Case 
 
 ### Setup
 
-The `past_cases` collection holds 30 seeded historical legal aid case outcomes (6 practice areas × 5 cases each: eviction, immigration, custody, wage theft, domestic violence, employment). Each document carries a `description_embedding` field — a 1024-dimensional float array produced by Voyage AI's `voyage-large-2` model from the case `description` field.
+The `past_cases` collection holds 30 seeded historical legal aid case outcomes (6 practice areas × 5 cases each: eviction, immigration, custody, wage theft, domestic violence, employment). Each document carries a `description_embedding` field — a 768-dimensional float array produced by Vertex AI `text-embedding-004` from the case `description` field.
 
 The required Atlas Search index definition:
 
@@ -194,7 +194,7 @@ The required Atlas Search index definition:
       {
         "type": "vector",
         "path": "description_embedding",
-        "numDimensions": 1024,
+        "numDimensions": 768,
         "similarity": "cosine"
       }
     ]
@@ -206,7 +206,7 @@ The required Atlas Search index definition:
 
 ```js
 // lib/vectorSearch.js
-const queryVector = await getEmbedding(caseSummaryText)  // Voyage AI
+const queryVector = await getEmbedding(caseSummaryText)  // Vertex AI text-embedding-004
 
 const pipeline = [
   {
@@ -385,7 +385,7 @@ Authenticated users can seed their queue with 50 curated cases via `POST /api/de
 
 ### Thirty historical cases for vector search (`/api/seed/past-cases`)
 
-`POST /api/seed/past-cases` (requires `x-seed-confirm: yes` header) inserts 30 historical case outcomes with Voyage AI embeddings into the `past_cases` collection, in batches of 5 to avoid rate limits. These are the documents queried by Atlas `$vectorSearch` during both intake and docket preparation. Each document carries a `description_embedding` field generated from the case `description` text — the same field and the same embedding model used for query vectors.
+`POST /api/seed/past-cases` (requires `x-seed-confirm: yes` header) inserts 30 historical case outcomes with Vertex AI `text-embedding-004` embeddings into the `past_cases` collection. These are the documents queried by Atlas `$vectorSearch` during both intake and docket preparation. Each document carries a `description_embedding` field (768-dim) generated from the case `description` text — the same model and dimensions used for query vectors.
 
 ### Judge Mode (`/judge`)
 
@@ -406,9 +406,9 @@ Case documents have a variable shape. A custody case with `similar_cases`, a ful
 
 Vector search and the case document store are in the same cluster. The `$vectorSearch` aggregation runs inside a standard MongoDB aggregation pipeline, so results can be post-filtered, projected, or joined with other stages in the same operation. Running vector search as a managed service inside Atlas removes a separate vector database from the operational stack.
 
-### Why Voyage AI for embeddings
+### Why Vertex AI for embeddings
 
-Atlas `$vectorSearch` requires pre-computed embeddings stored on the document. Voyage AI's `voyage-large-2` model produces 1024-dimensional embeddings optimized for semantic similarity in domain-specific text. The model is called at document insert time (intake pipeline and seeding) and at query time (during `findSimilarCases()`). Using the same model for both operations ensures query vectors and stored vectors occupy the same embedding space.
+Atlas `$vectorSearch` requires pre-computed embeddings stored on the document. Vertex AI `text-embedding-004` produces 768-dimensional embeddings. Using Vertex AI for both document embeddings and query vectors keeps the entire AI pipeline on Google Cloud — no third-party embedding service required. The same OAuth token that authenticates Gemini also authenticates the embedding API.
 
 ### Why Vertex AI for Gemini inference
 
@@ -430,7 +430,7 @@ Legal aid work involves decisions with irreversible consequences. JusticeQueue p
 
 - **MongoDB Atlas** cluster (M0 free tier works for development; `$vectorSearch` requires M10+ for the managed index; the `listSearchIndexes` command in the seed script requires Atlas, not Community)
 - **Google Cloud project** with Vertex AI API enabled and a configured OAuth 2.0 Web Application credential
-- **Voyage AI account** — free tier is sufficient for development
+- **Google Cloud project** with Vertex AI API enabled (no additional service needed — text-embedding-004 uses the same OAuth token as Gemini)
 - **Firebase project** with Google OAuth and email/password sign-in enabled
 - **Upstash Redis** database — free tier is sufficient
 
@@ -458,7 +458,7 @@ GEMINI_MODEL_FLASH=           # model ID available in your GCP project
 GEMINI_MODEL_PRO=             # model ID available in your GCP project
 
 # Voyage AI
-VOYAGE_API_KEY=               # https://voyageai.com → API Keys
+# VOYAGE_API_KEY no longer needed — Vertex AI text-embedding-004 replaces Voyage AI
 
 # Upstash Redis
 UPSTASH_REDIS_REST_URL=
@@ -485,7 +485,7 @@ Create the index via Atlas UI (Data Services → your cluster → Atlas Search �
       {
         "type": "vector",
         "path": "description_embedding",
-        "numDimensions": 1024,
+        "numDimensions": 768,
         "similarity": "cosine"
       }
     ]
@@ -497,7 +497,7 @@ The `seed/seedPastCases.js` script attempts to create this index via `collection
 
 ### Seeding historical cases
 
-The seed endpoint generates Voyage AI embeddings at request time. Ensure `VOYAGE_API_KEY` is set before seeding:
+The seed endpoint generates Vertex AI text-embedding-004 embeddings at request time. Ensure the Vertex AI API is enabled in your GCP project (same credentials as Gemini):
 
 ```bash
 # Via the API route (authenticated)
@@ -510,17 +510,17 @@ curl -X POST https://your-deployment.vercel.app/api/seed/past-cases \
   "seeded": 30,
   "with_embeddings": 30,
   "without_embeddings": 0,
-  "message": "30 historical cases seeded with Voyage AI embeddings. Atlas $vectorSearch is ready."
+  "message": "30 historical cases seeded with Vertex AI text-embedding-004 embeddings. Atlas $vectorSearch is ready."
 }
 ```
 
-Alternatively, use the standalone script (requires `.env` file with `MONGODB_URI` and `VOYAGE_API_KEY`):
+Alternatively, use the standalone script (requires `.env` file with `MONGODB_URI` and GCP OAuth credentials):
 
 ```bash
 npm run seed
 ```
 
-The script reads `seed/data/past_cases.json`, generates embeddings using Voyage AI, inserts documents into `past_cases`, and attempts to create the vector search index.
+The script reads `seed/data/past_cases.json`, generates embeddings using Vertex AI text-embedding-004, inserts documents into `past_cases`, and attempts to create the vector search index.
 
 ### Local development
 
@@ -596,7 +596,7 @@ These are concrete gaps in the current implementation, ordered by likely impact.
 | `GET` | `/api/agent/runs/:id` | ✅ | Full AgentRun document |
 | `POST` | `/api/demo/seed` | ✅ | Seed 50 curated demo cases (scores computed by formula) |
 | `GET` | `/api/demo/queue` | ❌ | 5 hardcoded demo cases, no auth |
-| `POST` | `/api/seed/past-cases` | ✅ | Seed 30 historical cases with Voyage AI embeddings |
+| `POST` | `/api/seed/past-cases` | ✅ | Seed 30 historical cases with Vertex AI text-embedding-004 embeddings |
 | `GET` | `/api/health` | ❌ | Liveness check |
 
 ---

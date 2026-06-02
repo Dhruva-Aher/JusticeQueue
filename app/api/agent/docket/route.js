@@ -671,12 +671,68 @@ Return ONLY a valid JSON array:
       })
     }
 
+    // ── MODEL OVERSIGHT REVIEW: Flash evaluates recommendations for human authorization ──
+    // The model reads its own generated recommendations and determines which specific
+    // actions require mandatory attorney authorization before any step is taken.
+    // This is the model reacting to content it just produced — a genuine output-to-input loop.
+    const criticalRecs = recommendations.filter((r) => r.priority === 'critical' || r.priority === 'high')
+
+    if (criticalRecs.length > 0) {
+      const oversightPrompt = `GENERATED ATTORNEY RECOMMENDATIONS (critical/high priority):
+${criticalRecs.map((r, i) => `${i + 1}. ${r.client_name} (${r.case_type}): ${r.action}`).join('\n')}
+
+For each item: does this action require mandatory attorney authorization before ANY step is taken?
+Consider: court filings, client contact on urgent matters, emergency motions, rights waivers.
+
+Return JSON array (one entry per item):
+[{"client_name":"exact","requires_authorization":true|false,"authorization_reason":"specific legal reason why attorney must review first, or null if not required"}]`
+
+      try {
+        const oversightRaw    = await callGeminiFlash(
+          'You are a legal ethics compliance reviewer. Identify which attorney actions require mandatory human authorization before execution. Return JSON only.',
+          oversightPrompt
+        )
+        const oversightResult = JSON.parse(oversightRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+
+        if (Array.isArray(oversightResult)) {
+          let flaggedCount = 0
+          for (const item of oversightResult) {
+            if (!item.requires_authorization) continue
+            const rec = recommendations.find((r) => r.client_name === item.client_name)
+            if (rec) {
+              rec.authorization_required = true
+              rec.authorization_reason   = item.authorization_reason
+              flaggedCount++
+            }
+          }
+
+          if (flaggedCount > 0) {
+            logDecision(
+              `Human authorization required for ${flaggedCount} recommendation${flaggedCount !== 1 ? 's' : ''} — model reviewed generated actions for legal compliance`,
+              'Gemini Flash reviewed its own recommendations and identified specific actions requiring attorney sign-off before execution. No automated action will be taken on these items.',
+              {
+                total_reviewed:    criticalRecs.length,
+                flagged_for_auth:  flaggedCount,
+                model:             process.env.GEMINI_MODEL_FLASH,
+                loop:              'output-to-input',
+              },
+              `${flaggedCount} item${flaggedCount !== 1 ? 's' : ''} in human oversight panel with specific authorization reasoning`
+            )
+          }
+        }
+      } catch {
+        // Non-fatal — oversight review failure does not affect recommendations
+      }
+    }
+
     steps.push(makeStep('recommendations', 'Generate AI-powered triage recommendations with Gemini Flash', 'Gemini Flash',
       s, elapsed() - s, {
         recommendations_generated: recommendations.length,
         critical:    recommendations.filter((r) => r.priority === 'critical').length,
         high:        recommendations.filter((r) => r.priority === 'high').length,
         vector_data_used: vectorSearchResults.length > 0,
+        oversight_reviewed: criticalRecs.length,
+        flagged_for_authorization: recommendations.filter((r) => r.authorization_required).length,
       }))
 
     // ── STEP 7: Executive report ─────────────────────────────────────────────

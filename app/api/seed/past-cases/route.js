@@ -10,9 +10,10 @@
 //            Attribution: CourtListener / Free Law Project (courtlistener.com)
 //
 // Prerequisites:
-//   1. VOYAGE_API_KEY env var set (https://voyageai.com → API Keys)
+//   1. GOOGLE_CLOUD_PROJECT_ID + OAuth creds set (Vertex AI text-embedding-004)
+//      No VOYAGE_API_KEY needed — embeddings now use Vertex AI (same GCP project)
 //   2. Atlas Vector Search index "description_embedding_index" created on the
-//      past_cases collection with path "description_embedding" (1024 dims, cosine)
+//      past_cases collection with path "description_embedding" (768 dims, cosine)
 //
 // Run once after deployment: POST /api/seed/past-cases (authenticated)
 //
@@ -280,7 +281,7 @@ export async function POST(request) {
     const results = []
     const errors  = []
 
-    // Process in batches of 5 to stay within Voyage AI rate limits
+    // Process in batches of 5 (Vertex AI rate limiting is generous; batch size is conservative)
     const BATCH = 5
     for (let i = 0; i < PAST_CASES.length; i += BATCH) {
       const batch = PAST_CASES.slice(i, i + BATCH)
@@ -290,9 +291,9 @@ export async function POST(request) {
           try {
             description_embedding = await getEmbedding(c.description)
           } catch (embErr) {
-            // Embedding failed (e.g. VOYAGE_API_KEY not set) — insert without embedding.
-            // The document will exist in the collection but $vectorSearch won't return it
-            // until the embedding is generated. Run this endpoint again once the key is set.
+            // Embedding failed — insert without embedding.
+            // Likely cause: GOOGLE_CLOUD_PROJECT_ID missing or OAuth token expired.
+            // The document will exist in the collection but $vectorSearch won't return it.
             errors.push({ case_type: c.case_type, error: embErr.message })
           }
           return {
@@ -328,11 +329,11 @@ export async function POST(request) {
       message:          withEmbeddings === results.length
         ? `${results.length} historical cases seeded with Voyage AI embeddings. Atlas $vectorSearch is ready.`
         : withEmbeddings > 0
-          ? `${results.length} cases seeded; ${withEmbeddings} with embeddings, ${results.length - withEmbeddings} without (VOYAGE_API_KEY error — set key and re-run to complete).`
-          : `${results.length} cases inserted WITHOUT embeddings — VOYAGE_API_KEY not set. Set the key and re-run this endpoint.`,
+          ? `${results.length} cases seeded; ${withEmbeddings} with embeddings, ${results.length - withEmbeddings} without (Vertex AI embedding error — check GOOGLE_CLOUD_PROJECT_ID and OAuth credentials).`
+          : `${results.length} cases inserted WITHOUT embeddings — Vertex AI embedding call failed. Verify GOOGLE_CLOUD_PROJECT_ID and OAuth token are set.`,
       next_steps: withEmbeddings < results.length
-        ? ['Set VOYAGE_API_KEY environment variable', 'Re-run POST /api/seed/past-cases', 'Verify Atlas Search index "description_embedding_index" exists on past_cases collection']
-        : ['Verify Atlas Search index "description_embedding_index" exists on past_cases collection with path: description_embedding, dimensions: 1024, similarity: cosine'],
+        ? ['Verify GOOGLE_CLOUD_PROJECT_ID env var', 'Check GOOGLE_OAUTH_REFRESH_TOKEN is valid', 'Re-run POST /api/seed/past-cases']
+        : ['Verify Atlas Search index "description_embedding_index" exists on past_cases collection with path: description_embedding, dimensions: 768, similarity: cosine'],
     })
 
   } catch (err) {
