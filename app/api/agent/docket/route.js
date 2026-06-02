@@ -305,10 +305,6 @@ Return this JSON object (fill every field):
       `Persist execution trace, model decision, adapted plan, and vector results to MongoDB Atlas`,
     ]
 
-    // ── NOTE: CourtListener gating now comes from tool_selection (runCourtListener),
-    // not from modelDecision.precedent_research. No logDecision here to avoid
-    // logging stale information before tool_selection runs.
-
     // ── DECISION B: Documentation remediation branch ────────────────────────
     const highDocGapRate = docGapRatePct >= 40
     if (highDocGapRate) {
@@ -853,8 +849,20 @@ Return JSON only:
         evidenceFallback = true
       }
 
-      // If model says retrieve_more: run one additional broad retrieval pass
-      if (evidenceSufficiency.verdict === 'retrieve_more') {
+      // If model says retrieve_more: run one additional broad retrieval pass.
+      // Skip if adaptive search already expanded scope (avoids double-retrieval
+      // and the resulting 13 Vertex AI embedding calls in a single run).
+      if (evidenceSufficiency.verdict === 'retrieve_more' && adaptiveSearchTriggered) {
+        // Adaptive search already covered this — log the suppression, update verdict label
+        evidenceSufficiency.second_pass_triggered = false
+        evidenceSufficiency.second_pass_suppressed_by_adaptive = true
+        logDecision(
+          'Evidence retrieve_more suppressed — adaptive search already expanded retrieval scope',
+          'Adaptive search ran earlier in this execution and added broader queries; a second evidence pass would duplicate that work.',
+          { verdict: 'retrieve_more', suppressed: true, reason: 'adaptive_search_already_triggered' },
+          'Proceeding with adaptive search results as the extended retrieval context'
+        )
+      } else if (evidenceSufficiency.verdict === 'retrieve_more') {
         evidenceSufficiency.second_pass_triggered = true
         const BROAD_FALLBACK = {
           eviction: 'tenant housing emergency relief', immigration: 'immigration removal appeal',
@@ -899,12 +907,21 @@ Return JSON only:
           `Second Atlas $vectorSearch pass retrieved ${spAdded} additional historical cases`
         )
       } else if (evidenceSufficiency.verdict === 'escalate') {
+        // Escalate verdict changes execution: injects a docket-level escalation action
+        // and marks all existing action items as requiring mandatory attorney authorization.
+        // This is not informational — it modifies the recommendation set.
         logDecision(
-          'Evidence evaluation: escalation required — retrieval insufficient for reliable recommendations',
+          'Evidence evaluation: retrieval insufficient — docket-level escalation activated',
           evidenceSufficiency.reasoning,
-          { verdict: 'escalate', match_quality: evidenceSufficiency.match_quality },
-          'Docket flagged for senior attorney review before recommendations are acted upon'
+          {
+            verdict:       'escalate',
+            match_quality: evidenceSufficiency.match_quality,
+            execution:     'all recommendations will require escalated attorney authorization',
+          },
+          'Escalation action injected; all recommendations flagged for mandatory senior attorney review'
         )
+        // Flag persisted on evidenceSufficiency so downstream can read it
+        evidenceSufficiency.escalation_activated = true
       } else {
         logDecision(
           `Evidence evaluation: ${evidenceSufficiency.match_quality} quality — sufficient for recommendations`,
@@ -919,11 +936,13 @@ Return JSON only:
         'Gemini Flash',
         s, elapsed() - s,
         {
-          verdict:               evidenceSufficiency.verdict,
-          match_quality:         evidenceSufficiency.match_quality,
-          missing_context:       evidenceSufficiency.missing_context,
-          second_pass_triggered: evidenceSufficiency.second_pass_triggered,
-          fallback_used:         evidenceFallback,
+          verdict:                           evidenceSufficiency.verdict,
+          match_quality:                     evidenceSufficiency.match_quality,
+          missing_context:                   evidenceSufficiency.missing_context,
+          second_pass_triggered:             evidenceSufficiency.second_pass_triggered,
+          second_pass_suppressed_by_adaptive: evidenceSufficiency.second_pass_suppressed_by_adaptive ?? false,
+          escalation_activated:              evidenceSufficiency.escalation_activated ?? false,
+          fallback_used:                     evidenceFallback,
         }
       ))
     }
@@ -1082,6 +1101,31 @@ Return ONLY a valid JSON array:
         action:           `Contact ${withMissingDocs.length} clients to collect outstanding documents before hearing dates`,
         rationale:        `${docGapRatePct}% documentation gap rate — incomplete files are the primary bottleneck to case advancement (remediation branch activated)`,
         deadline_warning: 'Documentation gaps must be resolved before any hearing can proceed',
+      })
+    }
+
+    // ── Evidence escalation: if retrieval was flagged insufficient, modify execution ──
+    // This makes evidence_sufficiency 'escalate' genuinely execution-changing:
+    // all recommendations are marked as requiring attorney authorization and an
+    // explicit docket-level escalation item is injected into the action list.
+    if (evidenceSufficiency?.escalation_activated) {
+      recommendations.forEach((r) => {
+        r.authorization_required   = true
+        r.authorization_reason     = 'Evidence retrieval was insufficient — docket requires senior attorney review before any action is taken'
+        r.risk_assessment          = 'high'
+        r.escalated_by_evidence    = true
+      })
+      recommendations.unshift({
+        client_name:      'Docket (All Cases)',
+        case_type:        'Escalation',
+        priority:         'critical',
+        action:           'SENIOR ATTORNEY REVIEW REQUIRED before any case action — evidence retrieval was insufficient for reliable triage',
+        rationale:        evidenceSufficiency.reasoning || 'Model assessed that historical context is inadequate to support confident recommendations',
+        deadline_warning: 'No action should be taken on any case until a senior attorney reviews this docket',
+        authorization_required: true,
+        authorization_reason:   'Evidence insufficiency escalation — docket-level risk',
+        risk_assessment:        'high',
+        escalated_by_evidence:  true,
       })
     }
 

@@ -47,9 +47,11 @@ function stepResultSummary(result) {
   if (result.cases_selected != null)         parts.push(`${result.cases_selected} of ${(result.cases_selected ?? 0) + (result.cases_skipped ?? 0)} cases`)
   if (result.selection_criteria != null)     parts.push(result.selection_criteria.slice(0, 40))
   // evidence_sufficiency step
-  if (result.verdict != null)                parts.push(`verdict: ${result.verdict}`)
-  if (result.match_quality != null)          parts.push(`quality: ${result.match_quality}`)
-  if (result.second_pass_triggered)          parts.push('second pass triggered')
+  if (result.verdict != null)                            parts.push(`verdict: ${result.verdict}`)
+  if (result.match_quality != null)                      parts.push(`quality: ${result.match_quality}`)
+  if (result.second_pass_triggered)                      parts.push('second pass triggered')
+  if (result.second_pass_suppressed_by_adaptive)         parts.push('suppressed — adaptive covered')
+  if (result.escalation_activated)                       parts.push('ESCALATED')
   // challenge_review step
   if (result.most_uncertain_case != null)    parts.push(`uncertain: ${result.most_uncertain_case}`)
   if (result.confidence != null)             parts.push(`confidence: ${result.confidence}`)
@@ -423,7 +425,17 @@ function RunDetail({ run }) {
           ts ? { label: 'Tool Selection',  detail: (ts.tools ?? '—').replace(/_/g, ' + '), sub: ts.rejected_tools?.length > 0 ? `rejected: ${ts.rejected_tools.join(', ')}` : null, type: 'model', icon: '◆', color: 'var(--accent)' } : null,
           cs ? { label: 'Case Selection',  detail: `${cs.selected_count ?? '?'} of ${(cs.selected_count ?? 0) + (cs.rejected_count ?? 0)} cases`, sub: cs.selection_criteria ?? null, type: 'model', icon: '◆', color: 'var(--accent)' } : null,
           { label: 'Atlas $vectorSearch', detail: `${result.vector_search_results?.length ?? 0} cases searched`, type: 'tool', icon: '●', color: '#16A34A' },
-          es ? { label: 'Evidence Review', detail: `verdict: ${es.verdict ?? '—'}`, sub: es.second_pass_triggered ? '→ Second retrieval pass triggered' : null, type: 'model', icon: '◆', color: es.verdict === 'escalate' ? '#DC2626' : es.verdict === 'retrieve_more' ? '#C2710C' : 'var(--accent)', highlight: es.verdict !== 'sufficient' } : null,
+          es ? {
+            label:     'Evidence Review',
+            detail:    `verdict: ${es.verdict ?? '—'}${es.escalation_activated ? ' → DOCKET ESCALATED' : ''}`,
+            sub:       es.second_pass_triggered ? '→ Second retrieval pass triggered'
+                     : es.second_pass_suppressed_by_adaptive ? '→ Second pass suppressed (adaptive search covered this)'
+                     : es.escalation_activated ? '→ All recommendations require senior attorney authorization'
+                     : null,
+            type:      'model', icon: '◆',
+            color:     es.escalation_activated ? '#DC2626' : es.verdict === 'retrieve_more' ? '#C2710C' : 'var(--accent)',
+            highlight: es.verdict !== 'sufficient',
+          } : null,
           // Infer CourtListener status from actual results, not just tool_selection
           // (handles backward compat for runs without tool_selection field)
           (() => {
