@@ -33,7 +33,7 @@ JusticeQueue addresses the triage bottleneck specifically. It accepts CSV, TXT, 
 │                   API Routes (Vercel serverless)                     │
 │                                                                     │
 │  POST /api/intake/upload    — file parsing + intake agent pipeline  │
-│  POST /api/agent/docket     — 9-step docket preparation agent      │
+│  POST /api/agent/docket     — 13-step docket preparation agent      │
 │  GET  /api/agent/runs       — list agent runs for user             │
 │  GET  /api/agent/runs/:id   — full run document with steps[]       │
 │  GET  /api/cases/queue      — sorted active case queue             │
@@ -49,7 +49,7 @@ JusticeQueue addresses the triage bottleneck specifically. It accepts CSV, TXT, 
         │                       │
         ▼                       ▼
 ┌───────────────┐   ┌──────────────────────────────────────────────────┐
-│ Intake        │   │ Docket Agent (9 steps)                          │
+│ Intake        │   │ Docket Agent (13 steps)                          │
 │ Pipeline      │   │                                                  │
 │               │   │  1. MongoDB query    → cases collection         │
 │ Gemini Flash  │   │  2. JS filter        → urgency buckets          │
@@ -123,7 +123,7 @@ Files are processed in parallel chunks of 20 cases with deduplication: cases who
 
 ### Docket Preparation Agent
 
-The "Prepare Tomorrow's Docket" workflow is a single synchronous function (`app/api/agent/docket/route.js`) that executes nine steps sequentially, records each step's tool, start time (wall-clock, derived from `run.started_at + step.started_ms`), duration, and structured result, and logs every branching decision to a `decisions[]` array. The complete trace is stored as a single `AgentRun` document in MongoDB Atlas.
+The "Prepare Tomorrow's Docket" workflow is a single synchronous function (`app/api/agent/docket/route.js`) that executes up to thirteen steps sequentially, records each step's tool, start time (wall-clock, derived from `run.started_at + step.started_ms`), duration, and structured result, and logs every branching decision to a `decisions[]` array. The complete trace is stored as a single `AgentRun` document in MongoDB Atlas.
 
 **Step 1 — Retrieve active cases**  
 `Case.find({ uid })` with a 300-document limit. Tool: MongoDB Atlas.
@@ -591,7 +591,7 @@ These are concrete gaps in the current implementation, ordered by likely impact.
 | `PATCH` | `/api/cases/:id` | ✅ | Update status |
 | `POST` | `/api/cases/:id/override` | ✅ | Manual score override (written to StaffAction collection) |
 | `DELETE` | `/api/cases/clear` | ✅ | Delete all cases for user |
-| `POST` | `/api/agent/docket` | ✅ | Run 9-step docket preparation workflow (includes Gemini Flash model decision) |
+| `POST` | `/api/agent/docket` | ✅ | Run 13-step docket preparation workflow (model-directed strategy, tools, cases, evidence, challenge) |
 | `GET` | `/api/agent/runs` | ✅ | List agent runs for user (summary only) |
 | `GET` | `/api/agent/runs/:id` | ✅ | Full AgentRun document |
 | `POST` | `/api/demo/seed` | ✅ | Seed 50 curated demo cases (scores computed by formula) |

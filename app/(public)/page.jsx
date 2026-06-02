@@ -200,7 +200,7 @@ export default function HomePage() {
             marginBottom: '2rem',
             maxWidth: '440px',
           }}>
-            One click triggers a 9-step agent workflow: it retrieves your cases, analyzes deadlines,
+            One click triggers a 13-step agent workflow: it retrieves your cases, analyzes deadlines,
             selects an execution strategy via Gemini, searches historical outcomes, retrieves judicial
             precedents, and delivers a ranked docket with attorney recommendations — typically in under two minutes.
           </p>
@@ -341,7 +341,7 @@ export default function HomePage() {
           gap: '0',
         }}>
           {[
-            { n: '9',     label: 'Agent pipeline steps' },
+            { n: '13',    label: 'Agent pipeline steps' },
             { n: '< 2min', label: 'Full docket preparation' },
             { n: '3',     label: 'Live APIs integrated' },
             { n: '100%',  label: 'Auditable decisions' },
@@ -376,7 +376,7 @@ export default function HomePage() {
             The agent workflow
           </h2>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '16px', color: 'var(--text-2)', maxWidth: '520px', lineHeight: 1.6 }}>
-            One button triggers nine sequential steps including a Gemini model decision that shapes execution. Every action is recorded, every tool call visible, every decision auditable.
+            One button triggers thirteen sequential steps including four model-directed decision points. Every action is recorded, every tool call visible, every decision auditable.
           </p>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '2rem' }}>

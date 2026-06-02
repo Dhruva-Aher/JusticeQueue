@@ -78,12 +78,16 @@ export async function POST(request) {
       'Connect to MongoDB Atlas and retrieve all active cases',
       'Analyze deadline urgency — identify critical (≤3 days) and urgent (≤7 days) matters',
       'Detect cases with incomplete or missing documentation',
-      'Gemini evaluates docket state and selects execution strategy',
-      'Run Atlas $vectorSearch against historical case database for top priority cases',
-      'Execute CourtListener precedent research (depth determined by model decision)',
+      'Gemini Flash selects execution strategy (emergency/standard/doc-focus/monitoring)',
+      'Gemini Flash selects tool combination (Atlas, CourtListener, or both)',
+      'Gemini Flash selects which cases receive Atlas $vectorSearch resources',
+      'Run Atlas $vectorSearch against model-selected cases',
+      'Gemini Flash evaluates retrieval quality — triggers second pass if insufficient',
+      'Execute CourtListener precedent research (depth determined by tool selection)',
       'Generate AI-powered triage recommendations with Gemini Flash',
-      'Compile executive docket report for tomorrow\'s operations',
-      'Persist complete execution trace, decisions, and vector results to MongoDB',
+      'Gemini Flash self-critiques recommendations — challenge review',
+      'Compile executive docket report with Gemini Pro',
+      'Persist complete execution trace, all model decisions, and vector results to MongoDB',
     ]
 
     // Create run record so the UI can find it immediately
@@ -301,20 +305,9 @@ Return this JSON object (fill every field):
       `Persist execution trace, model decision, adapted plan, and vector results to MongoDB Atlas`,
     ]
 
-    // ── DECISION A: replaced by model_decision above — log for backwards compat ─
-    const proceedToPrecedents = modelDecision.precedent_research
-    logDecision(
-      proceedToPrecedents
-        ? 'Retrieve legal precedents from CourtListener API'
-        : 'Skip CourtListener — no urgent deadline cases in current docket',
-      proceedToPrecedents
-        ? `${urgentCases.length} case${urgentCases.length !== 1 ? 's' : ''} detected within the 7-day urgency window — attorney-ready precedents required`
-        : 'All cases are outside the 7-day urgency window. Precedent research is not time-critical and would add latency without actionable value.',
-      { urgent_cases: urgentCases.length, critical_cases: criticalCases.length, threshold_days: 7 },
-      proceedToPrecedents
-        ? 'CourtListener query will execute in Step 5'
-        : 'Workflow proceeds directly to recommendation generation'
-    )
+    // ── NOTE: CourtListener gating now comes from tool_selection (runCourtListener),
+    // not from modelDecision.precedent_research. No logDecision here to avoid
+    // logging stale information before tool_selection runs.
 
     // ── DECISION B: Documentation remediation branch ────────────────────────
     const highDocGapRate = docGapRatePct >= 40
@@ -1017,10 +1010,19 @@ Example format: { "eviction": "emergency tenant stay unlawful detainer housing c
 
     // ── STEP 6: Generate recommendations ────────────────────────────────────
     s = elapsed()
-    const priorityQueue = [
+    // priorityQueue must include the model-selected cases (searchTargets) so their
+    // vector search results are actually consumed. Model-selected cases are promoted
+    // to the front, then filled with additional urgent/high-score cases up to 8.
+    const modelSelectedIds = new Set((caseSelection?.selected_case_ids ?? []))
+    const modelSelectedCases = searchTargets.filter((c) => modelSelectedIds.has(String(c._id)))
+    const remainingCases = [
       ...criticalCases,
       ...urgentCases.filter((c) => !criticalCases.some((x) => String(x._id) === String(c._id))),
       ...highScoreCases.filter((c) => !urgentCases.some((x) => String(x._id) === String(c._id))),
+    ].filter((c) => !modelSelectedIds.has(String(c._id)))
+    const priorityQueue = [
+      ...modelSelectedCases,   // model-selected cases with vector search results first
+      ...remainingCases,        // then urgent/high-score cases without vector results
     ].slice(0, 8)
 
     let recommendations = []

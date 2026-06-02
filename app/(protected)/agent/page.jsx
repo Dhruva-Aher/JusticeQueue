@@ -424,9 +424,18 @@ function RunDetail({ run }) {
           cs ? { label: 'Case Selection',  detail: `${cs.selected_count ?? '?'} of ${(cs.selected_count ?? 0) + (cs.rejected_count ?? 0)} cases`, sub: cs.selection_criteria ?? null, type: 'model', icon: '◆', color: 'var(--accent)' } : null,
           { label: 'Atlas $vectorSearch', detail: `${result.vector_search_results?.length ?? 0} cases searched`, type: 'tool', icon: '●', color: '#16A34A' },
           es ? { label: 'Evidence Review', detail: `verdict: ${es.verdict ?? '—'}`, sub: es.second_pass_triggered ? '→ Second retrieval pass triggered' : null, type: 'model', icon: '◆', color: es.verdict === 'escalate' ? '#DC2626' : es.verdict === 'retrieve_more' ? '#C2710C' : 'var(--accent)', highlight: es.verdict !== 'sufficient' } : null,
-          ts?.tools?.includes('courtlistener')
-            ? { label: 'CourtListener',   detail: `${result.court_opinions_count ?? 0} opinions retrieved`,   type: 'tool',    icon: '●', color: '#2563EB' }
-            : { label: 'CourtListener',   detail: 'skipped by tool selection',                                 type: 'skipped', icon: '○', color: 'var(--text-3)' },
+          // Infer CourtListener status from actual results, not just tool_selection
+          // (handles backward compat for runs without tool_selection field)
+          (() => {
+            const clRan = (result.court_opinions_count ?? 0) > 0
+            const clStep = run.steps?.find(s => s.id === 'courtlistener')
+            const clActuallyRan = clRan || (clStep && !clStep.result?.skipped)
+            if (clActuallyRan) {
+              return { label: 'CourtListener', detail: `${result.court_opinions_count ?? 0} opinions retrieved`, type: 'tool', icon: '●', color: '#2563EB' }
+            }
+            const skipReason = ts ? 'skipped by tool selection' : 'no urgent cases'
+            return { label: 'CourtListener', detail: skipReason, type: 'skipped', icon: '○', color: 'var(--text-3)' }
+          })(),
           { label: 'Recommendations',     detail: `${result.recommendations_count ?? 0} generated`,            type: 'tool',    icon: '●', color: '#16A34A' },
           cr ? { label: 'Challenge Review', detail: `uncertain: ${cr.most_uncertain_case ?? '—'}`, sub: cr.confidence_assessment?.split('—')[0]?.trim() ?? null, type: 'model', icon: '◆', color: 'var(--accent)' } : null,
           { label: 'Authorization Review', detail: `${result.action_items?.filter(i => i.authorization_required).length ?? 0} flagged for attorney sign-off`, type: 'model', icon: '◆', color: '#C2710C' },

@@ -134,7 +134,7 @@ Confirm these URLs work and load correctly:
 
 ## 8. README Final Check
 
-- [ ] Step count says "9-step" (not 8)
+- [ ] Step count says "13-step" (pipeline now has tool selection, case selection, evidence sufficiency, and challenge review)
 - [ ] Model decision step is documented in "How It Works"
 - [ ] Known Limitations section is accurate
 - [ ] All links resolve

@@ -30,11 +30,11 @@ export async function GET(request) {
     })
 
     // ── Check 2b: corpus analytics via Atlas aggregation pipelines ──────────
-    // Three real $group aggregations — outcome distribution, year range, category spread
+    // Three real $group aggregations — only run when corpus is non-empty
     let outcomeDistribution  = null
     let corpusYearRange      = null
     let categoryDistribution = null
-    try {
+    if (totalCount > 0) try {
       const [distResult, yearResult, catResult] = await Promise.all([
         collection.aggregate([
           { $group: { _id: '$outcome',   count: { $sum: 1 } } },
