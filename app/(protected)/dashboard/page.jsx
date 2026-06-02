@@ -13,16 +13,17 @@ import CaseTable from '../../../components/CaseTable.jsx'
 import CaseDetailPanel from '../../../components/CaseDetailPanel.jsx'
 import AgentSummaryStrip from '../../../components/AgentSummaryStrip.jsx'
 
+// ── DOCKET LOADING STEPS — mirrors the 9 real steps in app/api/agent/docket/route.js ─
 const DOCKET_STEPS = [
-  { label: 'Connecting to MongoDB Atlas…',        sub: 'Establishing secure database connection' },
-  { label: 'Retrieving all active cases…',         sub: 'Loading full caseload from Atlas' },
-  { label: 'Identifying critical deadlines…',      sub: 'Flagging cases within 72-hour window' },
-  { label: 'Detecting documentation gaps…',        sub: 'Finding incomplete files before hearings' },
-  { label: 'Running vector similarity search…',    sub: 'Matching against historical outcomes' },
-  { label: 'Querying CourtListener API…',          sub: 'Fetching relevant legal precedents' },
-  { label: 'Gemini Pro generating analysis…',      sub: 'Building attorney action recommendations' },
-  { label: 'Compiling executive docket report…',   sub: 'Drafting tomorrow\'s operational brief' },
-  { label: 'Saving audit trail to MongoDB…',       sub: 'Persisting complete execution trace' },
+  { label: 'Retrieving active cases from MongoDB Atlas…',  sub: 'Loading full caseload — Step 1 of 9' },
+  { label: 'Analyzing deadline urgency…',                  sub: 'Identifying critical (≤3d) and urgent (≤7d) — Step 2' },
+  { label: 'Detecting documentation gaps…',                sub: 'Finding incomplete files before hearings — Step 3' },
+  { label: 'Gemini Flash selecting execution strategy…',   sub: 'Evaluating docket profile → choosing plan — Step 4' },
+  { label: 'Running Atlas $vectorSearch…',                 sub: 'Matching against historical case outcomes — Step 5' },
+  { label: 'Querying CourtListener API…',                  sub: 'Fetching relevant legal precedents (conditional) — Step 6' },
+  { label: 'Gemini Pro generating recommendations…',       sub: 'Building attorney action plan — Step 7' },
+  { label: 'Compiling executive docket report…',           sub: 'Drafting tomorrow\'s operational brief — Step 8' },
+  { label: 'Persisting complete trace to MongoDB Atlas…',  sub: 'Saving execution trace, decisions, vector results — Step 9' },
 ]
 
 function StatCard({ label, value, sub, accent, loading }) {

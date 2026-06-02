@@ -33,7 +33,7 @@ JusticeQueue addresses the triage bottleneck specifically. It accepts CSV, TXT, 
 │                   API Routes (Vercel serverless)                     │
 │                                                                     │
 │  POST /api/intake/upload    — file parsing + intake agent pipeline  │
-│  POST /api/agent/docket     — 8-step docket preparation agent      │
+│  POST /api/agent/docket     — 9-step docket preparation agent      │
 │  GET  /api/agent/runs       — list agent runs for user             │
 │  GET  /api/agent/runs/:id   — full run document with steps[]       │
 │  GET  /api/cases/queue      — sorted active case queue             │
@@ -49,7 +49,7 @@ JusticeQueue addresses the triage bottleneck specifically. It accepts CSV, TXT, 
         │                       │
         ▼                       ▼
 ┌───────────────┐   ┌──────────────────────────────────────────────────┐
-│ Intake        │   │ Docket Agent (8 steps)                          │
+│ Intake        │   │ Docket Agent (9 steps)                          │
 │ Pipeline      │   │                                                  │
 │               │   │  1. MongoDB query    → cases collection         │
 │ Gemini Flash  │   │  2. JS filter        → urgency buckets          │
@@ -122,7 +122,7 @@ Files are processed in parallel chunks of 20 cases with deduplication: cases who
 
 ### Docket Preparation Agent
 
-The "Prepare Tomorrow's Docket" workflow is a single synchronous function (`app/api/agent/docket/route.js`) that executes eight steps sequentially, records each step's tool, start time (wall-clock, derived from `run.started_at + step.started_ms`), duration, and structured result, and logs every branching decision to a `decisions[]` array. The complete trace is stored as a single `AgentRun` document in MongoDB Atlas.
+The "Prepare Tomorrow's Docket" workflow is a single synchronous function (`app/api/agent/docket/route.js`) that executes nine steps sequentially, records each step's tool, start time (wall-clock, derived from `run.started_at + step.started_ms`), duration, and structured result, and logs every branching decision to a `decisions[]` array. The complete trace is stored as a single `AgentRun` document in MongoDB Atlas.
 
 **Step 1 — Retrieve active cases**  
 `Case.find({ uid })` with a 300-document limit. Tool: MongoDB Atlas.
@@ -133,26 +133,27 @@ JavaScript filters produce three case sets: `criticalCases` (deadline ≤ 3 days
 **Step 3 — Detect documentation gaps**  
 JavaScript filter over `missing_info.length > 0`. Computes gap rate as a percentage of total cases. Tool: Reasoning Engine.
 
-> **Decision logged after Step 3:** If `urgentCases.length > 0`, the agent proceeds to CourtListener in Step 5. Otherwise, Step 5 is recorded as skipped. The decision, its reason, and supporting evidence (case counts, threshold) are stored in `decisions[]`.
+**Step 4 — Model-driven strategy selection** *(Gemini Flash)*  
+Gemini Flash (Vertex AI) receives the live docket profile — case counts, urgency distribution, case type breakdown, and documentation gap rate — and returns a structured strategy selection: one of `emergency`, `standard`, `documentation-focus`, or `monitoring`. The model's output includes `precedent_research: true/false` and `courtlistener_depth: "comprehensive" | "targeted" | "none"`, which directly control Step 6 execution. If the Gemini call fails, a deterministic fallback applies the same logic without a model call (`fallback_used: true` is recorded). The full decision — strategy, reasoning, and `alternatives_considered[]` — is persisted to `AgentRun.model_decision`. Tool: Gemini Flash.
 
-> **Decision logged after Step 3:** If the documentation gap rate exceeds 40%, a remediation action item is added to the recommendation set and noted in the executive report.
+> **Model decision stored:** `strategy`, `escalation_level`, `precedent_research`, `courtlistener_depth`, `reasoning`, `alternatives_considered[]`, `model`, `timestamp_ms`, `fallback_used`. This document determines Step 6 behavior.
 
-**Step 4 — Atlas $vectorSearch**  
-For up to 5 cases (critical cases first, then urgent, then high-score), the agent runs `findSimilarCases()` concurrently. Each call generates a Voyage AI embedding for the case summary and executes a `$vectorSearch` aggregation against `description_embedding_index` on `past_cases`. Results include `similarity_score`, `outcome`, `outcome_notes`, and `year`. The `via` field (`'mcp'` or `'mongoose_fallback'`) records which execution path was used. Tool: MongoDB Vector Search.
+**Step 5 — Atlas $vectorSearch**  
+For up to 5 cases (critical cases first, then urgent, then high-score), the agent runs `findSimilarCases()` concurrently. Each call generates a Voyage AI embedding for the case summary and executes a `$vectorSearch` aggregation against `description_embedding_index` on `past_cases`. Results include `similarity_score`, `outcome`, `outcome_notes`, and `year`. The `via` field records which execution path was used. Tool: MongoDB Vector Search.
 
-> **Decision logged after Step 4:** The agent records whether matches were found, the top similarity score, observed outcome distribution, and whether historical data will be incorporated into the Gemini recommendation prompt.
+> **Decision logged after Step 5:** The agent records whether matches were found, the top similarity score, observed outcome distribution, and whether historical data will be incorporated into the Gemini Pro recommendation prompt.
 
-**Step 5 — CourtListener API** *(conditional on Decision A)*  
-If urgent cases are present, the agent queries the CourtListener public search API for relevant legal opinions, using case type as the search domain. Up to 3 queries, 3 results each. If no urgent cases exist, this step is recorded with `skipped: true` and zero duration. Tool: CourtListener API.
+**Step 6 — CourtListener API** *(conditional on model decision from Step 4)*  
+If the model decision set `precedent_research: true`, the agent queries the CourtListener public search API for relevant legal opinions. The `courtlistener_depth` value from the model decision controls how many case types are searched. If the model set `precedent_research: false`, this step is recorded with `skipped: true` and zero duration — the model's decision is the direct cause of skipping. Tool: CourtListener API.
 
-**Step 6 — Generate recommendations**  
-Gemini Pro (Vertex AI) receives: the prioritized case list with summaries, any historical matches from Step 4, and any CourtListener opinions from Step 5. It returns a JSON array of per-case recommendations with `priority` (`critical`, `high`, or `medium`), `action`, `rationale`, and `deadline_warning`. If the Gemini call fails, a fallback derivation from case data produces equivalent structure. Tool: Gemini Pro.
+**Step 7 — Generate recommendations**  
+Gemini Pro (Vertex AI) receives: the prioritized case list with summaries, historical matches from Step 5 (verbatim similarity scores and outcome notes), and CourtListener opinions from Step 6. It returns a JSON array of per-case recommendations. The executive report prompt explicitly includes the model's strategy and escalation level from Step 4. Tool: Gemini Pro.
 
-**Step 7 — Compile executive report**  
-A second Gemini Pro call produces a three-paragraph executive report: current docket status, critical matters requiring immediate attorney action, and operational recommendations. The prompt includes case counts, decision log summary, vector search findings, and CourtListener citations. Tool: Gemini Pro.
+**Step 8 — Compile executive report**  
+A second Gemini Pro call produces a three-paragraph executive report. The prompt includes the model decision strategy, all agent decisions, vector search findings, and CourtListener citations. Tool: Gemini Pro.
 
-**Step 8 — Persist trace**  
-`AgentRun.findOneAndUpdate()` writes the completed run document including `steps[]`, `decisions[]`, `result.vector_search_results`, `result.recommendations`, `result.court_opinions`, `result.executive_report`, and `result.reasoning_summary`. Tool: MongoDB Atlas.
+**Step 9 — Persist trace**  
+`AgentRun.findOneAndUpdate()` writes the completed run document including `steps[]`, `decisions[]`, `model_decision`, `adapted_plan[]`, `result.vector_search_results`, `result.recommendations`, `result.court_opinions`, `result.executive_report`, and `result.reasoning_summary`. Tool: MongoDB Atlas.
 
 ---
 
@@ -589,7 +590,7 @@ These are concrete gaps in the current implementation, ordered by likely impact.
 | `PATCH` | `/api/cases/:id` | ✅ | Update status |
 | `POST` | `/api/cases/:id/override` | ✅ | Manual score override (written to StaffAction collection) |
 | `DELETE` | `/api/cases/clear` | ✅ | Delete all cases for user |
-| `POST` | `/api/agent/docket` | ✅ | Run 8-step docket preparation workflow |
+| `POST` | `/api/agent/docket` | ✅ | Run 9-step docket preparation workflow (includes Gemini Flash model decision) |
 | `GET` | `/api/agent/runs` | ✅ | List agent runs for user (summary only) |
 | `GET` | `/api/agent/runs/:id` | ✅ | Full AgentRun document |
 | `POST` | `/api/demo/seed` | ✅ | Seed 50 curated demo cases (scores computed by formula) |

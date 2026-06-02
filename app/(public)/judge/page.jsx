@@ -297,7 +297,7 @@ export default function JudgePage() {
             color: 'var(--text-2)', lineHeight: 1.7,
             maxWidth: '520px', marginBottom: '1.5rem',
           }}>
-            An 8-step AI agent that autonomously prepares tomorrow&apos;s legal docket. Reasoning, planning, memory, tool use, human oversight — typically under two minutes.
+            A 9-step agentic workflow that prepares tomorrow&apos;s legal docket: model-driven strategy selection, Atlas Vector Search retrieval, conditional CourtListener precedents, Gemini Pro recommendations, and attorney oversight — typically in under two minutes.
           </p>
           {/* Two-workflow summary */}
           <div style={{ marginBottom: '16px' }}>
@@ -727,7 +727,7 @@ export default function JudgePage() {
             { title: 'Agent Memory',    value: '1,247', label: 'Active cases in MongoDB Atlas',         sub: 'Retrieved via mongoose + Atlas connection' },
             { title: 'Vector Retrieval', value: '14',   label: 'Matches · 89.2% top similarity',       sub: 'Atlas $vectorSearch · index: description_embedding_index' },
             { title: 'Legal Precedents', value: '9',    label: 'Court opinions retrieved',              sub: 'CourtListener API · Free Law Project' },
-            { title: 'Audit Persistence', value: '✓',   label: 'Execution trace stored',               sub: 'Run #demo9x4k2a · 8 steps · Complete' },
+            { title: 'Audit Persistence', value: '✓',   label: 'Execution trace stored',               sub: 'Run #demo9x4k2a · 9 steps · Complete' },
           ].map(({ title, value, label, sub }) => (
             <div key={title} style={{ background: 'var(--bg-surface)', padding: '16px 20px' }}>
               <span style={{

@@ -34,12 +34,19 @@ function fmtAbsTime(baseDate, offsetMs) {
 function stepResultSummary(result) {
   if (!result) return null
   const parts = []
+  // model_decision step
+  if (result.strategy != null)               parts.push(`"${result.strategy}"`)
+  if (result.escalation_level != null)       parts.push(result.escalation_level)
+  if (result.alternatives_count != null && result.alternatives_count > 0) parts.push(`${result.alternatives_count} alternatives evaluated`)
+  if (result.fallback_used)                  parts.push('fallback')
+  // standard steps
   if (result.count != null)                  parts.push(`${result.count} cases`)
   if (result.critical != null && result.critical > 0) parts.push(`${result.critical} critical`)
   if (result.urgent != null && result.urgent > 0)     parts.push(`${result.urgent} urgent`)
   if (result.high_score != null)             parts.push(`${result.high_score} high-score`)
   if (result.cases_with_gaps != null)        parts.push(`${result.cases_with_gaps} incomplete`)
-  if (result.similar_cases_found != null)    parts.push(`${result.similar_cases_found} matches`)
+  if (result.skipped === true)               parts.push('skipped')
+  if (result.similar_cases_found != null && result.skipped !== true) parts.push(`${result.similar_cases_found} matches`)
   if (result.opinions_retrieved != null)     parts.push(`${result.opinions_retrieved} opinions`)
   if (result.recommendations_generated != null) parts.push(`${result.recommendations_generated} generated`)
   if (result.report_length != null)          parts.push('Ready')
@@ -51,6 +58,7 @@ const TOOL_COLORS = {
   'MongoDB Atlas':         { bg: 'rgba(22,163,74,0.07)',   color: '#16A34A', border: 'rgba(22,163,74,0.18)'  },
   'MongoDB Vector Search': { bg: 'rgba(22,163,74,0.07)',   color: '#16A34A', border: 'rgba(22,163,74,0.18)'  },
   'Gemini Pro':            { bg: 'rgba(67,56,202,0.07)',   color: '#4338CA', border: 'rgba(67,56,202,0.18)'  },
+  'Gemini Flash':          { bg: 'rgba(67,56,202,0.07)',   color: '#4338CA', border: 'rgba(67,56,202,0.18)'  }, // Vertex AI
   'CourtListener API':     { bg: 'rgba(37,99,235,0.07)',   color: '#2563EB', border: 'rgba(37,99,235,0.18)'  },
   'Reasoning Engine':      { bg: 'rgba(0,0,0,0.04)',       color: '#57534E', border: 'rgba(0,0,0,0.10)'      },
 }
@@ -73,17 +81,17 @@ function ToolBadge({ tool }) {
   )
 }
 
-// ── DOCKET LOADING STEPS (displayed while agent runs) ───────────────────────
+// ── DOCKET LOADING STEPS — matches the 9 real steps in app/api/agent/docket/route.js ─
 const DOCKET_STEPS = [
-  { label: 'Connecting to MongoDB Atlas…',        sub: 'Establishing secure database connection' },
-  { label: 'Retrieving all active cases…',         sub: 'Loading full caseload from Atlas' },
-  { label: 'Identifying critical deadlines…',      sub: 'Flagging cases within 72-hour window' },
-  { label: 'Detecting documentation gaps…',        sub: 'Finding incomplete files before hearings' },
-  { label: 'Running vector similarity search…',    sub: 'Matching against historical outcomes' },
-  { label: 'Querying CourtListener API…',          sub: 'Fetching relevant legal precedents' },
-  { label: 'Gemini Pro generating analysis…',      sub: 'Building attorney action recommendations' },
-  { label: 'Compiling executive docket report…',   sub: 'Drafting tomorrow\'s operational brief' },
-  { label: 'Saving audit trail to MongoDB…',       sub: 'Persisting complete execution trace' },
+  { label: 'Retrieving active cases from MongoDB Atlas…',  sub: 'Loading full caseload — Step 1 of 9' },
+  { label: 'Analyzing deadline urgency…',                  sub: 'Identifying critical (≤3d) and urgent (≤7d) — Step 2' },
+  { label: 'Detecting documentation gaps…',                sub: 'Finding incomplete files before hearings — Step 3' },
+  { label: 'Gemini Flash selecting execution strategy…',   sub: 'Evaluating docket profile → choosing plan — Step 4' },
+  { label: 'Running Atlas $vectorSearch…',                 sub: 'Matching against historical case outcomes — Step 5' },
+  { label: 'Querying CourtListener API…',                  sub: 'Fetching relevant legal precedents (conditional) — Step 6' },
+  { label: 'Gemini Pro generating recommendations…',       sub: 'Building attorney action plan — Step 7' },
+  { label: 'Compiling executive docket report…',           sub: 'Drafting tomorrow\'s operational brief — Step 8' },
+  { label: 'Persisting complete trace to MongoDB Atlas…',  sub: 'Saving execution trace, decisions, vector results — Step 9' },
 ]
 
 // ── Run detail view ───────────────────────────────────────────────────────────
@@ -294,12 +302,13 @@ function RunDetail({ run }) {
             )
           })()}
 
-          {/* Reasoning + resulting actions */}
+          {/* Reasoning */}
           <div style={{
             background: 'var(--bg-surface)', border: '1px solid var(--border)',
             borderLeft: '3px solid var(--accent)',
             borderRadius: 'var(--radius)', padding: '12px 16px',
             display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '16px',
+            marginBottom: '8px',
           }}>
             <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.6, flex: 1 }}>
               {run.model_decision.reasoning}
@@ -327,6 +336,65 @@ function RunDetail({ run }) {
               </div>
             </div>
           </div>
+
+          {/* Causal chain: what the model decision actually caused to happen */}
+          {(() => {
+            const clStep = run.steps?.find((s) => s.id === 'courtlistener')
+            const vsStep = run.steps?.find((s) => s.id === 'vector_search')
+            const recStep = run.steps?.find((s) => s.id === 'recommendations')
+            const rows = []
+            if (vsStep) {
+              const matches = vsStep.result?.similar_cases_found ?? 0
+              const topSim  = vsStep.result?.top_similarity_score
+              rows.push({
+                api:    'Atlas $vectorSearch',
+                result: matches > 0
+                  ? `${matches} historical matches · top similarity ${topSim != null ? (topSim * 100).toFixed(1) + '%' : 'n/a'}`
+                  : 'Executed — 0 matches (seed past_cases collection to populate)',
+                ok:     matches > 0,
+              })
+            }
+            if (clStep) {
+              if (clStep.result?.skipped) {
+                rows.push({ api: 'CourtListener', result: 'Skipped — model strategy did not require precedent research', ok: null })
+              } else {
+                rows.push({
+                  api:    'CourtListener',
+                  result: `Executed · ${clStep.result?.opinions_retrieved ?? 0} opinions retrieved`,
+                  ok:     (clStep.result?.opinions_retrieved ?? 0) > 0,
+                })
+              }
+            }
+            if (recStep) {
+              rows.push({
+                api:    'Gemini Pro recommendations',
+                result: `${recStep.result?.recommendations_generated ?? 0} attorney recommendations generated`,
+                ok:     true,
+              })
+            }
+            if (rows.length === 0) return null
+            return (
+              <div style={{ padding: '10px 14px', background: 'var(--bg-raised)', borderRadius: 'var(--radius-sm)' }}>
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--text-3)', letterSpacing: '0.06em', marginBottom: '8px' }}>
+                  RESULTING EXECUTION — what this decision triggered
+                </p>
+                {rows.map((row, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: i < rows.length - 1 ? '5px' : 0 }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 700, flexShrink: 0,
+                      color: row.ok === true ? '#16A34A' : row.ok === false ? '#DC2626' : 'var(--text-3)', lineHeight: '18px' }}>
+                      {row.ok === true ? '✓' : row.ok === false ? '✗' : '→'}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--text-3)', flexShrink: 0, minWidth: '150px', lineHeight: '18px' }}>
+                      {row.api}
+                    </span>
+                    <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)', lineHeight: 1.45 }}>
+                      {row.result}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       )}
 
