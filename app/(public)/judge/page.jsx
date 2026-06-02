@@ -128,11 +128,11 @@ const MOCK_DECISIONS = [
 ]
 
 const MOCK_RECS = [
-  { rank: 1, client: 'Maria Santos',  type: 'Eviction',          priority: 'critical', action: 'File emergency stay motion immediately — eviction hearing scheduled tomorrow at 9:00 AM', rationale: 'Two minor dependents. Vector search matched 12 similar cases; 78% resulted in emergency stays when filed within 24 hours.', deadline: '1 day until eviction hearing', bullets: ['Eviction hearing tomorrow', 'Two minor children', 'No legal representation', '12 similar cases — 78% success rate'] },
-  { rank: 2, client: 'Amara Diallo',  type: 'Domestic Violence', priority: 'critical', action: 'Initiate emergency protective order — documented threats require same-day legal action',   rationale: 'Active safety threat documented. Historical database: 91% of cases with documented threats received emergency protective orders within 24 hours.', deadline: 'Immediate safety concern — HUMAN REVIEW REQUIRED', bullets: ['Documented threats to physical safety', 'Children in household', '91% protective order success rate'] },
-  { rank: 3, client: 'James Okafor',  type: 'Immigration',       priority: 'critical', action: 'File emergency motion to stay deportation — removal scheduled in 72 hours',               rationale: 'Three CourtListener precedents support emergency stay filing. Filing within 48-hour window is critical.', deadline: '3 days until removal proceedings', bullets: ['Removal in 72 hours', '3 CourtListener precedents found', 'Emergency stay motion viable'] },
-  { rank: 4, client: 'Chen Wei',      type: 'Wage Theft',        priority: 'high',     action: "File wage complaint with Labor Board — statute of limitations expires this Friday",       rationale: 'Three similar historical cases dismissed for missing this filing window. $18,400 in unpaid wages at stake.', deadline: '4 days until filing deadline', bullets: ['4-day statute of limitations deadline', '3 dismissed cases for late filing', '$18,400 at stake'] },
-  { rank: 5, client: 'Rosa Martinez', type: 'Custody',           priority: 'high',     action: 'Request emergency custody hearing — child welfare concern flagged by intake',             rationale: 'Court calendar shows emergency hearing slots available this week. Historical data: favorable outcomes when filed within 7 days of intake.', deadline: '5 days until custody review', bullets: ['Child welfare concern', 'Emergency hearing slots available', 'Favorable outcomes within 7-day window'] },
+  { rank: 1, client: 'Maria Santos',  type: 'Eviction',          priority: 'critical', action: 'File emergency stay motion immediately — eviction hearing scheduled tomorrow at 9:00 AM', rationale: 'Two minor dependents. Atlas $vectorSearch matched similar eviction cases at 89.2% cosine similarity; historical outcomes: won (emergency stay granted).', deadline: '1 day until eviction hearing', bullets: ['Eviction hearing tomorrow', 'Two minor children', 'Atlas $vectorSearch: similar cases → won', 'CourtListener precedent retrieved'] },
+  { rank: 2, client: 'Amara Diallo',  type: 'Domestic Violence', priority: 'critical', action: 'Initiate emergency protective order — documented threats require same-day legal action',   rationale: 'Active safety threat documented. Historical retrieval shows domestic violence cases with documented threats and minor children receive emergency protective orders.', deadline: 'Immediate safety concern — HUMAN REVIEW REQUIRED', bullets: ['Documented threats to physical safety', 'Children in household', 'Historical retrieval: protective orders granted in similar cases'] },
+  { rank: 3, client: 'James Okafor',  type: 'Immigration',       priority: 'critical', action: 'File emergency motion to stay deportation — removal scheduled in 72 hours',               rationale: 'CourtListener retrieved 3 opinions supporting emergency stay on attorney-error grounds. Filing within 48-hour window is critical.', deadline: '3 days until removal proceedings', bullets: ['Removal in 72 hours', '3 CourtListener precedents retrieved', 'Emergency stay motion viable'] },
+  { rank: 4, client: 'Chen Wei',      type: 'Wage Theft',        priority: 'high',     action: "File wage complaint with Labor Board — statute of limitations expires this Friday",       rationale: 'Historical retrieval matched wage theft cases with fraudulent business transfer; outcomes include successor liability upheld. $18,400 in unpaid wages at stake.', deadline: '4 days until filing deadline', bullets: ['4-day statute of limitations deadline', 'Atlas $vectorSearch: successor liability cases matched', '$18,400 at stake'] },
+  { rank: 5, client: 'Rosa Martinez', type: 'Custody',           priority: 'high',     action: 'Request emergency custody hearing — child welfare concern flagged by intake',             rationale: 'CourtListener retrieved emergency ex parte custody opinions. Historical retrieval: emergency hearings granted when police report accompanies filing.', deadline: '5 days until custody review', bullets: ['Child welfare concern', 'Emergency hearing slots available', 'CourtListener: ex parte orders supported'] },
 ]
 
 const HUMAN_REVIEW = [
@@ -341,10 +341,10 @@ export default function JudgePage() {
           overflow: 'hidden',
         }}>
           {[
-            { value: '1,247', label: 'Active cases analyzed',    color: 'var(--text)' },
-            { value: '38',    label: 'Critical matters surfaced', color: 'var(--urgent)' },
-            { value: '32s',   label: 'Agent execution time',      color: 'var(--accent)' },
-            { value: '~6.2h', label: 'Manual review replaced',    color: 'var(--text-2)' },
+            { value: '1,247', label: 'Active cases analyzed',         color: 'var(--text)' },
+            { value: '38',    label: 'Critical matters surfaced',      color: 'var(--urgent)' },
+            { value: '~26s',  label: 'Agent execution time',           color: 'var(--accent)' },
+            { value: '~42h',  label: 'Equivalent manual review time',  color: 'var(--text-2)' },
           ].map(({ value, label, color }) => (
             <div key={label} style={{ background: 'var(--bg-surface)', padding: '1rem 1.25rem' }}>
               <div style={{
@@ -368,7 +368,7 @@ export default function JudgePage() {
           fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
           marginBottom: '16px',
         }}>
-          Run #demo9x4k2a · May 30, 2026 · 09:41:02 — 09:41:34
+          Run #demo9x4k2a · May 30, 2026 · 09:41:02 — 09:41:28
         </p>
 
         {/* Trace table */}
@@ -441,7 +441,7 @@ export default function JudgePage() {
             ✓ Completed in {fmtD(TOTAL_MS)}
           </span>
           <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
-            Replaced ~6.2 hours of manual legal case review
+            Replaced ~42 hours of manual legal case review (1,247 cases × ~2 min each)
           </span>
         </div>
       </section>
@@ -457,9 +457,9 @@ export default function JudgePage() {
               { value: '1,247',  label: 'Active intake records',     color: 'var(--text)' },
               { value: '38',     label: '≤ 3 days to deadline',       color: 'var(--urgent)' },
               { value: '71',     label: '≤ 7 days to deadline',       color: 'var(--medium)' },
-              { value: '14',     label: 'Via $vectorSearch (5 cases)', color: 'var(--text)' },
-              { value: '7',      label: 'Detected automatically',     color: 'var(--medium)' },
-              { value: '96.7%',  label: 'vs manual review',           color: 'var(--accent)' },
+              { value: '14',   label: 'Via $vectorSearch (5 cases)',      color: 'var(--text)' },
+              { value: '7',    label: 'Detected automatically',          color: 'var(--medium)' },
+              { value: '>99%', label: 'Time saved vs manual review',     color: 'var(--accent)' },
             ].map(({ value, label, color }, i) => {
               const titles = ['Cases Reviewed', 'Critical Surfaced', 'Urgent', 'Historical Matches', 'Missing Docs', 'Time Saved']
               return (
@@ -488,7 +488,7 @@ export default function JudgePage() {
 
       {/* ── 5. Generated attorney actions ────────────────────────────────── */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '2.5rem 2rem' }}>
-        <SectionLabel sub right="8 actions prepared by Gemini Pro based on case data and historical outcomes">
+        <SectionLabel sub right="Attorney actions prepared by Gemini Pro · top 5 of 8 shown">
           GENERATED ATTORNEY ACTIONS
         </SectionLabel>
         <div style={{ height: '16px' }} />
