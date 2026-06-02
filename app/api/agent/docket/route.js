@@ -1256,14 +1256,22 @@ Return JSON only:
       ? `Atlas $vectorSearch retrieved ${finalVectorMatchesPost} historical matches across ${finalCasesWithMatchesPost} cases (index: description_embedding_index). Top outcomes: ${[...new Set(vectorSearchResults.map(r => r.top_outcome).filter(Boolean))].join(', ')}.`
       : 'Historical case database returned no matches for current caseload.'
 
+    // Challenge review feeds into the executive report — making it execution-changing,
+    // not merely informational. The self-critique's uncertainty and missing evidence
+    // inform the risk assessment paragraph in the final report.
+    const challengeContext = challengeReview && !challengeReview.fallback_used
+      ? `QUALITY REVIEW (model self-critique): most uncertain recommendation is "${challengeReview.most_uncertain_case}" — ${challengeReview.uncertainty_reason}. Missing evidence: ${challengeReview.missing_evidence?.join('; ') || 'none identified'}. Overall confidence: ${challengeReview.confidence_assessment}. Follow-up needed: ${challengeReview.recommended_follow_up}.`
+      : ''
+
     const reportPrompt = `DOCKET: ${cases.length} cases · ${criticalCases.length} critical (≤3d) · ${urgentCases.length} urgent (≤7d) · ${withMissingDocs.length} docs missing (${docGapRatePct}%) · ${recommendations.length} recommendations · ${courtOpinions.length} precedents · ${finalVectorMatchesPost} historical matches${adaptiveSearchTriggered ? ' (includes adaptive search results)' : ''}
 STRATEGY: ${modelDecision?.strategy || 'standard'} · escalation: ${modelDecision?.escalation_level || 'routine'}
 TOP CASES: ${priorityQueue.slice(0, 5).map((c, i) => `${i + 1}. ${c.client_name || 'Unknown'} (${c.case_type}, ${c.deadline_days != null ? c.deadline_days + 'd' : '?'}, score ${c.priority_score ?? '?'})`).join(' | ')}
 ${courtOpinions.length > 0 ? `PRECEDENTS: ${opinionCitations}` : ''}
 ${finalVectorMatchesPost > 0 ? `HISTORICAL: ${vectorSummary}` : ''}
+${challengeContext}
 
 Write a concise 3-paragraph executive docket report:
-P1: Current docket status and risk assessment
+P1: Current docket status and risk assessment${challengeReview && !challengeReview.fallback_used ? ` — address the identified uncertainty around "${challengeReview.most_uncertain_case}"` : ''}
 P2: Critical matters requiring immediate attorney action
 P3: Operational recommendations for tomorrow
 Authoritative, formal, specific, actionable. No boilerplate.`
