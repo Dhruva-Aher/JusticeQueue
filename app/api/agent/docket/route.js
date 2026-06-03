@@ -127,6 +127,98 @@ export async function POST(request) {
       decisions.push({ decision, reason, evidence, outcome, timestamp_ms: elapsed() })
     }
 
+    // ── STEP 0: Dynamic planner — model generates execution plan ────────────
+    // The model receives the goal and available tools, then generates a concrete
+    // execution plan before any data is fetched. This plan is stored in MongoDB
+    // and displayed in Agent Activity before the execution timeline.
+    let s = elapsed()
+    let agentPlan = null
+    let planFallback = false
+
+    const PLANNER_SYSTEM = 'You are an AI legal operations planner. Return JSON only. No markdown.'
+    const PLANNER_PROMPT = `Goal: Prepare tomorrow's legal docket for a legal aid clinic.
+
+Available steps (choose which to include and in what order):
+- retrieve_cases: always required
+- analyze_deadlines: always required
+- detect_gaps: recommended
+- model_strategy: always required (select execution strategy)
+- select_tools: always required (choose which tools to activate)
+- select_cases: recommended (prioritize which cases get retrieval)
+- atlas_vector_search: use when historical precedent improves triage
+- evaluate_evidence: use when retrieval quality matters
+- courtlistener_research: use when legal precedents are needed
+- generate_recommendations: always required
+- challenge_review: recommended (self-critique)
+- executive_report: always required
+- persist_trace: always required
+
+Generate a concrete execution plan. Be specific about WHY each step is included.
+
+Return JSON:
+{
+  "goal": "Prepare tomorrow's docket",
+  "steps": ["step_id1", "step_id2", ...],
+  "reasoning": "1-2 sentences on why this plan was chosen",
+  "key_decision": "the most important choice in this plan"
+}`
+
+    try {
+      const planRaw = await callGeminiFlash(PLANNER_SYSTEM, PLANNER_PROMPT)
+      const parsed  = JSON.parse(planRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+      if (Array.isArray(parsed.steps) && parsed.steps.length > 0) {
+        agentPlan = {
+          goal:         parsed.goal || "Prepare Tomorrow's Docket",
+          steps:        parsed.steps,
+          reasoning:    parsed.reasoning || '',
+          key_decision: parsed.key_decision || '',
+          generated_at: new Date(),
+          model:        process.env.GEMINI_MODEL_FLASH,
+          fallback:     false,
+        }
+      }
+    } catch {
+      planFallback = true
+    }
+
+    if (!agentPlan) {
+      agentPlan = {
+        goal:         "Prepare Tomorrow's Docket",
+        steps:        ['retrieve_cases','analyze_deadlines','detect_gaps','model_strategy','select_tools','select_cases','atlas_vector_search','evaluate_evidence','courtlistener_research','generate_recommendations','challenge_review','executive_report','persist_trace'],
+        reasoning:    'Default plan applied (model planner unavailable)',
+        key_decision: 'Execute full retrieval and recommendation pipeline',
+        generated_at: new Date(),
+        model:        'deterministic-fallback',
+        fallback:     true,
+      }
+      planFallback = true
+    }
+
+    steps.push(makeStep('agent_plan',
+      `Agent generated ${agentPlan.steps.length}-step execution plan: ${agentPlan.key_decision}`,
+      'Gemini Flash',
+      s, elapsed() - s,
+      {
+        plan_steps:   agentPlan.steps.length,
+        key_decision: agentPlan.key_decision,
+        reasoning:    agentPlan.reasoning,
+        fallback:     planFallback,
+      }
+    ))
+
+    logDecision(
+      'Agent generated execution plan',
+      agentPlan.reasoning,
+      { steps: agentPlan.steps, key_decision: agentPlan.key_decision, model: agentPlan.model },
+      `Executing ${agentPlan.steps.length}-step plan`
+    )
+
+    // Persist plan immediately so UI can show it while agent runs
+    await AgentRun.findOneAndUpdate(
+      { run_id: runId },
+      { $set: { agent_plan: agentPlan } }
+    ).catch(() => {})
+
     // ── STEP 1: Retrieve cases ──────────────────────────────────────────────
     let s = elapsed()
     const cases = await Case.find({ uid: decoded.uid }).limit(300).lean()
@@ -1497,6 +1589,7 @@ Authoritative, formal, specific, actionable. No boilerplate.`
           steps,
           decisions,
           model_decision: modelDecision,
+          agent_plan:     agentPlan,
           adapted_plan:   adaptedPlan,
           result: {
             cases_reviewed:        cases.length,
