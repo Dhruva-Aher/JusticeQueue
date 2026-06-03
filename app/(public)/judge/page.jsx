@@ -121,7 +121,7 @@ const MOCK_STEPS = [
   { id: 'model_decision',       label: 'Gemini evaluates docket profile → selects "standard" strategy',                                  tool: 'Gemini Flash',          started_ms: 446,   duration_ms: 1190, result: { strategy: 'standard', escalation_level: 'urgent', precedent_research: true, courtlistener_depth: 'targeted', fallback_used: false, alternatives_count: 3 } },
   { id: 'tool_selection',       label: 'Model selects tools: Atlas $vectorSearch + CourtListener — rejects: Escalation',                 tool: 'Gemini Flash',          started_ms: 1636,  duration_ms: 890,  result: { tools: 'atlas_courtlistener', selected_tools: ['Atlas $vectorSearch', 'CourtListener API'], rejected_tools: ['Escalation (severity below threshold)'], confidence: 0.91, fallback_used: false } },
   { id: 'case_selection',       label: 'Model selects 5 of 10 candidates for retrieval — 5 skipped',                                     tool: 'Gemini Flash',          started_ms: 2526,  duration_ms: 1040, result: { cases_selected: 5, cases_skipped: 5, selection_criteria: 'immigration + eviction cases with novel patterns prioritized', fallback_used: false } },
-  { id: 'vector_search',        label: 'Run Atlas $vectorSearch against model-selected cases',                                            tool: 'MongoDB Vector Search', started_ms: 3566,  duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mongoose_fallback' } },
+  { id: 'vector_search',        label: 'Run Atlas $vectorSearch against model-selected cases',                                            tool: 'MongoDB Vector Search', started_ms: 3566,  duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mcp' } },
   { id: 'evidence_sufficiency', label: 'Model evaluates retrieval quality → verdict: "sufficient"',                                      tool: 'Gemini Flash',          started_ms: 5408,  duration_ms: 780,  result: { verdict: 'sufficient', match_quality: 'high', second_pass_triggered: false, fallback_used: false } },
   { id: 'courtlistener',        label: 'Query CourtListener API for relevant legal precedents',                                           tool: 'CourtListener API',     started_ms: 6188,  duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9, branched: true } },
   { id: 'recommendations',      label: 'Generate AI-powered triage recommendations with Gemini Flash',                                   tool: 'Gemini Flash',          started_ms: 13392, duration_ms: 3812, result: { recommendations_generated: 8, critical: 3, high: 4, vector_data_used: true, oversight_reviewed: 7, flagged_for_authorization: 3 } },
@@ -153,7 +153,7 @@ const MOCK_DECISIONS = [
   {
     decision: 'Historical precedents found for 5 cases via Atlas $vectorSearch',
     reason: 'Top cosine similarity score: 89.2%. Historical outcome data (won, settled) incorporated into attorney recommendations.',
-    evidence: { searches_attempted: 5, cases_with_matches: 5, total_matches: 14, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mongoose_fallback' },
+    evidence: { searches_attempted: 5, cases_with_matches: 5, total_matches: 14, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mcp' },
     outcome: 'Historical outcome data incorporated into Gemini recommendation prompt',
     model_driven: false,
   },
@@ -784,7 +784,7 @@ export default function JudgePage() {
           borderRadius: 'var(--radius)', overflow: 'hidden',
         }}>
           {[
-            { title: 'Agent Memory',    value: '1,247', label: 'Active cases in MongoDB Atlas',         sub: 'Retrieved via mongoose + Atlas connection' },
+            { title: 'Agent Memory',    value: '1,247', label: 'Active cases in MongoDB Atlas',         sub: 'Retrieved via MongoDB MCP Server → Atlas connection' },
             { title: 'Vector Retrieval', value: '14',   label: 'Matches · 89.2% top similarity',       sub: 'Atlas $vectorSearch · index: description_embedding_index' },
             { title: 'Legal Precedents', value: '9',    label: 'Court opinions retrieved',              sub: 'CourtListener API · Free Law Project' },
             { title: 'Audit Persistence', value: '✓',   label: 'Execution trace stored',               sub: 'Run #demo9x4k2a · 13 steps · 8 model decisions · Complete' },
