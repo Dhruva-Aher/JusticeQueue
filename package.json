@@ -8,6 +8,11 @@
     "start": "next start",
     "lint": "next lint",
     "seed": "node seed/seedPastCases.js",
+    "seed:intake": "node seed/seedDemoIntake.js",
+    "atlas:setup": "node seed/atlasSetup.js",
+    "verify": "./scripts/verify.sh",
+    "mcp:install": "cd mcp-server && npm install --production",
+    "mcp:deploy": "cd mcp-server && PROJECT_ID=$PROJECT_ID MDB_URI=$MONGODB_URI MCP_SECRET=$MCP_SECRET ./deploy.sh",
     "build:corpus": "node scripts/buildCourtListenerCorpus.js"
   },
   "type": "module",

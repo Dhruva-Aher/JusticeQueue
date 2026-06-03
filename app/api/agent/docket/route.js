@@ -127,91 +127,10 @@ export async function POST(request) {
       decisions.push({ decision, reason, evidence, outcome, timestamp_ms: elapsed() })
     }
 
-    // ── STEP 0: Dynamic planner — model generates execution plan ────────────
-    // The model receives the goal and available tools, then generates a concrete
-    // execution plan before any data is fetched. This plan is stored in MongoDB
-    // and displayed in Agent Activity before the execution timeline.
-    let s = elapsed()
+    // ── STEP 0 placeholder — planner runs AFTER urgency analysis (see below) ──
+    // agentPlan is populated after Step 2 so the model has real case data context.
     let agentPlan = null
     let planFallback = false
-
-    const PLANNER_SYSTEM = 'You are an AI legal operations planner. Return JSON only. No markdown.'
-    const PLANNER_PROMPT = `Goal: Prepare tomorrow's legal docket for a legal aid clinic.
-
-Available steps (choose which to include and in what order):
-- retrieve_cases: always required
-- analyze_deadlines: always required
-- detect_gaps: recommended
-- model_strategy: always required (select execution strategy)
-- select_tools: always required (choose which tools to activate)
-- select_cases: recommended (prioritize which cases get retrieval)
-- atlas_vector_search: use when historical precedent improves triage
-- evaluate_evidence: use when retrieval quality matters
-- courtlistener_research: use when legal precedents are needed
-- generate_recommendations: always required
-- challenge_review: recommended (self-critique)
-- executive_report: always required
-- persist_trace: always required
-
-Generate a concrete execution plan. Be specific about WHY each step is included.
-
-Return JSON:
-{
-  "goal": "Prepare tomorrow's docket",
-  "steps": ["step_id1", "step_id2", ...],
-  "reasoning": "1-2 sentences on why this plan was chosen",
-  "key_decision": "the most important choice in this plan"
-}`
-
-    try {
-      const planRaw = await callGeminiFlash(PLANNER_SYSTEM, PLANNER_PROMPT)
-      const parsed  = JSON.parse(planRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
-      if (Array.isArray(parsed.steps) && parsed.steps.length > 0) {
-        agentPlan = {
-          goal:         parsed.goal || "Prepare Tomorrow's Docket",
-          steps:        parsed.steps,
-          reasoning:    parsed.reasoning || '',
-          key_decision: parsed.key_decision || '',
-          generated_at: new Date(),
-          model:        process.env.GEMINI_MODEL_FLASH,
-          fallback:     false,
-        }
-      }
-    } catch {
-      planFallback = true
-    }
-
-    if (!agentPlan) {
-      agentPlan = {
-        goal:         "Prepare Tomorrow's Docket",
-        steps:        ['retrieve_cases','analyze_deadlines','detect_gaps','model_strategy','select_tools','select_cases','atlas_vector_search','evaluate_evidence','courtlistener_research','generate_recommendations','challenge_review','executive_report','persist_trace'],
-        reasoning:    'Default plan applied (model planner unavailable)',
-        key_decision: 'Execute full retrieval and recommendation pipeline',
-        generated_at: new Date(),
-        model:        'deterministic-fallback',
-        fallback:     true,
-      }
-      planFallback = true
-    }
-
-    steps.push(makeStep('agent_plan',
-      `Agent generated ${agentPlan.steps.length}-step execution plan: ${agentPlan.key_decision}`,
-      'Gemini Flash',
-      s, elapsed() - s,
-      {
-        plan_steps:   agentPlan.steps.length,
-        key_decision: agentPlan.key_decision,
-        reasoning:    agentPlan.reasoning,
-        fallback:     planFallback,
-      }
-    ))
-
-    logDecision(
-      'Agent generated execution plan',
-      agentPlan.reasoning,
-      { steps: agentPlan.steps, key_decision: agentPlan.key_decision, model: agentPlan.model },
-      `Executing ${agentPlan.steps.length}-step plan`
-    )
 
     // Persist plan immediately so UI can show it while agent runs
     await AgentRun.findOneAndUpdate(
@@ -266,6 +185,126 @@ Return JSON:
         high_score: highScoreCases.length,
         total:      cases.length,
       }))
+
+    // ── STEP 2.5: Dynamic planner — model generates execution plan ──────────
+    // Now that case data is known (counts, urgency, types), the model generates a
+    // context-aware execution plan rather than a generic pre-data plan.
+    // The plan steps are used to gate atlas_vector_search and challenge_review
+    // in addition to courtlistener_research (existing gate).
+    {
+      let s = elapsed()
+      const caseTypesForPlan = (() => {
+        const counts = {}
+        cases.forEach((c) => { if (c.case_type) counts[c.case_type] = (counts[c.case_type] || 0) + 1 })
+        return Object.entries(counts).map(([t, n]) => `${t}(${n})`).join(', ') || 'none'
+      })()
+
+      const PLANNER_SYSTEM = 'You are an AI legal operations planner. Return JSON only. No markdown.'
+      const PLANNER_PROMPT = `Goal: Prepare tomorrow's legal docket for a legal aid clinic.
+
+REAL CASE DATA (just retrieved from MongoDB):
+- Total active cases: ${cases.length}
+- Critical (deadline ≤3 days): ${criticalCases.length}
+- Urgent (deadline ≤7 days): ${urgentCases.length}
+- High priority (score ≥75): ${highScoreCases.length}
+- Case types: ${caseTypesForPlan}
+
+Given this specific docket state, select which steps to include:
+- retrieve_cases: DONE — already executed
+- analyze_deadlines: DONE — already executed
+- detect_gaps: recommended
+- model_strategy: always required
+- select_tools: always required
+- select_cases: include when ${criticalCases.length > 0 ? 'YES — critical cases need prioritized retrieval' : 'optional — no critical deadlines'}
+- atlas_vector_search: include when historical precedent improves triage (${urgentCases.length > 0 ? 'recommended — urgent cases exist' : 'optional'})
+- evaluate_evidence: include when retrieval quality must be verified
+- courtlistener_research: include when ${urgentCases.length > 0 ? 'YES — urgent cases need precedent research' : 'optional — no urgent deadlines'}
+- generate_recommendations: always required
+- challenge_review: include when critical case load warrants self-critique (${criticalCases.length >= 2 ? 'YES — ' + criticalCases.length + ' critical cases' : 'optional'})
+- executive_report: always required
+- persist_trace: always required
+
+Return JSON:
+{
+  "goal": "Prepare tomorrow's docket",
+  "steps": ["step_id1", "step_id2", ...],
+  "reasoning": "1-2 sentences explaining why these specific steps were chosen for this docket",
+  "key_decision": "the single most important planning choice given today's case data"
+}`
+
+      try {
+        const planRaw = await callGeminiFlash(PLANNER_SYSTEM, PLANNER_PROMPT)
+        const parsed  = JSON.parse(planRaw.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim())
+        if (Array.isArray(parsed.steps) && parsed.steps.length > 0) {
+          agentPlan = {
+            goal:         parsed.goal || "Prepare Tomorrow's Docket",
+            steps:        parsed.steps,
+            reasoning:    parsed.reasoning || '',
+            key_decision: parsed.key_decision || '',
+            generated_at: new Date(),
+            model:        process.env.GEMINI_MODEL_FLASH,
+            fallback:     false,
+          }
+        }
+      } catch {
+        planFallback = true
+      }
+
+      if (!agentPlan) {
+        // Deterministic fallback — still data-driven (uses real case counts)
+        const includeCourtListener = urgentCases.length > 0
+        const includeChallengeReview = criticalCases.length >= 2
+        agentPlan = {
+          goal:         "Prepare Tomorrow's Docket",
+          steps: [
+            'retrieve_cases','analyze_deadlines','detect_gaps','model_strategy',
+            'select_tools','select_cases','atlas_vector_search','evaluate_evidence',
+            ...(includeCourtListener ? ['courtlistener_research'] : []),
+            'generate_recommendations',
+            ...(includeChallengeReview ? ['challenge_review'] : []),
+            'executive_report','persist_trace',
+          ],
+          reasoning: `Fallback plan (model unavailable): ${criticalCases.length} critical, ${urgentCases.length} urgent cases → ${includeCourtListener ? 'CourtListener included' : 'CourtListener skipped'}, challenge review ${includeChallengeReview ? 'included' : 'skipped'}.`,
+          key_decision: includeCourtListener ? 'Run full retrieval + precedent research' : 'Skip CourtListener — no urgent deadlines',
+          generated_at: new Date(),
+          model:        'deterministic-fallback',
+          fallback:     true,
+        }
+        planFallback = true
+      }
+
+      steps.push(makeStep('agent_plan',
+        `Agent generated ${agentPlan.steps.length}-step execution plan: ${agentPlan.key_decision}`,
+        'Gemini Flash',
+        s, elapsed() - s,
+        {
+          plan_steps:   agentPlan.steps.length,
+          key_decision: agentPlan.key_decision,
+          reasoning:    agentPlan.reasoning,
+          fallback:     planFallback,
+          data_informed: true,
+        }
+      ))
+
+      logDecision(
+        'Agent generated data-informed execution plan',
+        agentPlan.reasoning,
+        {
+          steps: agentPlan.steps,
+          key_decision: agentPlan.key_decision,
+          model: agentPlan.model,
+          critical_cases: criticalCases.length,
+          urgent_cases: urgentCases.length,
+        },
+        `Executing ${agentPlan.steps.length}-step plan — atlas_vector_search ${agentPlan.steps.includes('atlas_vector_search') ? 'INCLUDED' : 'EXCLUDED'}, courtlistener_research ${agentPlan.steps.includes('courtlistener_research') ? 'INCLUDED' : 'EXCLUDED'}`
+      )
+
+      // Persist updated plan to MongoDB
+      await AgentRun.findOneAndUpdate(
+        { run_id: runId },
+        { $set: { agent_plan: agentPlan } }
+      ).exec()
+    }
 
     // ── STEP 3: Detect missing documents ────────────────────────────────────
     s = elapsed()
@@ -399,21 +438,6 @@ Return this JSON object (fill every field):
         : 'CourtListener skipped — model determined no precedent research required'
     )
 
-    // ── Generate adapted plan — reflects actual execution based on model decision ──
-    const adaptedPlan = [
-      `Retrieved ${cases.length} active cases from MongoDB Atlas`,
-      `Identified ${criticalCases.length} critical (≤3d) and ${urgentCases.length} urgent (≤7d) matters`,
-      `Detected ${withMissingDocs.length} documentation gaps (${docGapRatePct}% of caseload)${highDocGapRate ? ' → remediation branch activated' : ''}`,
-      `Gemini Flash selected "${modelDecision.strategy}" strategy (escalation: ${modelDecision.escalation_level})${modelDecisionFallback ? ' [fallback]' : ''}`,
-      `Run Atlas $vectorSearch for up to 5 priority cases (index: description_embedding_index)`,
-      modelDecision.precedent_research
-        ? `Query CourtListener at "${modelDecision.courtlistener_depth}" depth — model determined precedent research warranted`
-        : `Skip CourtListener — model strategy "${modelDecision.strategy}" does not require precedent research`,
-      `Generate ${priorityQueue?.length || 0} attorney recommendations with Gemini Flash`,
-      `Compile executive docket report (escalation level: ${modelDecision.escalation_level})`,
-      `Persist execution trace, model decision, adapted plan, and vector results to MongoDB Atlas`,
-    ]
-
     // ── DECISION B: Documentation remediation branch ────────────────────────
     const highDocGapRate = docGapRatePct >= 40
     if (highDocGapRate) {
@@ -538,9 +562,17 @@ Return JSON only:
         : `Execution continues with ${toolSelection.selected_tools.join(' + ')}`
     )
 
-    // Derive whether each tool runs from the model's selection
-    const runAtlas         = !toolSelection.tools.includes('courtlistener_only')
-    const runCourtListener = toolSelection.tools.includes('courtlistener') || toolSelection.tools.includes('atlas_courtlistener')
+    // Derive whether each tool runs from BOTH the model's tool selection AND the agent plan.
+    // Both gates must permit execution. This makes the agent plan an actual execution gate.
+    const planIncludesAtlas = !Array.isArray(agentPlan?.steps) || agentPlan.steps.length === 0
+      || agentPlan.steps.includes('atlas_vector_search')
+    const planIncludesCourtListener = !Array.isArray(agentPlan?.steps) || agentPlan.steps.length === 0
+      || agentPlan.steps.includes('courtlistener_research')
+    const planIncludesChallengeReview = !Array.isArray(agentPlan?.steps) || agentPlan.steps.length === 0
+      || agentPlan.steps.includes('challenge_review')
+
+    const runAtlas         = !toolSelection.tools.includes('courtlistener_only') && planIncludesAtlas
+    const runCourtListener = (toolSelection.tools.includes('courtlistener') || toolSelection.tools.includes('atlas_courtlistener')) && planIncludesCourtListener
     // runEscalation: flag the entire docket for senior attorney review
     // Recorded in tool_selection and surfaced in the human oversight panel
     if (toolSelection.tools.includes('escalate')) {
@@ -1080,7 +1112,7 @@ Return JSON only:
     s = elapsed()
     let courtOpinions = []
 
-    if (runCourtListener && !planExcludesCourtListener) {
+    if (runCourtListener) {  // gate already includes planIncludesCourtListener
       const caseTypesToSearch = [...new Set(
         urgentCases.map((c) => c.case_type).filter(Boolean)
       )].slice(0, 3)
@@ -1335,7 +1367,16 @@ Return JSON array (one entry per recommendation):
     let challengeReview = null
     let challengeFallback = false
 
-    if (recommendations.length > 0) {
+    if (!planIncludesChallengeReview) {
+      logDecision(
+        'Skip challenge review — excluded by agent plan',
+        `Agent plan for this docket did not include challenge_review step (${criticalCases.length} critical, ${urgentCases.length} urgent cases).`,
+        { plan_steps: agentPlan?.steps, critical_cases: criticalCases.length },
+        'Challenge review skipped per agent plan'
+      )
+    }
+
+    if (recommendations.length > 0 && planIncludesChallengeReview) {
       s = elapsed()
       const recSummary = recommendations.slice(0, 6).map((r, i) =>
         `${i + 1}. ${r.client_name} (${r.case_type}) — ${r.priority} — "${r.action}"\n   Rationale: ${r.rationale || 'none'}`
@@ -1595,6 +1636,26 @@ Authoritative, formal, specific, actionable. No boilerplate.`
       challenge_follow_up:    r.challenge_follow_up ?? null,
       challenge_missing_evidence: r.challenge_missing_evidence ?? [],
     }))
+
+    // ── Adapted plan — built here after all execution facts are known ───────────
+    // Unlike the STATIC_PLAN (predefined) or agentPlan (pre-data, model-generated),
+    // the adapted_plan is a post-hoc accurate description of what actually ran.
+    const adaptedPlan = [
+      `Retrieved ${cases.length} active cases from MongoDB Atlas`,
+      `Identified ${criticalCases.length} critical (≤3d) and ${urgentCases.length} urgent (≤7d) matters`,
+      `Detected ${withMissingDocs.length} documentation gaps (${docGapRatePct}% of caseload)${highDocGapRate ? ' → remediation branch activated' : ''}`,
+      `Gemini Flash generated ${agentPlan?.steps?.length ?? 0}-step data-informed execution plan`,
+      `Gemini Flash selected "${modelDecision.strategy}" strategy (escalation: ${modelDecision.escalation_level})${modelDecisionFallback ? ' [fallback]' : ''}`,
+      `Gemini Flash selected tools: ${toolSelection?.selected_tools?.join(' + ') || 'atlas'}`,
+      `Atlas $vectorSearch: ${finalVectorMatches ?? 0} matches across ${finalCasesWithMatches ?? 0} cases (via ${vectorSearchResults?.[0]?.via ?? (finalVectorMatches > 0 ? 'unknown' : 'no_matches')})`,
+      modelDecision.precedent_research
+        ? `CourtListener queried at "${modelDecision.courtlistener_depth}" depth — ${courtOpinions.length} opinions retrieved`
+        : `CourtListener skipped — model strategy "${modelDecision.strategy}" did not require precedent research`,
+      `Generated ${recommendations.length} attorney recommendations with Gemini Flash`,
+      `Challenge review: ${challengeReview ? `${challengeReview.issues_found?.length ?? 0} issues found` : 'skipped'}`,
+      `Compiled executive docket report (escalation level: ${modelDecision.escalation_level})`,
+      `Persisted execution trace, model decisions, adapted plan, and ${vectorSearchResults.length} vector results to MongoDB Atlas`,
+    ]
 
     const totalMs = elapsed()
     await AgentRun.findOneAndUpdate(

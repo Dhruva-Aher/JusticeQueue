@@ -1,6 +1,19 @@
 'use client'
 import { useState, useEffect } from 'react'
 
+// ─── Live retrieval impact stats from /api/stats/public ──────────────────────
+// No auth required. Falls back gracefully to demo dataset numbers if DB is empty.
+function usePublicStats() {
+  const [stats, setStats] = useState(null)
+  useEffect(() => {
+    fetch('/api/stats/public')
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setStats(d) })
+      .catch(() => {})
+  }, [])
+  return stats
+}
+
 // ─── Live MongoDB Vector Search health indicator ──────────────────────────────
 // Fetches GET /api/health/vector-search and displays real Atlas status.
 // This is a live component — it shows the actual state of the deployed system.
@@ -450,6 +463,17 @@ function JudgeHumanReviewSection() {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function JudgePage() {
+  const liveStats = usePublicStats()
+
+  // Retrieval impact — use live stats if DB has data, else fall back to demo numbers
+  const impact = liveStats?.retrieval_impact
+  const casesImproved = impact?.cases_improved ?? 31
+  const avgDelta      = impact?.avg_delta_pts   ?? 18
+  const tierUpgrades  = impact?.tier_upgrades   ?? 4
+  const totalScored   = impact?.total_cases_with_scores ?? 50
+  const statsNote     = impact?.note ?? '50-case demo dataset'
+  const isLive        = (impact?.total_cases_with_scores ?? 0) >= 10
+
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
 
@@ -599,12 +623,14 @@ export default function JudgePage() {
 
       {/* ── 3. Agent execution trace ──────────────────────────────────────── */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
-        <SectionLabel sub>AGENT EXECUTION TRACE</SectionLabel>
+        <SectionLabel sub right="scripted walkthrough · representative of live execution">AGENT EXECUTION TRACE</SectionLabel>
         <p style={{
           fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)',
           marginBottom: '16px',
         }}>
-          Run #demo9x4k2a · May 30, 2026 · 09:41:02 — 09:41:27
+          Demo trace — representative of live pipeline behavior · Run real agent at{' '}
+          <a href="/agent" style={{ color: 'var(--indigo)', textDecoration: 'none' }}>/agent</a>{' '}
+          to see actual execution with your data · Run #demo9x4k2a · May 30, 2026 · 09:41:02 — 09:41:27
         </p>
 
         {/* Trace table */}
@@ -780,14 +806,16 @@ export default function JudgePage() {
 
       {/* ── 6b. MongoDB changes outcomes ──────────────────────────────────── */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
-        <SectionLabel right="50-case demo dataset · score_without_retrieval persisted per case">MONGODB CHANGES OUTCOMES</SectionLabel>
+        <SectionLabel right={isLive ? `live data · ${totalScored} cases · /api/stats/public` : `${statsNote} · score_without_retrieval persisted per case`}>MONGODB CHANGES OUTCOMES</SectionLabel>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginBottom: '16px' }}>
           Atlas $vectorSearch retrieves historically similar cases. The score delta is computed by calling{' '}
           <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>computeScore(extracted, [])</code> vs{' '}
           <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>computeScore(extracted, similarCases)</code>{' '}
           and persisted on every Case document as <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>score_without_retrieval</code>.{' '}
-          Numbers below are from the 50-case demo dataset; live stats available at{' '}
-          <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>/api/cases/retrieval-stats</code> (authenticated).
+          {isLive
+            ? <>Live aggregation from <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>/api/stats/public</code> · {totalScored} cases with scores.</>
+            : <>Numbers below are from the 50-case demo dataset; live stats available at <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>/api/stats/public</code>.</>
+          }
         </p>
 
         <div style={{
@@ -796,9 +824,9 @@ export default function JudgePage() {
           borderRadius: 'var(--radius)', overflow: 'hidden', marginBottom: '12px',
         }}>
           {[
-            { label: 'Cases where Atlas changed the score', value: '31', sub: 'of 50 demo cases', color: '#16A34A' },
-            { label: 'Average score increase from retrieval', value: '+18', sub: 'urgency points per case', color: '#16A34A' },
-            { label: 'Cases promoted to critical tier', value: '4', sub: 'would have been missed', color: '#DC2626' },
+            { label: 'Cases where Atlas changed the score', value: casesImproved, sub: `of ${totalScored} ${isLive ? 'live' : 'demo'} cases`, color: '#16A34A' },
+            { label: 'Average score increase from retrieval', value: `+${avgDelta}`, sub: 'urgency points per case', color: '#16A34A' },
+            { label: 'Cases promoted to critical tier', value: tierUpgrades, sub: 'would have been missed', color: '#DC2626' },
           ].map(({ label, value, sub, color }) => (
             <div key={label} style={{ background: 'var(--bg-surface)', padding: '20px' }}>
               <div style={{ fontFamily: 'var(--font-sans)', fontSize: '36px', fontWeight: 700, color, letterSpacing: '-0.04em', lineHeight: 1, marginBottom: '4px' }}>
@@ -912,7 +940,8 @@ export default function JudgePage() {
               qa: [
                 { q: 'Why Atlas for storage?', a: 'The AgentRun document stores variable-length steps[], decisions[], and vector_search_results[] — shapes that require multiple joined tables in relational stores.' },
                 { q: 'Why Atlas Vector Search?', a: '$vectorSearch and document retrieval run in the same aggregation pipeline. No external vector DB, no synchronization lag.' },
-                { q: 'Does retrieval affect scores?', a: 'Yes — vector similarity scores contribute up to 15 urgency points. Cases show their before/after delta in the Case Detail panel.' },
+                { q: 'Does retrieval always increase scores?', a: 'No — retrieval only increases urgency when a past case is both factually similar (≥0.55 cosine similarity) AND has a meaningful outcome. Won = up to 15 pts. Settled = up to 10 pts. Declined = up to 5 pts only at ≥0.70 similarity. Low-similarity matches and weak declined cases contribute zero — leaving score_without_retrieval === priority_score. The distribution is: min delta=0, max delta=15.' },
+                { q: 'Why does a declined case increase urgency?', a: 'A highly similar declined case (cosine ≥0.70) is evidence the fact pattern is recognized in legal practice — even though the outcome was negative. It tells the attorney this is a real legal matter worth reviewing, not a frivolous claim. The signal is capped at 5 pts vs. 15 pts for a won case. Below 0.70 similarity, declined cases contribute zero.' },
               ],
             },
             {
