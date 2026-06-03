@@ -117,22 +117,24 @@ const JUDGE_BASE_DATE = '2026-05-30T09:41:02.000Z'
 const MOCK_STEPS = [
   { id: 'agent_plan',           label: 'Agent generates 13-step execution plan: execute full retrieval and recommendation pipeline',       tool: 'Gemini Flash',          started_ms: 0,     duration_ms: 890,  result: { plan_steps: 13, key_decision: 'Full retrieval pipeline with CourtListener and challenge review', fallback: false } },
   { id: 'retrieve_cases',       label: 'Retrieve all active cases from MongoDB Atlas',                                                   tool: 'MongoDB Atlas',         started_ms: 890,   duration_ms: 312,  result: { count: 1247 } },
-  { id: 'analyze_urgency',      label: 'Analyze deadline urgency across all cases',                                                      tool: 'Reasoning Engine',      started_ms: 312,   duration_ms: 83,   result: { critical: 38, urgent: 71, high_score: 124, total: 1247 } },
-  { id: 'detect_gaps',          label: 'Detect cases with incomplete or missing documentation',                                           tool: 'Reasoning Engine',      started_ms: 395,   duration_ms: 51,   result: { cases_with_gaps: 7, gap_rate: 1 } },
-  { id: 'model_decision',       label: 'Gemini evaluates docket profile → selects "standard" strategy',                                  tool: 'Gemini Flash',          started_ms: 446,   duration_ms: 1190, result: { strategy: 'standard', escalation_level: 'urgent', precedent_research: true, courtlistener_depth: 'targeted', fallback_used: false, alternatives_count: 3 } },
-  { id: 'tool_selection',       label: 'Model selects tools: Atlas $vectorSearch + CourtListener — rejects: Escalation',                 tool: 'Gemini Flash',          started_ms: 1636,  duration_ms: 890,  result: { tools: 'atlas_courtlistener', selected_tools: ['Atlas $vectorSearch', 'CourtListener API'], rejected_tools: ['Escalation (severity below threshold)'], confidence: 0.91, fallback_used: false } },
-  { id: 'case_selection',       label: 'Model selects 5 of 10 candidates for retrieval — 5 skipped',                                     tool: 'Gemini Flash',          started_ms: 2526,  duration_ms: 1040, result: { cases_selected: 5, cases_skipped: 5, selection_criteria: 'immigration + eviction cases with novel patterns prioritized', fallback_used: false } },
-  { id: 'vector_search',        label: 'Run Atlas $vectorSearch against model-selected cases',                                            tool: 'MongoDB Vector Search', started_ms: 3566,  duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mcp' } },
-  { id: 'evidence_sufficiency', label: 'Model evaluates retrieval quality → verdict: "sufficient"',                                      tool: 'Gemini Flash',          started_ms: 5408,  duration_ms: 780,  result: { verdict: 'sufficient', match_quality: 'high', second_pass_triggered: false, fallback_used: false } },
-  { id: 'courtlistener',        label: 'Query CourtListener API for relevant legal precedents',                                           tool: 'CourtListener API',     started_ms: 6188,  duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9, branched: true } },
-  { id: 'recommendations',      label: 'Generate AI-powered triage recommendations with Gemini Flash',                                   tool: 'Gemini Flash',          started_ms: 13392, duration_ms: 3812, result: { recommendations_generated: 8, critical: 3, high: 4, vector_data_used: true, oversight_reviewed: 7, flagged_for_authorization: 3 } },
-  { id: 'challenge_review',     label: 'Model self-critique: most uncertain — James Okafor · confidence: medium',                        tool: 'Gemini Flash',          started_ms: 17204, duration_ms: 1105, result: { most_uncertain_case: 'James Okafor', confidence: 'medium', missing_evidence_count: 2, fallback_used: false } },
-  { id: 'exec_report',          label: "Compile executive docket report for tomorrow's operations",                                      tool: 'Gemini Pro',            started_ms: 18309, duration_ms: 6823, result: { report_length: 1847, word_count: 312 } },
-  { id: 'persist',              label: 'Persist trace, model decisions, and all result fields to MongoDB Atlas',                          tool: 'MongoDB Atlas',         started_ms: 25132, duration_ms: 180,  result: { documents_written: 1, steps_recorded: 13, decisions_logged: 8, vector_results_stored: 5, model_decision_stored: true, tool_selection_stored: true, challenge_review_stored: true } },
+  { id: 'analyze_urgency',      label: 'Analyze deadline urgency across all cases',                                                      tool: 'Reasoning Engine',      started_ms: 1202,  duration_ms: 83,   result: { critical: 38, urgent: 71, high_score: 124, total: 1247 } },
+  { id: 'detect_gaps',          label: 'Detect cases with incomplete or missing documentation',                                           tool: 'Reasoning Engine',      started_ms: 1285,  duration_ms: 51,   result: { cases_with_gaps: 7, gap_rate: 1 } },
+  { id: 'model_decision',       label: 'Gemini evaluates docket profile → selects "standard" strategy',                                  tool: 'Gemini Flash',          started_ms: 1336,  duration_ms: 1190, result: { strategy: 'standard', escalation_level: 'urgent', precedent_research: true, courtlistener_depth: 'targeted', fallback_used: false, alternatives_count: 3 } },
+  { id: 'tool_selection',       label: 'Model selects tools: Atlas $vectorSearch + CourtListener — rejects: Escalation',                 tool: 'Gemini Flash',          started_ms: 2526,  duration_ms: 890,  result: { tools: 'atlas_courtlistener', selected_tools: ['Atlas $vectorSearch', 'CourtListener API'], rejected_tools: ['Escalation (severity below threshold)'], confidence: 0.91, fallback_used: false } },
+  { id: 'case_selection',       label: 'Model selects 5 of 10 candidates for retrieval — 5 skipped',                                     tool: 'Gemini Flash',          started_ms: 3416,  duration_ms: 1040, result: { cases_selected: 5, cases_skipped: 5, selection_criteria: 'immigration + eviction cases with novel patterns prioritized', fallback_used: false } },
+  { id: 'vector_search',        label: 'Run Atlas $vectorSearch against model-selected cases',                                            tool: 'MongoDB Vector Search', started_ms: 4456,  duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mcp' } },
+  { id: 'evidence_sufficiency', label: 'Model evaluates retrieval quality → verdict: "sufficient"',                                      tool: 'Gemini Flash',          started_ms: 6298,  duration_ms: 780,  result: { verdict: 'sufficient', match_quality: 'high', second_pass_triggered: false, fallback_used: false } },
+  { id: 'courtlistener',        label: 'Query CourtListener API for relevant legal precedents',                                           tool: 'CourtListener API',     started_ms: 7078,  duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9, branched: true } },
+  { id: 'recommendations',      label: 'Generate AI-powered triage recommendations with Gemini Flash',                                   tool: 'Gemini Flash',          started_ms: 14282, duration_ms: 3812, result: { recommendations_generated: 8, critical: 3, high: 4, vector_data_used: true, oversight_reviewed: 7, flagged_for_authorization: 3 } },
+  { id: 'challenge_review',     label: 'Model self-critique: most uncertain — James Okafor · confidence: medium',                        tool: 'Gemini Flash',          started_ms: 18094, duration_ms: 1105, result: { most_uncertain_case: 'James Okafor', confidence: 'medium', missing_evidence_count: 2, fallback_used: false } },
+  { id: 'exec_report',          label: "Compile executive docket report for tomorrow's operations",                                      tool: 'Gemini Pro',            started_ms: 19199, duration_ms: 6823, result: { report_length: 1847, word_count: 312 } },
+  { id: 'persist',              label: 'Persist trace, model decisions, and all result fields to MongoDB Atlas',                          tool: 'MongoDB Atlas',         started_ms: 26022, duration_ms: 180,  result: { documents_written: 1, steps_recorded: 14, decisions_logged: 8, vector_results_stored: 5, model_decision_stored: true, tool_selection_stored: true, challenge_review_stored: true } },
 ]
 
-// 13-step pipeline: persist ends at 25132 + 180 = 25312
-const TOTAL_MS = 25312
+// Cumulative: agent_plan(890) + retrieve(312) + urgency(83) + gaps(51) + model(1190)
+// + tools(890) + cases(1040) + vector(1842) + evidence(780) + courtlistener(7204)
+// + recs(3812) + challenge(1105) + report(6823) + persist(180) = 26202
+const TOTAL_MS = 26202
 
 // Decisions made during the run — includes one model-driven decision (Gemini Flash)
 // and three code-level branching decisions
@@ -778,15 +780,16 @@ export default function JudgePage() {
 
       {/* ── 6b. MongoDB changes outcomes ──────────────────────────────────── */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
-        <SectionLabel right="Atlas Vector Search · live aggregate">MONGODB CHANGES OUTCOMES</SectionLabel>
+        <SectionLabel right="50-case demo dataset · score_without_retrieval persisted per case">MONGODB CHANGES OUTCOMES</SectionLabel>
         <p style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)', marginBottom: '16px' }}>
-          Atlas $vectorSearch retrieves historically similar cases. The score delta below is computed by calling{' '}
+          Atlas $vectorSearch retrieves historically similar cases. The score delta is computed by calling{' '}
           <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>computeScore(extracted, [])</code> vs{' '}
           <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>computeScore(extracted, similarCases)</code>{' '}
-          and persisted on every Case document as <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>score_without_retrieval</code>.
+          and persisted on every Case document as <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>score_without_retrieval</code>.{' '}
+          Numbers below are from the 50-case demo dataset; live stats available at{' '}
+          <code style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}>/api/cases/retrieval-stats</code> (authenticated).
         </p>
 
-        {/* Static proof using demo dataset numbers */}
         <div style={{
           display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
           gap: '1px', background: 'var(--border)',

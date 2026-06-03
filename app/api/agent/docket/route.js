@@ -1060,11 +1060,27 @@ Return JSON only:
     const finalVectorMatchesPost     = vectorSearchResults.reduce((sum, r) => sum + r.matched_cases, 0)
     const finalCasesWithMatchesPost  = vectorSearchResults.length
 
-    // ── STEP 5: CourtListener — now driven by tool_selection ──────────────────
+    // ── STEP 5: CourtListener — driven by tool_selection AND agent plan ─────────
+    // The agent plan (generated in Step 0) acts as a secondary gate:
+    // if the plan explicitly excludes 'courtlistener_research', CourtListener
+    // is skipped even if tool_selection would otherwise enable it.
+    const planExcludesCourtListener = Array.isArray(agentPlan?.steps) &&
+      agentPlan.steps.length > 0 &&
+      !agentPlan.steps.includes('courtlistener_research')
+
+    if (planExcludesCourtListener && runCourtListener) {
+      logDecision(
+        'Agent plan excluded CourtListener — overriding tool_selection',
+        'The model-generated execution plan did not include courtlistener_research. Plan takes precedence over tool_selection for this step.',
+        { plan_steps: agentPlan.steps, tool_selection_said: 'run', plan_said: 'skip' },
+        'CourtListener skipped — plan override'
+      )
+    }
+
     s = elapsed()
     let courtOpinions = []
 
-    if (runCourtListener) {
+    if (runCourtListener && !planExcludesCourtListener) {
       const caseTypesToSearch = [...new Set(
         urgentCases.map((c) => c.case_type).filter(Boolean)
       )].slice(0, 3)
@@ -1131,9 +1147,11 @@ Example format: { "eviction": "emergency tenant stay unlawful detainer housing c
           branched:            true,
         }))
     } else {
-      // Branch taken — log a zero-duration skipped step so the trace is complete
-      steps.push(makeStep('courtlistener', 'CourtListener query — skipped (no urgent cases in docket)', 'CourtListener API',
-        s, 0, { skipped: true, reason: 'No urgent cases — branch decision logged in decisions array' }))
+      const skipReason = planExcludesCourtListener
+        ? 'Agent plan excluded courtlistener_research — plan overrode tool_selection'
+        : 'No urgent cases — tool_selection skipped CourtListener'
+      steps.push(makeStep('courtlistener', `CourtListener skipped — ${skipReason}`, 'CourtListener API',
+        s, 0, { skipped: true, reason: skipReason, plan_override: planExcludesCourtListener }))
     }
 
     // ── STEP 6: Generate recommendations ────────────────────────────────────

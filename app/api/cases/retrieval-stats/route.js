@@ -19,7 +19,9 @@ export async function GET(request) {
   try {
     await connectDB()
 
-    const [stats] = await Case.aggregate([
+    // Two-pass: stats in one branch, top-delta case in a separate sorted branch.
+    // Avoids the $max-on-object BSON ordering bug.
+    const [facetResult] = await Case.aggregate([
       {
         $match: {
           uid:                     decoded.uid,
@@ -29,7 +31,7 @@ export async function GET(request) {
       },
       {
         $addFields: {
-          delta:       { $subtract: ['$priority_score', '$score_without_retrieval'] },
+          delta: { $subtract: ['$priority_score', '$score_without_retrieval'] },
           tier_before: {
             $switch: {
               branches: [
@@ -51,69 +53,69 @@ export async function GET(request) {
         },
       },
       {
-        $group: {
-          _id:              null,
-          total_cases:      { $sum: 1 },
-          cases_improved:   { $sum: { $cond: [{ $gt: ['$delta', 0] }, 1, 0] } },
-          cases_unchanged:  { $sum: { $cond: [{ $eq: ['$delta', 0] }, 1, 0] } },
-          avg_delta:        { $avg: '$delta' },
-          max_delta:        { $max: '$delta' },
-          tier_upgrades:    {
-            $sum: {
-              $cond: [
-                { $and: [
-                  { $ne: ['$tier_before', '$tier_after'] },
-                  // tier_after is "higher" (critical > high > standard)
-                  { $or: [
-                    { $and: [{ $eq: ['$tier_after', 'critical'] }, { $ne: ['$tier_before', 'critical'] }] },
-                    { $and: [{ $eq: ['$tier_after', 'high'] }, { $eq: ['$tier_before', 'standard'] }] },
-                  ]},
-                ]},
-                1, 0,
-              ],
-            },
-          },
-          top_delta_case: {
-            $max: {
-              $cond: [
-                { $gt: ['$delta', 0] },
-                {
-                  delta:       '$delta',
-                  client_name: '$client_name',
-                  case_type:   '$case_type',
-                  score_before: '$score_without_retrieval',
-                  score_after:  '$priority_score',
+        $facet: {
+          summary: [
+            {
+              $group: {
+                _id:             null,
+                total_cases:     { $sum: 1 },
+                cases_improved:  { $sum: { $cond: [{ $gt:  ['$delta', 0] }, 1, 0] } },
+                cases_unchanged: { $sum: { $cond: [{ $eq:  ['$delta', 0] }, 1, 0] } },
+                avg_delta:       { $avg: '$delta' },
+                max_delta:       { $max: '$delta' },
+                tier_upgrades: {
+                  $sum: {
+                    $cond: [
+                      { $and: [
+                        { $ne: ['$tier_before', '$tier_after'] },
+                        { $or: [
+                          { $and: [{ $eq: ['$tier_after', 'critical'] }, { $ne: ['$tier_before', 'critical'] }] },
+                          { $and: [{ $eq: ['$tier_after', 'high']     }, { $eq: ['$tier_before', 'standard'] }] },
+                        ]},
+                      ]},
+                      1, 0,
+                    ],
+                  },
                 },
-                null,
-              ],
+              },
             },
-          },
-        },
-      },
-      {
-        $project: {
-          _id:            0,
-          total_cases:    1,
-          cases_improved: 1,
-          cases_unchanged: 1,
-          avg_delta:      { $round: ['$avg_delta', 1] },
-          max_delta:      1,
-          tier_upgrades:  1,
-          top_delta_case: 1,
-          pct_improved: {
-            $cond: [
-              { $gt: ['$total_cases', 0] },
-              { $multiply: [{ $divide: ['$cases_improved', '$total_cases'] }, 100] },
-              0,
-            ],
-          },
+          ],
+          // Sort by delta desc, take first — this is the correct max-delta case
+          top_case: [
+            { $match: { delta: { $gt: 0 } } },
+            { $sort:  { delta: -1 } },
+            { $limit: 1 },
+            { $project: {
+              _id:          0,
+              client_name:  1,
+              case_type:    1,
+              score_before: '$score_without_retrieval',
+              score_after:  '$priority_score',
+              delta:        1,
+            }},
+          ],
         },
       },
     ])
 
+    const summary  = facetResult?.summary?.[0]  ?? {}
+    const topCase  = facetResult?.top_case?.[0] ?? null
+    const stats = summary._id !== undefined ? {
+      total_cases:    summary.total_cases    ?? 0,
+      cases_improved: summary.cases_improved ?? 0,
+      cases_unchanged:summary.cases_unchanged?? 0,
+      avg_delta:      Math.round((summary.avg_delta ?? 0) * 10) / 10,
+      max_delta:      summary.max_delta      ?? 0,
+      tier_upgrades:  summary.tier_upgrades  ?? 0,
+      top_delta_case: topCase,
+      pct_improved:   summary.total_cases > 0
+        ? (summary.cases_improved / summary.total_cases) * 100
+        : 0,
+    } : null
+
     return Response.json(stats ?? {
-      total_cases: 0, cases_improved: 0, avg_delta: 0,
-      max_delta: 0, tier_upgrades: 0, pct_improved: 0,
+      total_cases: 0, cases_improved: 0, cases_unchanged: 0, avg_delta: 0,
+      max_delta: 0, tier_upgrades: 0, pct_improved: 0, top_delta_case: null,
     })
   } catch (err) {
     console.error('[retrieval-stats]', err.message)

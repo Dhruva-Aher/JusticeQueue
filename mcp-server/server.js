@@ -42,11 +42,22 @@ getDb().catch((err) => console.error('[mcp] startup connection failed:', err.mes
 
 app.use(express.json({ limit: '8mb' }))
 
+// Shared-secret auth — set MCP_SECRET on Cloud Run and in Vercel
+const MCP_SECRET = process.env.MCP_SECRET
+
+function requireSecret(req, res, next) {
+  if (!MCP_SECRET) return next()  // secret not configured — open (dev only)
+  if (req.headers['x-mcp-secret'] !== MCP_SECRET) {
+    return res.status(401).json({ error: 'Unauthorized' })
+  }
+  next()
+}
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true, ts: new Date().toISOString(), db: DB_NAME })
 })
 
-app.post('/mcp', async (req, res) => {
+app.post('/mcp', requireSecret, async (req, res) => {
   const { tool, arguments: args } = req.body ?? {}
 
   if (!tool || typeof args !== 'object') {
