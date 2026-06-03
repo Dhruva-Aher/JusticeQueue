@@ -2,8 +2,8 @@
 
 A legal case triage system for legal aid clinics that scores intake cases by urgency, retrieves similar historical outcomes from MongoDB Atlas Vector Search, and prepares a ranked attorney docket with supporting documentation.
 
-**Live:** https://hackathonlive.vercel.app  
-**Public demo (no login):** https://hackathonlive.vercel.app/judge
+**Live:** https://justicequeuelive.vercel.app  
+**Public demo (no login):** https://justicequeuelive.vercel.app/judge
 
 ---
 
