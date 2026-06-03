@@ -2,8 +2,8 @@
 
 A legal case triage system for legal aid clinics that scores intake cases by urgency, retrieves similar historical outcomes from MongoDB Atlas Vector Search, and prepares a ranked attorney docket with supporting documentation.
 
-**Live:** https://justicequeuelive.vercel.app  
-**Public demo (no login):** https://justicequeuelive.vercel.app/judge
+**Live:** https://hackathonlive.vercel.app  
+**Public demo (no login):** https://hackathonlive.vercel.app/judge
 
 ---
 
@@ -171,7 +171,9 @@ score = min(deadline_points + vulnerability_points + case_type_points + similari
 | Deadline | 40 | ≤3 days → 40 · ≤7 days → 25 · ≤14 days → 15 · >14 days → 0 |
 | Vulnerability | 25 | +15 minor children · +10 medical condition · +10 language barrier · cap 25 |
 | Case type | 20 | immigration→20 · eviction→18 · wage_theft→12 · custody→10 · employment→8 · other→5 |
-| Precedent | 15 | best similar-case similarity ≥0.85 and outcome=won → 15 · ≥0.70 → 8 · else 0 |
+| Precedent | 15 | Outcome and similarity both matter. **won**: ≥0.85→15 · ≥0.70→10 · ≥0.55→5 · below→0. **settled**: ≥0.85→10 · ≥0.70→6 · ≥0.55→3 · below→0. **declined/unknown**: ≥0.85→5 · ≥0.70→3 · below→0. Low-similarity matches of any outcome type contribute zero — retrieval does not always increase the score. |
+
+The `score_without_retrieval` field is persisted on every case document alongside `priority_score`. The difference (delta) quantifies the marginal value of Atlas Vector Search for that case. The `/api/stats/public` endpoint aggregates this delta across all cases to produce the judge dashboard metrics.
 
 The score breakdown is stored per case and displayed as a bar chart in the Case Detail panel. Each bar's maximum is the actual ceiling for that case type, not the global maximum of 20 — an employment case scoring 8/8 on case type is shown as such, not as 8/20.
 
@@ -232,17 +234,19 @@ const pipeline = [
   },
 ]
 
-// MCP path (MCP_ENABLED=true, local dev only)
+// Primary path — MCP JSON-RPC 2.0 to Cloud Run (MCP_SERVER_URL set)
 const results = await mcpAggregate('past_cases', pipeline)
+// via: "mcp" — recorded in AgentRun.result.vector_search_results[].via
 
-// Fallback path (production)
+// Fallback — direct Mongoose aggregation (MCP_SERVER_URL not configured)
 const collection = mongoose.connection.db.collection('past_cases')
 const results = await collection.aggregate(pipeline).toArray()
+// via: "mongoose_fallback"
 ```
 
 ### How retrieval influences recommendations
 
-During intake, `similarity_points` in the score is non-zero only when at least one matched historical case had outcome `'won'` with similarity ≥ 0.70. During docket preparation, the vector search results are included verbatim in the Gemini Flash recommendation prompt:
+During intake, `similarity_points` in the score is non-zero only when a matched historical case meets both a similarity threshold AND a meaningful outcome. Won cases require ≥0.55 similarity; settled cases require ≥0.55; declined/unknown cases require ≥0.70. Below those thresholds, retrieval contributes zero — the score is unchanged. This means Atlas Vector Search sometimes increases urgency, and sometimes leaves it unchanged, depending on what the corpus contains. During docket preparation, the vector search results are included verbatim in the Gemini Flash recommendation prompt:
 
 ```
 HISTORICAL CASE MATCHES (Atlas $vectorSearch, index: description_embedding_index):
@@ -473,7 +477,10 @@ UPSTASH_REDIS_REST_TOKEN=
 GMAIL_ENABLED=false
 CALENDAR_ENABLED=false
 
-# MongoDB MCP Server (local dev only — spawn conflicts with Vercel serverless)
+# MongoDB MCP Server — Cloud Run production URL (set after deploying mcp-server/)
+MCP_SERVER_URL=
+MCP_SECRET=
+# Local dev fallback (stdio subprocess — set MCP_ENABLED=true without MCP_SERVER_URL)
 MCP_ENABLED=false
 ```
 
@@ -552,7 +559,7 @@ npm run dev
 
 **Predefined step topology.** The set of available steps is fixed in code. Gemini Flash makes eight decisions per run that determine which steps execute, which APIs are called, and which cases receive resources — but it cannot add steps that don't exist in the code or route back to previous steps. This is model-directed execution within a predefined graph, not autonomous planning from scratch.
 
-**MongoDB MCP Server: local dev only.** The MongoDB MCP Server integration (`lib/mcpClient.js`, `.mcp.json`) is implemented and functional in local development (`MCP_ENABLED=true`). The MCP server spawns as a stdio subprocess, runs the `@mongodb-js/mongodb-mcp-server`, and routes Atlas `$vectorSearch` aggregations through the MCP `aggregate` tool. In Vercel serverless production, spawning subprocess per request is incompatible with the execution model; vector search falls back to direct Mongoose aggregation (`via: "mongoose_fallback"`). The production deployment records the `mongodb_via` field on every case document, making the execution path auditable. Local development with `MCP_ENABLED=true` uses the full MCP path.
+**MongoDB MCP Server requires Cloud Run deployment.** The MCP server (`mcp-server/`) is implemented using `@modelcontextprotocol/sdk` with `StreamableHTTPServerTransport` and deployed separately to Google Cloud Run. Vercel serverless functions call it over HTTP using the MCP JSON-RPC 2.0 protocol (`tools/call`, `tools/list`). If `MCP_SERVER_URL` is not set in Vercel, vector search falls back to direct Mongoose aggregation. The `mongodb_via` field on every AgentRun document records which path was taken (`"mcp"` or `"mongoose_fallback"`), making the execution path auditable. See `mcp-server/deploy.sh` and `DEPLOY.md` for setup instructions.
 
 **Synthetic historical dataset.** The 30 cases in `past_cases` are curated examples, not real clinic records. Vector search results during demo or development reflect similarity to these synthetic cases, not an actual clinic's case history. In production, a clinic would replace or augment this dataset with their own historical outcomes.
 
@@ -578,8 +585,6 @@ These are concrete gaps in the current implementation, ordered by likely impact.
 
 - **Streaming docket preparation.** The docket agent currently runs synchronously and returns when complete. Streaming each step's result as a server-sent event would remove the need for the loading overlay and let the execution trace render as the agent runs.
 
-- **MCP in production via a persistent sidecar.** The MCP Server works in local development. Running it as a sidecar container alongside the Next.js app (rather than spawning per request) would make the MCP path viable in production.
-
 - **Jurisdictional filtering for CourtListener.** Adding a `jurisdiction` field to the clinic's profile and filtering CourtListener queries by court would reduce irrelevant opinion retrieval.
 
 - **Batch PDF processing.** The current PDF parser extracts all text and splits on blank lines. A multi-page PDF with structured intake forms would benefit from section-aware extraction.
@@ -602,7 +607,9 @@ These are concrete gaps in the current implementation, ordered by likely impact.
 | `POST` | `/api/demo/seed` | ✅ | Seed 50 curated demo cases (scores computed by formula) |
 | `GET` | `/api/demo/queue` | ❌ | 5 hardcoded demo cases, no auth |
 | `POST` | `/api/seed/past-cases` | ✅ | Seed 30 historical cases with Vertex AI text-embedding-004 embeddings |
+| `GET` | `/api/stats/public` | ❌ | Aggregate retrieval impact stats (cases improved, avg delta, tier upgrades) — used by judge dashboard |
 | `GET` | `/api/health` | ❌ | Liveness check |
+| `GET` | `/api/health/vector-search` | ❌ | Atlas vector search index status, corpus count, embedding dimensions |
 
 ---
 
