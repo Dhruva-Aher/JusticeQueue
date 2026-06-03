@@ -22,7 +22,7 @@ JusticeQueue solves this. You upload a batch of intake submissions (CSV, TXT, or
 
 | Layer | Technology |
 |---|---|
-| Agent Engine | Google Cloud Agent Builder |
+| Agent Engine | Vertex AI (Gemini Flash + Pro) |
 | LLM — extraction | Gemini Flash (Vertex AI) |
 | LLM — recommendations (docket) | Gemini Flash (Vertex AI) |
 | Database | MongoDB Atlas (document store) |
@@ -341,12 +341,11 @@ Also enable in GCP: Vertex AI API, Cloud AI Platform API.
 
 ---
 
-### Google Cloud Agent Builder (optional)
+### Agent trace attribution (optional)
 ```
 AGENT_BUILDER_ENGINE_ID=
 ```
-Where to get it: GCP Console → Agent Builder → Apps → your app → Engine ID.  
-This is optional — it just tags agent traces with the engine reference. The app works without it.
+Optional engine ID stored in agent traces for attribution. The pipeline runs on Vertex AI regardless of whether this is set.
 
 ---
 

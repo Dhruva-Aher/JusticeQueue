@@ -281,21 +281,26 @@ The 91.2% top similarity score (≥ 0.85) contributes 15 points to the urgency s
 
 ## Agent Execution Model
 
-JusticeQueue implements a workflow-driven pipeline, not an autonomous reasoning loop. The agent does not decide which tools to call based on model output — the sequence of steps is fixed, with two conditional branches determined by computed data, not LLM output.
+JusticeQueue implements a model-directed pipeline: Gemini Flash makes eight distinct decisions per run that determine execution paths, API calls, and the recommendation set. The step topology is predefined, but the model's choices determine which steps execute and with what parameters.
 
-**What "agent" means here:**
+**What the model directs:**
 
-- The execution sequence is predetermined
-- Each step records its tool, start time (ms from run start), duration, and a structured result object
-- Two branching decisions are evaluated after Step 3 and after Step 4, logged with the evidence that drove the decision
-- Every run is persisted as an `AgentRun` document; step timing can be replayed as a wall-clock trace
+- **Strategy selection** — sets overall execution mode (emergency/standard/documentation-focus/monitoring)
+- **Tool selection** — explicitly selects which APIs run (Atlas $vectorSearch, CourtListener, or both) and rejects others by name
+- **Case selection** — selects which specific cases receive retrieval resources; unchosen cases get no Atlas queries
+- **Adaptive retrieval evaluation** — evaluates Atlas result quality and can trigger a second retrieval pass
+- **Evidence sufficiency evaluation** — evaluates retrieved evidence and can trigger escalation or additional retrieval
+- **CourtListener query generation** — generates case-specific search strings from actual case facts
+- **Authorization review** — evaluates generated recommendations and flags items requiring attorney sign-off
+- **Challenge review** — self-critiques recommendations; output influences the executive report
 
-**What it does not do:**
+**What is deterministic:**
 
-- The model does not select which tool to invoke next
-- There is no planning loop or re-planning based on intermediate results
-- Google Cloud Agent Builder does not drive runtime behaviour (`AGENT_BUILDER_ENGINE_ID`, if set, is stored as trace metadata only)
-- There is no multi-agent coordination
+- The set of available steps (no new steps can be injected at runtime)
+- Fallback behaviour when any model call fails
+- The urgency scoring formula
+
+**Execution trace format:**
 
 **Execution trace format:**
 
@@ -545,9 +550,9 @@ npm run dev
 
 ## Known Limitations
 
-**Workflow-driven, not LLM-orchestrated.** The step sequence is fixed code. The language model is called at five points in the docket pipeline: (1) strategy selection via Gemini Flash, which determines whether and how CourtListener executes; (2) CourtListener query generation via Gemini Flash, which parameterizes the external API call; (3) recommendation generation via Gemini Flash; (4) executive report generation via Gemini Pro; and separately during intake: (5) fact extraction via Gemini Flash. The model does not receive tool results and decide next steps — it generates text and structured JSON at defined points in a predetermined sequence. This is a workflow that uses LLMs at specific decision points, not an autonomous planning loop.
+**Predefined step topology.** The set of available steps is fixed in code. Gemini Flash makes eight decisions per run that determine which steps execute, which APIs are called, and which cases receive resources — but it cannot add steps that don't exist in the code or route back to previous steps. This is model-directed execution within a predefined graph, not autonomous planning from scratch.
 
-**MCP disabled in production.** The MongoDB MCP Server integration (`lib/mcpClient.js`) is wired but not usable in Vercel serverless functions: spawning a stdio subprocess per request is incompatible with the serverless execution model. In production, vector search always runs via direct Mongoose aggregation (`via: "mongoose_fallback"`). MCP functions correctly in local development when `MCP_ENABLED=true`.
+**MongoDB MCP Server: local dev only.** The MongoDB MCP Server integration (`lib/mcpClient.js`, `.mcp.json`) is implemented and functional in local development (`MCP_ENABLED=true`). The MCP server spawns as a stdio subprocess, runs the `@mongodb-js/mongodb-mcp-server`, and routes Atlas `$vectorSearch` aggregations through the MCP `aggregate` tool. In Vercel serverless production, spawning subprocess per request is incompatible with the execution model; vector search falls back to direct Mongoose aggregation (`via: "mongoose_fallback"`). The production deployment records the `mongodb_via` field on every case document, making the execution path auditable. Local development with `MCP_ENABLED=true` uses the full MCP path.
 
 **Synthetic historical dataset.** The 30 cases in `past_cases` are curated examples, not real clinic records. Vector search results during demo or development reflect similarity to these synthetic cases, not an actual clinic's case history. In production, a clinic would replace or augment this dataset with their own historical outcomes.
 

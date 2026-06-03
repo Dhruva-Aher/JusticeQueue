@@ -49,7 +49,7 @@ clinic's own historical outcomes.
 
 ## How we built it
 
-Google Cloud Agent Builder orchestrates the multi-step pipeline.
+Vertex AI (Gemini Flash) directs the multi-step pipeline through eight model-driven decisions.
 Gemini Flash (Vertex AI) extracts structured facts from unstructured
 intake text. Gemini Flash writes case-specific
 recommendations for high-priority cases. MongoDB Atlas stores
@@ -94,7 +94,7 @@ makes the whole system trustworthy enough to deploy in a clinic
 that cannot afford to get it wrong.
 
 ## Tech stack
-- Google Cloud Agent Builder — pipeline orchestration
+- Vertex AI (Gemini Flash + Pro) — strategy selection, tool selection, evidence evaluation, recommendations
 - Gemini Flash (Vertex AI) — fact extraction
 - Gemini Flash (Vertex AI) — case recommendations and docket strategy
 - MongoDB Atlas — document store with flexible schema
