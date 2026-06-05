@@ -9,6 +9,7 @@
 
 export const runtime = 'nodejs'
 export const maxDuration = 15
+export const dynamic = 'force-dynamic'
 
 import { connectDB } from '../../../../lib/mongodb.js'
 import Case          from '../../../../lib/models/Case.js'
