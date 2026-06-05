@@ -43,7 +43,7 @@ export default function ReviewActionPanel({ uid, onComplete }) {
         setIsResolved(true)
         if (onComplete) onComplete('request_senior_review')
       }
-    } catch (err) {
+    } catch {
       toast.error("Failed to process action")
     } finally {
       setIsLoading(null)
