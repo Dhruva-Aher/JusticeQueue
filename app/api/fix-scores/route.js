@@ -12,23 +12,37 @@ export async function GET() {
   try {
     await connectDB()
 
-    // Run the diagnostic aggregation requested by the user to verify embedding dimensions
-    const diagnostic = await mcpAggregate('past_cases', [
-      {
-        $project: {
-          hasEmbedding: { $gt: [{ $size: { $ifNull: ["$description_embedding", []] } }, 0] },
-          embeddingSize: { $size: { $ifNull: ["$description_embedding", []] } }
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          total: { $sum: 1 },
-          withEmbeddings: { $sum: { $cond: ["$hasEmbedding", 1, 0] } },
-          avgSize: { $avg: "$embeddingSize" }
-        }
-      }
+    // Fetch one document to perform a self-query test
+    const [sampleDoc] = await mcpAggregate('past_cases', [
+      { $match: { description_embedding: { $exists: true, $ne: [] } } },
+      { $limit: 1 },
+      { $project: { _id: 1, description_embedding: 1 } }
     ])
+
+    let selfQueryResults = null
+    let pipelineUsed = null
+
+    if (sampleDoc && sampleDoc.description_embedding) {
+      pipelineUsed = [
+        {
+          $vectorSearch: {
+            index: 'description_embedding_index',
+            path: 'description_embedding',
+            queryVector: sampleDoc.description_embedding,
+            numCandidates: 30, // limit * 10
+            limit: 3,
+          },
+        },
+        {
+          $project: {
+            _id: 0,
+            id: { $toString: '$_id' },
+            similarity_score: { $meta: 'vectorSearchScore' },
+          },
+        },
+      ]
+      selfQueryResults = await mcpAggregate('past_cases', pipelineUsed)
+    }
 
     const cases = await Case.find({ similar_cases: { $size: 0 } })
     
@@ -74,7 +88,10 @@ export async function GET() {
     
     return NextResponse.json({ 
       ok: true,
-      diagnostic,
+      diagnostic: {
+        selfQueryResults,
+        pipelineUsed: pipelineUsed ? { ...pipelineUsed[0], queryVector: '[HIDDEN FOR BREVITY]' } : null
+      },
       cases_found: cases.length,
       cases_processed: processed,
       cases_improved: improved,
