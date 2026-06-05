@@ -1,8 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import UrgencyBreakdown from './UrgencyBreakdown.jsx'
-import PriorityDelta from './PriorityDelta.jsx'
-import EvidencePanel from './EvidencePanel.jsx'
+import DeltaVisualization from './DeltaVisualization.jsx'
+import HistoricalOutcomesPanel from './HistoricalOutcomesPanel.jsx'
 import ReviewActionPanel from './ReviewActionPanel.jsx'
 import StatusBadge from './StatusBadge.jsx'
 import axiosClient from '../lib/axiosClient.js'
@@ -507,8 +507,8 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
             {/* Score breakdown */}
             <UrgencyBreakdown breakdown={caseData.score_breakdown} caseType={caseData.case_type} />
 
-            {/* Retrieval impact — PriorityDelta */}
-            <PriorityDelta 
+            {/* Retrieval impact — DeltaVisualization */}
+            <DeltaVisualization 
               baseline={caseData.score_without_retrieval} 
               final={caseData.priority_score} 
               reasoning={caseData.priority_reason} 
@@ -529,8 +529,8 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
 
             <Divider />
 
-            {/* Similar cases / Evidence Panel */}
-            <EvidencePanel precedents={caseData.similar_cases || []} />
+            {/* Similar cases / Historical Outcomes Panel */}
+            <HistoricalOutcomesPanel precedents={caseData.similar_cases || []} />
 
             {/* AI recommendation */}
             {caseData.recommendation && (

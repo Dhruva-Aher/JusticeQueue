@@ -701,7 +701,7 @@ Return JSON only:
         const text = c.summary || c.description
           || `${c.case_type} legal matter for ${c.client_name || 'client'} with deadline in ${c.deadline_days ?? 'unknown'} days`
         try {
-          const { results, via } = await findSimilarCases(text, 3)
+          const { results, via } = await findSimilarCases(text, 3, c.case_type)
           return {
             case_id:     String(c._id),
             client_name: c.client_name,

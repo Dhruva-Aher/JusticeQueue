@@ -1,4 +1,4 @@
-export default function PriorityDelta({ baseline, final, reasoning }) {
+export default function DeltaVisualization({ baseline, final, reasoning }) {
   if (baseline == null || final == null || baseline === final) return null;
   const delta = final - baseline;
 

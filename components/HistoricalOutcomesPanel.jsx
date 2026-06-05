@@ -7,7 +7,7 @@ function outcomeVariant(o) {
   return 'neutral'
 }
 
-export default function EvidencePanel({ precedents = [] }) {
+export default function HistoricalOutcomesPanel({ precedents = [] }) {
   if (!precedents || precedents.length === 0) return null;
 
   return (
