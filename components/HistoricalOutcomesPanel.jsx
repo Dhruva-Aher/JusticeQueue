@@ -49,7 +49,15 @@ export default function HistoricalOutcomesPanel({ precedents = [] }) {
           {precedents.map((p, i) => {
             const pct = (typeof p.similarity_score === 'number' && !isNaN(p.similarity_score)) ? Math.round(p.similarity_score * 100) : null;
             return (
-              <div key={p.uid || p.id || i} style={{ padding: '16px', transition: 'background 150ms', cursor: 'default' }}
+              <div key={p.uid || p.id || i} 
+                   className="animate-slide-in-from-left delay-500"
+                   style={{ 
+                     padding: '16px', 
+                     transition: 'background 150ms', 
+                     cursor: 'default',
+                     animationDelay: `${i * 100}ms`,
+                     animationFillMode: 'both'
+                   }}
                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}
                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                 
@@ -72,13 +80,18 @@ export default function HistoricalOutcomesPanel({ precedents = [] }) {
                   <span style={{ fontSize: '11px', color: 'var(--text-3)', fontFamily: 'var(--font-sans)' }}>
                     Resolved: {p.resolution_date ? new Date(p.resolution_date).toLocaleDateString() : p.year || '2023'}
                   </span>
-                  <span style={{ 
-                    fontSize: '11px', fontWeight: 500, color: 'var(--clear)', 
-                    background: 'var(--clear-subtle)', padding: '2px 6px', borderRadius: '4px',
-                    fontFamily: 'var(--font-sans)'
-                  }}>
-                    {pct != null ? `${pct}% Match` : 'Highly Relevant'}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '60px', height: '4px', background: 'var(--border)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: `${pct || 100}%`, height: '100%', background: pct >= 80 ? 'var(--clear)' : pct >= 60 ? 'var(--medium)' : 'var(--text-3)', borderRadius: '2px' }} />
+                    </div>
+                    <span style={{ 
+                      fontSize: '11px', fontWeight: 600, 
+                      color: pct >= 80 ? 'var(--clear)' : pct >= 60 ? 'var(--medium)' : 'var(--text-3)', 
+                      fontFamily: 'var(--font-sans)'
+                    }}>
+                      {pct != null ? `${pct}% Match` : 'Highly Relevant'}
+                    </span>
+                  </div>
                 </div>
               </div>
             );

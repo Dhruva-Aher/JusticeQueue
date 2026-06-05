@@ -57,13 +57,22 @@ export default function DeltaVisualization({ baseline, final, reasoning }) {
           </div>
         </div>
         {reasoning && (
-          <p style={{ 
-            fontSize: '12px', color: 'var(--text-2)', marginTop: '16px', 
-            lineHeight: 1.6, borderLeft: '2px solid var(--border-mid)', 
-            paddingLeft: '12px', fontFamily: 'var(--font-sans)' 
+          <div className="animate-zoom-in" style={{
+            marginTop: '16px',
+            background: 'var(--bg-hover)',
+            padding: '16px',
+            borderRadius: 'var(--radius)',
+            border: '1px solid var(--border)',
+            animationDelay: '700ms',
+            animationFillMode: 'both'
           }}>
-            <strong style={{ color: 'var(--text)', fontWeight: 600 }}>Adjustment Justification:</strong> {reasoning}
-          </p>
+            <h4 style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px', fontFamily: 'var(--font-sans)' }}>
+              Agent Reasoning Summary
+            </h4>
+            <p style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.6, fontFamily: 'var(--font-sans)' }}>
+              {reasoning}
+            </p>
+          </div>
         )}
       </div>
     </div>

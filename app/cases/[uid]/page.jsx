@@ -45,7 +45,15 @@ export default function CaseDetailPage() {
                 {caseData.client_name || 'Client Name'}
               </h1>
             </div>
-            <span style={{ background: 'var(--bg-raised)', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 600, flexShrink: 0 }}>
+            <span style={{ 
+              background: 'var(--bg-raised)', 
+              padding: '4px 12px', 
+              borderRadius: '16px', 
+              fontSize: '12px', 
+              fontWeight: 600, 
+              flexShrink: 0,
+              animation: caseData.status === 'pending' ? 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite' : 'none'
+            }}>
               {caseData.status?.toUpperCase() || 'PENDING'}
             </span>
           </div>
