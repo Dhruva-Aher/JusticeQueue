@@ -4,12 +4,32 @@ import Case from '../../../lib/models/Case.js'
 import { findSimilarCases } from '../../../lib/vectorSearch.js'
 import { computeScore } from '../../../lib/urgencyScore.js'
 
+import { mcpAggregate } from '../../../lib/mcpClient.js'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300 // allow up to 5 minutes
 
 export async function GET() {
   try {
     await connectDB()
+
+    // Run the diagnostic aggregation requested by the user to verify embedding dimensions
+    const diagnostic = await mcpAggregate('past_cases', [
+      {
+        $project: {
+          hasEmbedding: { $gt: [{ $size: { $ifNull: ["$description_embedding", []] } }, 0] },
+          embeddingSize: { $size: { $ifNull: ["$description_embedding", []] } }
+        }
+      },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          withEmbeddings: { $sum: { $cond: ["$hasEmbedding", 1, 0] } },
+          avgSize: { $avg: "$embeddingSize" }
+        }
+      }
+    ])
+
     const cases = await Case.find({ similar_cases: { $size: 0 } })
     
     let improved = 0
@@ -53,7 +73,8 @@ export async function GET() {
     }
     
     return NextResponse.json({ 
-      ok: true, 
+      ok: true,
+      diagnostic,
       cases_found: cases.length,
       cases_processed: processed,
       cases_improved: improved,
