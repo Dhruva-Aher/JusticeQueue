@@ -20,10 +20,10 @@ export async function GET() {
       if (logs.length > 50) break
 
       try {
-        const { results, via } = await findSimilarCases(c.summary)
+        const { results, via, error } = await findSimilarCases(c.summary)
         
         if (!results || results.length === 0) {
-          logs.push(`SKIP ${c.uid}: no results (via=${via})`)
+          logs.push(`CASE ${c.uid}: via=${via} count=${results?.length || 0} error=${error || 'none'}`)
           continue
         }
         
