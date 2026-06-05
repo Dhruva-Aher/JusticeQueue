@@ -1,4 +1,4 @@
-export default function ReviewActionPanel({ status, uid }) {
+export default function ReviewActionPanel() {
   return (
     <div style={{
       background: 'var(--bg-surface)',

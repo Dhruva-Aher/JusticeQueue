@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import UrgencyBreakdown from './UrgencyBreakdown.jsx'
-import SimilarCases from './SimilarCases.jsx'
 import PriorityDelta from './PriorityDelta.jsx'
 import EvidencePanel from './EvidencePanel.jsx'
 import ReviewActionPanel from './ReviewActionPanel.jsx'
@@ -163,7 +162,6 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
   const [overrideReason, setOverrideReason] = useState('')
   const [overrideRank,   setOverrideRank]   = useState('')
   const [overrideStatus, setOverrideStatus] = useState('idle')
-  const [actionStatus,   setActionStatus]   = useState(null) // { type, state }
   // Outreach email state
   const [emailStatus,  setEmailStatus]  = useState('idle') // idle | saving | sending | done | error
   const [emailDraftId, setEmailDraftId] = useState(null)
@@ -193,7 +191,6 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
     }
     setLoading(true)
     setCaseData(null)
-    setActionStatus(null)
     axiosClient.get(`/api/cases/${caseId}`)
       .then((r) => setCaseData(r.data.case))
       .catch(() => setCaseData(null))
@@ -281,18 +278,13 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
   }
 
   async function handleStatusChange(newStatus) {
-    setActionStatus({ type: newStatus, state: 'saving' })
     // Optimistic update
     setCaseData((prev) => prev ? { ...prev, status: newStatus } : prev)
     try {
       const r = await axiosClient.patch(`/api/cases/${caseId}`, { status: newStatus })
       if (r.data?.case) setCaseData(r.data.case)
-      setActionStatus({ type: newStatus, state: 'done' })
-      setTimeout(() => setActionStatus(null), 2500)
     } catch {
       // Keep optimistic state — will revert on next load
-      setActionStatus({ type: newStatus, state: 'done' })
-      setTimeout(() => setActionStatus(null), 2500)
     }
   }
 
@@ -443,7 +435,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
 
             {/* Action buttons */}
             {!isDemo && status !== 'closed' && (
-              <ReviewActionPanel status={status} uid={caseId} />
+              <ReviewActionPanel />
             )}
 
             {!isDemo && status === 'closed' && (
