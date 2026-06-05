@@ -35,12 +35,17 @@ let _mongoClient = null
 
 async function getDb() {
   if (!_mongoClient) {
-    _mongoClient = new MongoClient(MONGODB_URI, {
+    const client = new MongoClient(MONGODB_URI, {
       serverSelectionTimeoutMS: 5000,
       connectTimeoutMS: 5000,
     })
-    await _mongoClient.connect()
-    console.log('[mcp] connected to MongoDB Atlas')
+    try {
+      await client.connect()
+      _mongoClient = client
+      console.log('[mcp] connected to MongoDB Atlas')
+    } catch (err) {
+      throw err
+    }
   }
   return _mongoClient.db(DB_NAME)
 }
