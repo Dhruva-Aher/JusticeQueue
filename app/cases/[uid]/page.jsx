@@ -11,17 +11,22 @@ import UrgencyBreakdown from '../../../components/UrgencyBreakdown.jsx'
 export default function CaseDetailPage() {
   const { uid } = useParams()
   const [caseData, setCaseData] = useState(null)
+  const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
     axiosClient.get(`/api/cases/${uid}`)
       .then(res => setCaseData(res.data.case))
-      .catch(err => console.error(err))
+      .catch(err => {
+        console.error(err)
+        setError(err.response?.data?.error || err.message || 'Failed to load case data')
+      })
       .finally(() => setLoading(false))
   }, [uid])
 
   if (loading) return <div style={{ padding: '40px', textAlign: 'center' }}>Loading case details...</div>
+  if (error) return <div style={{ padding: '40px', textAlign: 'center', color: 'var(--danger)' }}>Error: {error}</div>
   if (!caseData) return <div style={{ padding: '40px', textAlign: 'center' }}>Case not found.</div>
 
   return (
@@ -31,16 +36,16 @@ export default function CaseDetailPage() {
         {/* Left Column: Case Information & Priority Assessment */}
         <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
                 {caseData.id || uid} · {caseData.case_type?.replace('_', ' ')}
               </span>
-              <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text)', marginTop: '4px', marginBottom: '8px' }}>
+              <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text)', marginTop: '4px', marginBottom: '8px', wordBreak: 'break-word' }}>
                 {caseData.client_name || 'Client Name'}
               </h1>
             </div>
-            <span style={{ background: 'var(--bg-raised)', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 600 }}>
+            <span style={{ background: 'var(--bg-raised)', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 600, flexShrink: 0 }}>
               {caseData.status?.toUpperCase() || 'PENDING'}
             </span>
           </div>

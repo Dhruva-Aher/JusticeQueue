@@ -54,11 +54,11 @@ export default function HistoricalOutcomesPanel({ precedents = [] }) {
                    onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}>
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-                  <div>
+                  <div style={{ flex: 1, minWidth: 0, paddingRight: '12px' }}>
                     <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', color: 'var(--text-3)', display: 'block', marginBottom: '4px' }}>
                       {p.uid || p.id || `PREC-${2023+i}-X`}
                     </span>
-                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-sans)' }}>
+                    <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', fontFamily: 'var(--font-sans)', wordBreak: 'break-word' }}>
                       {p.key_factor || p.description?.slice(0, 80) || p.outcome_notes?.slice(0, 80) || 'Similar Eviction Defense'}
                     </h4>
                   </div>
