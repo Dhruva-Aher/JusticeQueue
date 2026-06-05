@@ -50,27 +50,61 @@ export async function PATCH(request, { params }) {
     return apiError('Invalid JSON body', 400)
   }
 
-  const { status } = body
-  if (!status || !ALLOWED_STATUSES.includes(status)) {
-    return apiError(`Invalid status. Must be one of: ${ALLOWED_STATUSES.join(', ')}`, 400)
+  const { status, action, new_score, reviewer_notes } = body
+
+  // Legacy status handling
+  if (status) {
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return apiError(`Invalid status. Must be one of: ${ALLOWED_STATUSES.join(', ')}`, 400)
+    }
+    try {
+      await connectDB()
+      const doc = await Case.findOneAndUpdate(
+        { _id: params.id, uid: decoded.uid },
+        { $set: { status } },
+        { new: true, lean: true }
+      )
+      if (!doc) return apiError('Case not found', 404)
+      const sanitized = Object.fromEntries(
+        Object.entries(doc).filter(([k]) => !['_id', 'uid', '__v'].includes(k))
+      )
+      return Response.json({ case: { id: doc._id.toString(), ...sanitized } })
+    } catch (err) {
+      console.error('[cases/id PATCH]', err.message)
+      return apiError('Internal server error', 500)
+    }
   }
 
-  try {
-    await connectDB()
-    const doc = await Case.findOneAndUpdate(
-      { _id: params.id, uid: decoded.uid },
-      { $set: { status } },
-      { new: true, lean: true }
-    )
+  // New action handling
+  if (action) {
+    try {
+      await connectDB()
+      
+      const updateData = { status: action }
+      if (action === 'modify' && new_score !== undefined) {
+        updateData.priority_score = Number(new_score)
+      }
+      if (reviewer_notes) {
+        updateData.reviewer_notes = reviewer_notes
+      }
 
-    if (!doc) return apiError('Case not found', 404)
+      const doc = await Case.findOneAndUpdate(
+        { _id: params.id, uid: decoded.uid },
+        { $set: updateData },
+        { new: true, lean: true }
+      )
 
-    const sanitized = Object.fromEntries(
-      Object.entries(doc).filter(([k]) => !['_id', 'uid', '__v'].includes(k))
-    )
-    return Response.json({ case: { id: doc._id.toString(), ...sanitized } })
-  } catch (err) {
-    console.error('[cases/id PATCH]', err.message)
-    return apiError('Internal server error', 500)
+      if (!doc) return apiError('Case not found', 404)
+
+      return Response.json({
+        ok: true,
+        updated: { status: doc.status, priority_score: doc.priority_score }
+      })
+    } catch (err) {
+      console.error('[cases/id PATCH action]', err.message)
+      return apiError('Internal server error', 500)
+    }
   }
+
+  return apiError('Missing status or action in body', 400)
 }

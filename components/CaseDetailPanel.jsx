@@ -435,7 +435,16 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
 
             {/* Action buttons */}
             {!isDemo && status !== 'closed' && (
-              <ReviewActionPanel />
+              <ReviewActionPanel 
+                uid={caseId} 
+                onComplete={(newStatus, newScore) => {
+                  setCaseData(prev => ({ 
+                    ...prev, 
+                    status: newStatus !== 'modify' ? newStatus : prev.status,
+                    priority_score: newStatus === 'modify' ? newScore : prev.priority_score
+                  }))
+                }}
+              />
             )}
 
             {!isDemo && status === 'closed' && (
