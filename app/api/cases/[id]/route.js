@@ -85,7 +85,12 @@ export async function PATCH(request, { params }) {
       else if (action === 'escalate' || action === 'request_senior_review') updateData.status = 'reviewed'
       
       if (action === 'modify' && new_score !== undefined) {
-        updateData.priority_score = Number(new_score)
+        const parsed = Number(new_score)
+        if (!isNaN(parsed) && parsed >= 1 && parsed <= 100) {
+          updateData.priority_score = parsed
+        } else {
+          return apiError('Invalid priority score', 400)
+        }
       }
       if (reviewer_notes) {
         updateData.reviewer_notes = reviewer_notes

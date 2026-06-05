@@ -26,10 +26,10 @@ export default function CaseDetailPage() {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '32px 24px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '32px', alignItems: 'start' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', alignItems: 'flex-start' }}>
         
         {/* Left Column: Case Information & Priority Assessment */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ flex: '1 1 500px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
@@ -63,12 +63,13 @@ export default function CaseDetailPage() {
         </div>
 
         {/* Right Column: Review Actions & Historical Outcomes */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ flex: '0 0 340px', display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
           <HistoricalOutcomesPanel precedents={caseData.similar_cases || []} />
 
           {caseData.status !== 'closed' && (
             <ReviewActionPanel 
               uid={uid} 
+              currentScore={caseData.priority_score}
               onComplete={(newStatus, newScore) => {
                 setCaseData(prev => ({ 
                   ...prev, 

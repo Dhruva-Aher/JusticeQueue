@@ -3,14 +3,14 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 
-export default function ReviewActionPanel({ uid, onComplete }) {
+export default function ReviewActionPanel({ uid, currentScore, onComplete }) {
   const [isLoading, setIsLoading] = useState(null)
   const [isResolved, setIsResolved] = useState(false)
   
   // Dialog states
   const [showModify, setShowModify] = useState(false)
   const [showEscalate, setShowEscalate] = useState(false)
-  const [newScore, setNewScore] = useState('')
+  const [newScore, setNewScore] = useState(currentScore || '')
 
   const handleAction = async (action, extraPayload = {}) => {
     setIsLoading(action)
