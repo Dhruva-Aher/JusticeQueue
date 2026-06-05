@@ -17,9 +17,16 @@ export async function GET() {
     const logs = []
     
     for (const c of cases) {
-      const { results, via } = await findSimilarCases(c.summary)
-      
-      if (results.length > 0) {
+      if (logs.length > 50) break
+
+      try {
+        const { results, via } = await findSimilarCases(c.summary)
+        
+        if (!results || results.length === 0) {
+          logs.push(`SKIP ${c.uid}: no results (via=${via})`)
+          continue
+        }
+        
         const extracted = { 
           case_type: c.case_type, 
           deadline_days: c.deadline_days, 
@@ -40,6 +47,8 @@ export async function GET() {
           improved++
         }
         logs.push(`Fixed Case ${c.uid} via ${via}: ${c.score_without_retrieval} -> ${score}`)
+      } catch (err) {
+        logs.push(`ERROR ${c.uid}: ${err.message}`)
       }
     }
     
