@@ -180,3 +180,27 @@ tr:last-child td { border-bottom: none; }
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Custom JusticeQueue Animations */
+@keyframes slide-in-from-left {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes zoom-in {
+  from { transform: scale(0.95); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.animate-slide-in-from-left {
+  animation: slide-in-from-left 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-zoom-in {
+  animation: zoom-in 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.delay-500 {
+  animation-delay: 500ms;
+  opacity: 0; /* Keeps it hidden before animation starts */
+}

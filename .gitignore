@@ -73,3 +73,5 @@ build/
 test-intake-10cases.txt
 *.txt
 sample.py
+.vercel
+.env*

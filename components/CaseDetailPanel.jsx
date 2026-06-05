@@ -2,6 +2,9 @@
 import { useState, useEffect } from 'react'
 import UrgencyBreakdown from './UrgencyBreakdown.jsx'
 import SimilarCases from './SimilarCases.jsx'
+import PriorityDelta from './PriorityDelta.jsx'
+import EvidencePanel from './EvidencePanel.jsx'
+import ReviewActionPanel from './ReviewActionPanel.jsx'
 import StatusBadge from './StatusBadge.jsx'
 import axiosClient from '../lib/axiosClient.js'
 import { getFirebaseAuth } from '../lib/firebase.js'
@@ -438,52 +441,9 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
               </div>
             )}
 
-            {/* Action buttons — hidden in demo mode */}
+            {/* Action buttons */}
             {!isDemo && status !== 'closed' && (
-              <div style={{ display: 'flex', gap: '8px', marginBottom: '1rem' }}>
-                {status !== 'reviewed' ? (
-                  <button
-                    onClick={() => handleStatusChange('reviewed')}
-                    disabled={actionStatus?.state === 'saving'}
-                    style={{
-                      flex: 1, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
-                      padding: '8px 12px', border: '1px solid rgba(34,201,122,0.3)',
-                      background: 'rgba(34,201,122,0.08)', color: 'var(--clear)',
-                      borderRadius: 'var(--radius-sm)', transition: 'all 150ms',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(34,201,122,0.14)'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(34,201,122,0.08)'}
-                  >
-                    {actionStatus?.type === 'reviewed' && actionStatus?.state === 'done' ? '✓ Marked Reviewed' : '✓ Mark Reviewed'}
-                  </button>
-                ) : (
-                  <div style={{
-                    flex: 1, padding: '8px 12px',
-                    fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
-                    color: 'var(--clear)', background: 'rgba(34,201,122,0.08)',
-                    border: '1px solid rgba(34,201,122,0.25)', borderRadius: 'var(--radius-sm)',
-                    textAlign: 'center',
-                  }}>
-                    ✓ Reviewed
-                  </div>
-                )}
-                <button
-                  onClick={() => handleStatusChange('closed')}
-                  disabled={actionStatus?.state === 'saving'}
-                  style={{
-                    flex: 1, fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500,
-                    padding: '8px 12px', border: '1px solid var(--border)',
-                    background: 'var(--bg-hover)', color: 'var(--text-3)',
-                    borderRadius: 'var(--radius-sm)', transition: 'all 150ms',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--border-mid)'; e.currentTarget.style.color = 'var(--text-2)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-3)' }}
-                >
-                  Close Case
-                </button>
-              </div>
+              <ReviewActionPanel status={status} uid={caseId} />
             )}
 
             {!isDemo && status === 'closed' && (
@@ -546,43 +506,12 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
             {/* Score breakdown */}
             <UrgencyBreakdown breakdown={caseData.score_breakdown} caseType={caseData.case_type} />
 
-            {/* Retrieval impact — shows how much Atlas $vectorSearch contributed to the score */}
-            {caseData.score_without_retrieval != null &&
-             caseData.priority_score != null &&
-             caseData.priority_score !== caseData.score_without_retrieval && (
-              <div style={{
-                marginTop: '12px',
-                padding: '10px 12px',
-                background: 'rgba(22,163,74,0.05)',
-                border: '1px solid rgba(22,163,74,0.18)',
-                borderRadius: 'var(--radius-sm)',
-              }}>
-                <p style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
-                  color: '#16A34A', letterSpacing: '0.06em', marginBottom: '6px',
-                }}>
-                  HISTORICAL RETRIEVAL IMPACT
-                </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)' }}>
-                    Without retrieval: <strong style={{ color: 'var(--text-2)' }}>{caseData.score_without_retrieval}</strong>
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#16A34A', fontWeight: 700 }}>
-                    +{caseData.priority_score - caseData.score_without_retrieval} →
-                  </span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-2)' }}>
-                    With retrieval: <strong>{caseData.priority_score}</strong>
-                  </span>
-                </div>
-                <p style={{
-                  fontFamily: 'var(--font-sans)', fontSize: '10px', color: 'var(--text-3)',
-                  marginTop: '4px', lineHeight: 1.5,
-                }}>
-                  Atlas $vectorSearch added {caseData.priority_score - caseData.score_without_retrieval} points
-                  via {caseData.similar_cases?.length ?? 0} historical case match{(caseData.similar_cases?.length ?? 0) !== 1 ? 'es' : ''}.
-                </p>
-              </div>
-            )}
+            {/* Retrieval impact — PriorityDelta */}
+            <PriorityDelta 
+              baseline={caseData.score_without_retrieval} 
+              final={caseData.priority_score} 
+              reasoning={caseData.priority_reason} 
+            />
 
             <Divider />
 
@@ -599,8 +528,8 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
 
             <Divider />
 
-            {/* Similar cases */}
-            <SimilarCases cases={caseData.similar_cases || []} />
+            {/* Similar cases / Evidence Panel */}
+            <EvidencePanel precedents={caseData.similar_cases || []} />
 
             {/* AI recommendation */}
             {caseData.recommendation && (
