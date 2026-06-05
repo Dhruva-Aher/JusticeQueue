@@ -44,6 +44,11 @@ export async function GET() {
       selfQueryResults = await mcpAggregate('past_cases', pipelineUsed)
     }
 
+    // Fetch the Atlas Search index definition directly from the database
+    const searchIndexes = await mcpAggregate('past_cases', [
+      { $listSearchIndexes: {} }
+    ])
+
     const cases = await Case.find({ similar_cases: { $size: 0 } })
     
     let improved = 0
@@ -90,7 +95,8 @@ export async function GET() {
       ok: true,
       diagnostic: {
         selfQueryResults,
-        pipelineUsed: pipelineUsed ? { ...pipelineUsed[0], queryVector: '[HIDDEN FOR BREVITY]' } : null
+        pipelineUsed: pipelineUsed ? { ...pipelineUsed[0], queryVector: '[HIDDEN FOR BREVITY]' } : null,
+        searchIndexes
       },
       cases_found: cases.length,
       cases_processed: processed,
