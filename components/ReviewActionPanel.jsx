@@ -28,20 +28,20 @@ export default function ReviewActionPanel({ uid, onComplete }) {
       if (action === 'approve') {
         toast.success("Priority escalation approved — Case moved to Tier 1")
         setIsResolved(true)
-        if (onComplete) onComplete('reviewed')
+        if (onComplete) onComplete(data.updated?.status, data.updated?.priority_score)
       } else if (action === 'modify') {
         toast.success("Priority score updated")
         setShowModify(false)
-        if (onComplete) onComplete('modify', data.updated.priority_score)
+        if (onComplete) onComplete(data.updated?.status, data.updated?.priority_score)
       } else if (action === 'escalate') {
         toast.success("Case escalated to litigation queue")
         setShowEscalate(false)
         setIsResolved(true)
-        if (onComplete) onComplete('escalate')
+        if (onComplete) onComplete(data.updated?.status, data.updated?.priority_score)
       } else if (action === 'request_senior_review') {
         toast.success("Senior review requested")
         setIsResolved(true)
-        if (onComplete) onComplete('request_senior_review')
+        if (onComplete) onComplete(data.updated?.status, data.updated?.priority_score)
       }
     } catch {
       toast.error("Failed to process action")

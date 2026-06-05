@@ -72,8 +72,8 @@ export default function CaseDetailPage() {
               onComplete={(newStatus, newScore) => {
                 setCaseData(prev => ({ 
                   ...prev, 
-                  status: newStatus !== 'modify' ? newStatus : prev.status,
-                  priority_score: newStatus === 'modify' ? newScore : prev.priority_score
+                  status: newStatus || prev.status,
+                  priority_score: newScore ?? prev.priority_score
                 }))
               }}
             />

@@ -47,7 +47,7 @@ export default function HistoricalOutcomesPanel({ precedents = [] }) {
       <div style={{ maxHeight: '280px', overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column', divideY: '1px solid var(--border)' }}>
           {precedents.map((p, i) => {
-            const pct = p.similarity_score != null ? Math.round(p.similarity_score * 100) : null;
+            const pct = (typeof p.similarity_score === 'number' && !isNaN(p.similarity_score)) ? Math.round(p.similarity_score * 100) : null;
             return (
               <div key={p.uid || p.id || i} style={{ padding: '16px', transition: 'background 150ms', cursor: 'default' }}
                    onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-hover)'}

@@ -46,7 +46,7 @@ export default function DeltaVisualization({ baseline, final, reasoning }) {
               fontWeight: 600, boxShadow: 'var(--shadow-sm)', fontFamily: 'var(--font-sans)',
               display: 'flex', alignItems: 'center', gap: '4px'
             }}>
-              +{delta} Points →
+              {delta > 0 ? '+' : ''}{delta} Points →
             </div>
           </div>
 

@@ -80,7 +80,10 @@ export async function PATCH(request, { params }) {
     try {
       await connectDB()
       
-      const updateData = { status: action }
+      const updateData = {}
+      if (action === 'approve') updateData.status = 'reviewed'
+      else if (action === 'escalate' || action === 'request_senior_review') updateData.status = 'reviewed'
+      
       if (action === 'modify' && new_score !== undefined) {
         updateData.priority_score = Number(new_score)
       }
