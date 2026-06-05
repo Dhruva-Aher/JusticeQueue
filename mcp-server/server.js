@@ -22,7 +22,6 @@ const app  = express()
 const PORT = process.env.PORT || 8080
 
 const MONGODB_URI = process.env.MDB_MCP_CONNECTION_STRING
-const DB_NAME     = 'justicequeue'
 const MCP_SECRET  = process.env.MCP_SECRET
 
 if (!MONGODB_URI) {
@@ -42,7 +41,7 @@ async function getDb() {
     await _mongoClient.connect()
     console.log('[mcp] connected to MongoDB Atlas')
   }
-  return _mongoClient.db(DB_NAME)
+  return _mongoClient.db(process.env.MDB_MCP_DATABASE)
 }
 
 // Keep-warm: establish connection on startup
@@ -234,7 +233,7 @@ app.get('/health', (_req, res) => {
     ok:       true,
     protocol: 'mcp',
     version:  '2024-11-05',
-    db:       DB_NAME,
+    db:       process.env.MDB_MCP_DATABASE || 'default (from URI)',
     ts:       new Date().toISOString(),
   })
 })
