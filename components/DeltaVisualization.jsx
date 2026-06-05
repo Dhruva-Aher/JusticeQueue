@@ -15,7 +15,7 @@ export default function DeltaVisualization({ baseline, final, reasoning }) {
     }}>
       <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
         <h3 style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', fontWeight: 600, color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          Queue Priority Evaluation
+          Retrieval Impact on Case Priority
         </h3>
       </div>
       <div style={{ padding: '16px' }}>
@@ -31,9 +31,8 @@ export default function DeltaVisualization({ baseline, final, reasoning }) {
         }}>
           {/* Baseline */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10 }}>
-            <span style={{ fontSize: '11px', color: 'var(--text-3)', marginBottom: '4px', fontFamily: 'var(--font-sans)' }}>Zero-Shot Baseline</span>
+            <span style={{ fontSize: '11px', color: 'var(--text-3)', marginBottom: '4px', fontFamily: 'var(--font-sans)' }}>Baseline Score</span>
             <span style={{ fontSize: '36px', fontWeight: 600, color: 'var(--text-2)', lineHeight: 1, fontFamily: 'var(--font-sans)' }}>{baseline}</span>
-            <span style={{ fontSize: '10px', background: 'var(--bg-hover)', color: 'var(--text-2)', padding: '2px 8px', borderRadius: '12px', marginTop: '8px' }}>Tier 2</span>
           </div>
 
           {/* Delta Flow */}
@@ -53,9 +52,8 @@ export default function DeltaVisualization({ baseline, final, reasoning }) {
 
           {/* Final */}
           <div className="animate-zoom-in delay-500" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 10 }}>
-            <span style={{ fontSize: '11px', color: 'var(--urgent)', fontWeight: 600, marginBottom: '4px', fontFamily: 'var(--font-sans)' }}>Retrieval-Informed</span>
+            <span style={{ fontSize: '11px', color: 'var(--urgent)', fontWeight: 600, marginBottom: '4px', fontFamily: 'var(--font-sans)' }}>Precedent-Adjusted</span>
             <span style={{ fontSize: '36px', fontWeight: 700, color: 'var(--urgent)', lineHeight: 1, fontFamily: 'var(--font-sans)' }}>{final}</span>
-            <span style={{ fontSize: '10px', background: 'var(--urgent-subtle)', color: 'var(--urgent)', border: '1px solid rgba(220,38,38,0.3)', padding: '2px 8px', borderRadius: '12px', marginTop: '8px', fontWeight: 600 }}>Tier 1 Critical</span>
           </div>
         </div>
         {reasoning && (

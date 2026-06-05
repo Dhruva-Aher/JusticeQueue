@@ -31,26 +31,18 @@ export default function CaseDetailPage() {
         {/* Left Column: Case Information & Priority Assessment */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           
-          <div style={{ background: 'var(--bg-surface)', padding: '24px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
-              <div>
-                <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  {caseData.id || uid} · {caseData.case_type?.replace('_', ' ')}
-                </span>
-                <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text)', marginTop: '4px', marginBottom: '8px' }}>
-                  {caseData.client_name || 'Client Name'}
-                </h1>
-              </div>
-              <span style={{ background: 'var(--bg-raised)', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 600 }}>
-                {caseData.status?.toUpperCase() || 'PENDING'}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <span style={{ fontSize: '11px', color: 'var(--text-3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {caseData.id || uid} · {caseData.case_type?.replace('_', ' ')}
               </span>
+              <h1 style={{ fontSize: '24px', fontWeight: 600, color: 'var(--text)', marginTop: '4px', marginBottom: '8px' }}>
+                {caseData.client_name || 'Client Name'}
+              </h1>
             </div>
-
-            <p style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6, marginBottom: '24px' }}>
-              {caseData.summary}
-            </p>
-
-            <UrgencyBreakdown breakdown={caseData.score_breakdown} caseType={caseData.case_type} />
+            <span style={{ background: 'var(--bg-raised)', padding: '4px 12px', borderRadius: '16px', fontSize: '12px', fontWeight: 600 }}>
+              {caseData.status?.toUpperCase() || 'PENDING'}
+            </span>
           </div>
 
           <DeltaVisualization 
@@ -59,10 +51,21 @@ export default function CaseDetailPage() {
             reasoning={caseData.priority_reason} 
           />
 
+          <div style={{ background: 'var(--bg-surface)', padding: '24px', borderRadius: 'var(--radius)', border: '1px solid var(--border)' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '12px' }}>Case Summary</h3>
+            <p style={{ fontSize: '14px', color: 'var(--text-2)', lineHeight: 1.6, marginBottom: '24px' }}>
+              {caseData.summary}
+            </p>
+
+            <UrgencyBreakdown breakdown={caseData.score_breakdown} caseType={caseData.case_type} />
+          </div>
+
         </div>
 
         {/* Right Column: Review Actions & Historical Outcomes */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+          <HistoricalOutcomesPanel precedents={caseData.similar_cases || []} />
+
           {caseData.status !== 'closed' && (
             <ReviewActionPanel 
               uid={uid} 
@@ -75,8 +78,6 @@ export default function CaseDetailPage() {
               }}
             />
           )}
-
-          <HistoricalOutcomesPanel precedents={caseData.similar_cases || []} />
         </div>
 
       </div>
