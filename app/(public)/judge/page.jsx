@@ -14,6 +14,18 @@ function usePublicStats() {
   return stats
 }
 
+
+function useLatestRun() {
+  const [data, setData] = useState(null)
+  useEffect(() => {
+    fetch('/api/stats/latest-run')
+      .then((r) => r.json())
+      .then((d) => { if (d.ok) setData(d.run) })
+      .catch(() => {})
+  }, [])
+  return data
+}
+
 // ─── Live MongoDB Vector Search health indicator ──────────────────────────────
 // Fetches GET /api/health/vector-search and displays real Atlas status.
 // This is a live component — it shows the actual state of the deployed system.
@@ -125,77 +137,6 @@ function VectorSearchHealth() {
 
 // ─── Static mock data ─────────────────────────────────────────────────────────
 
-const JUDGE_BASE_DATE = '2026-05-30T09:41:02.000Z'
-
-const MOCK_STEPS = [
-  { id: 'agent_plan',           label: 'Agent generates 13-step execution plan: execute full retrieval and recommendation pipeline',       tool: 'Gemini Flash',          started_ms: 0,     duration_ms: 890,  result: { plan_steps: 13, key_decision: 'Full retrieval pipeline with CourtListener and challenge review', fallback: false } },
-  { id: 'retrieve_cases',       label: 'Retrieve all active cases from MongoDB Atlas',                                                   tool: 'MongoDB Atlas',         started_ms: 890,   duration_ms: 312,  result: { count: 1247 } },
-  { id: 'analyze_urgency',      label: 'Analyze deadline urgency across all cases',                                                      tool: 'Reasoning Engine',      started_ms: 1202,  duration_ms: 83,   result: { critical: 38, urgent: 71, high_score: 124, total: 1247 } },
-  { id: 'detect_gaps',          label: 'Detect cases with incomplete or missing documentation',                                           tool: 'Reasoning Engine',      started_ms: 1285,  duration_ms: 51,   result: { cases_with_gaps: 7, gap_rate: 1 } },
-  { id: 'model_decision',       label: 'Gemini evaluates docket profile → selects "standard" strategy',                                  tool: 'Gemini Flash',          started_ms: 1336,  duration_ms: 1190, result: { strategy: 'standard', escalation_level: 'urgent', precedent_research: true, courtlistener_depth: 'targeted', fallback_used: false, alternatives_count: 3 } },
-  { id: 'tool_selection',       label: 'Model selects tools: Atlas $vectorSearch + CourtListener — rejects: Escalation',                 tool: 'Gemini Flash',          started_ms: 2526,  duration_ms: 890,  result: { tools: 'atlas_courtlistener', selected_tools: ['Atlas $vectorSearch', 'CourtListener API'], rejected_tools: ['Escalation (severity below threshold)'], confidence: 0.91, fallback_used: false } },
-  { id: 'case_selection',       label: 'Model selects 5 of 10 candidates for retrieval — 5 skipped',                                     tool: 'Gemini Flash',          started_ms: 3416,  duration_ms: 1040, result: { cases_selected: 5, cases_skipped: 5, selection_criteria: 'immigration + eviction cases with novel patterns prioritized', fallback_used: false } },
-  { id: 'vector_search',        label: 'Run Atlas $vectorSearch against model-selected cases',                                            tool: 'MongoDB Vector Search', started_ms: 4456,  duration_ms: 1842, result: { searches_attempted: 5, similar_cases_found: 14, cases_with_matches: 5, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mcp' } },
-  { id: 'evidence_sufficiency', label: 'Model evaluates retrieval quality → verdict: "sufficient"',                                      tool: 'Gemini Flash',          started_ms: 6298,  duration_ms: 780,  result: { verdict: 'sufficient', match_quality: 'high', second_pass_triggered: false, fallback_used: false } },
-  { id: 'courtlistener',        label: 'Query CourtListener API for relevant legal precedents',                                           tool: 'CourtListener API',     started_ms: 7078,  duration_ms: 7204, result: { case_types_searched: 3, opinions_retrieved: 9, branched: true } },
-  { id: 'recommendations',      label: 'Generate AI-powered triage recommendations with Gemini Flash',                                   tool: 'Gemini Flash',          started_ms: 14282, duration_ms: 3812, result: { recommendations_generated: 8, critical: 3, high: 4, vector_data_used: true, oversight_reviewed: 7, flagged_for_authorization: 3 } },
-  { id: 'challenge_review',     label: 'Model self-critique: most uncertain — James Okafor · confidence: medium',                        tool: 'Gemini Flash',          started_ms: 18094, duration_ms: 1105, result: { most_uncertain_case: 'James Okafor', confidence: 'medium', missing_evidence_count: 2, fallback_used: false } },
-  { id: 'exec_report',          label: "Compile executive docket report for tomorrow's operations",                                      tool: 'Gemini Pro',            started_ms: 19199, duration_ms: 6823, result: { report_length: 1847, word_count: 312 } },
-  { id: 'persist',              label: 'Persist trace, model decisions, and all result fields to MongoDB Atlas',                          tool: 'MongoDB Atlas',         started_ms: 26022, duration_ms: 180,  result: { documents_written: 1, steps_recorded: 14, decisions_logged: 8, vector_results_stored: 5, model_decision_stored: true, tool_selection_stored: true, challenge_review_stored: true } },
-]
-
-// Cumulative: agent_plan(890) + retrieve(312) + urgency(83) + gaps(51) + model(1190)
-// + tools(890) + cases(1040) + vector(1842) + evidence(780) + courtlistener(7204)
-// + recs(3812) + challenge(1105) + report(6823) + persist(180) = 26202
-const TOTAL_MS = 26202
-
-// Decisions made during the run — includes one model-driven decision (Gemini Flash)
-// and three code-level branching decisions
-const MOCK_DECISIONS = [
-  {
-    decision: 'Model selected "standard" strategy — urgent escalation',
-    reason: '71 urgent cases and 38 critical cases present. Standard strategy with targeted precedent research selected. Emergency strategy rejected (critical rate 3% < 10% threshold). Monitoring rejected (urgent cases present).',
-    evidence: { strategy: 'standard', escalation_level: 'urgent', precedent_research: true, courtlistener_depth: 'targeted', model: 'gemini-flash', fallback_used: false, alternatives_evaluated: 3 },
-    outcome: 'CourtListener will execute at "targeted" depth — model determined precedent research warranted',
-    model_driven: true,
-  },
-  {
-    decision: 'Documentation gap rate acceptable — no remediation branch',
-    reason: '1% documentation gap rate is below the 40% threshold for activating remediation workflow.',
-    evidence: { cases_with_gaps: 7, total_cases: 1247, gap_rate_pct: 1, threshold_pct: 40 },
-    outcome: 'Standard recommendation workflow proceeds',
-    model_driven: false,
-  },
-  {
-    decision: 'Historical precedents found for 5 cases via Atlas $vectorSearch',
-    reason: 'Top cosine similarity score: 89.2%. Historical outcome data (won, settled) incorporated into attorney recommendations.',
-    evidence: { searches_attempted: 5, cases_with_matches: 5, total_matches: 14, top_similarity_score: 0.892, index: 'description_embedding_index', via: 'mcp' },
-    outcome: 'Historical outcome data incorporated into Gemini recommendation prompt',
-    model_driven: false,
-  },
-  {
-    decision: 'Escalate 3 critical recommendations for mandatory human review',
-    reason: 'Emergency court filings and safety-risk matters require attorney authorization before action.',
-    evidence: { critical_recommendations: 3, human_review_threshold: 'critical' },
-    outcome: 'Items flagged in human oversight panel — no autonomous action taken',
-    model_driven: false,
-  },
-]
-
-const MOCK_RECS = [
-  { rank: 1, client: 'Maria Santos',  type: 'Eviction',          priority: 'critical', action: 'File emergency stay motion immediately — eviction hearing scheduled tomorrow at 9:00 AM', rationale: 'Two minor dependents. Atlas $vectorSearch matched similar eviction cases at 89.2% cosine similarity; historical outcomes: won (emergency stay granted).', deadline: '1 day until eviction hearing', bullets: ['Eviction hearing tomorrow', 'Two minor children', 'Atlas $vectorSearch: similar cases → won', 'CourtListener precedent retrieved'] },
-  { rank: 2, client: 'Amara Diallo',  type: 'Domestic Violence', priority: 'critical', action: 'Initiate emergency protective order — documented threats require same-day legal action',   rationale: 'Active safety threat documented. Historical retrieval shows domestic violence cases with documented threats and minor children receive emergency protective orders.', deadline: 'Immediate safety concern — HUMAN REVIEW REQUIRED', bullets: ['Documented threats to physical safety', 'Children in household', 'Historical retrieval: protective orders granted in similar cases'] },
-  { rank: 3, client: 'James Okafor',  type: 'Immigration',       priority: 'critical', action: 'File emergency motion to stay deportation — removal scheduled in 72 hours',               rationale: 'CourtListener retrieved 3 opinions supporting emergency stay on attorney-error grounds. Filing within 48-hour window is critical.', deadline: '3 days until removal proceedings', bullets: ['Removal in 72 hours', '3 CourtListener precedents retrieved', 'Emergency stay motion viable'] },
-  { rank: 4, client: 'Chen Wei',      type: 'Wage Theft',        priority: 'high',     action: "File wage complaint with Labor Board — statute of limitations expires this Friday",       rationale: 'Historical retrieval matched wage theft cases with fraudulent business transfer; outcomes include successor liability upheld. $18,400 in unpaid wages at stake.', deadline: '4 days until filing deadline', bullets: ['4-day statute of limitations deadline', 'Atlas $vectorSearch: successor liability cases matched', '$18,400 at stake'] },
-  { rank: 5, client: 'Rosa Martinez', type: 'Custody',           priority: 'high',     action: 'Request emergency custody hearing — child welfare concern flagged by intake',             rationale: 'CourtListener retrieved emergency ex parte custody opinions. Historical retrieval: emergency hearings granted when police report accompanies filing.', deadline: '5 days until custody review', bullets: ['Child welfare concern', 'Emergency hearing slots available', 'CourtListener: ex parte orders supported'] },
-]
-
-const HUMAN_REVIEW = [
-  { client: 'Amara Diallo',   type: 'Domestic Violence', rec: 'Emergency protective order filing',            reason: 'Active safety concern — requires attorney authorization before filing', status: 'pending' },
-  { client: 'James Okafor',   type: 'Immigration',       rec: 'Emergency stay motion — federal court filing', reason: 'Federal court filings require licensed attorney signature before submission', status: 'pending' },
-  { client: 'Court Schedule', type: 'Administrative',    rec: 'Propose modified hearing schedule for 3 cases', reason: 'Court calendar modifications require supervising attorney approval', status: 'pending' },
-]
-
 const TOOL_COLORS = {
   'MongoDB Atlas':         { bg: 'rgba(22,163,74,0.07)',   color: '#16A34A', border: 'rgba(22,163,74,0.18)'  },
   'MongoDB Vector Search': { bg: 'rgba(22,163,74,0.07)',   color: '#16A34A', border: 'rgba(22,163,74,0.18)'  },
@@ -275,7 +216,8 @@ function SectionLabel({ children, sub, right }) {
   )
 }
 
-function JudgeSummarySection() {
+function JudgeSummarySection({ run }) {
+  if (!run) return null;
   const summary = [
     { label: 'What happened', value: '1,247 cases reviewed', detail: '38 critical and 71 urgent matters surfaced', color: 'var(--text)' },
     { label: 'Why it happened', value: 'Deadline + risk scoring', detail: 'Urgency, vulnerability, documents, historical matches', color: 'var(--medium)' },
@@ -328,7 +270,9 @@ function JudgeSummarySection() {
   )
 }
 
-function JudgeActionsSection() {
+function JudgeActionsSection({ run }) {
+  if (!run) return null;
+  const recs = run.result?.recommendations || [];
   return (
     <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
       <SectionLabel sub right="Attorney actions prepared by Gemini Flash · top 5 of 8 shown">
@@ -336,10 +280,10 @@ function JudgeActionsSection() {
       </SectionLabel>
       <div style={{ height: '16px' }} />
 
-      {MOCK_RECS.map((rec) => {
+      {recs.map((rec, i) => {
         const ps = PRIORITY_STYLE[rec.priority] || PRIORITY_STYLE.medium
         return (
-          <div key={rec.rank} style={{
+          <div key={i} style={{
             background: 'var(--bg-surface)',
             border: '1px solid var(--border)',
             borderRadius: 'var(--radius)',
@@ -355,13 +299,13 @@ function JudgeActionsSection() {
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 color: 'var(--text-3)',
               }}>
-                {rec.rank}
+                {i+1}
               </span>
               <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>
-                {rec.client}
+                {rec.client_name || rec.client}
               </span>
               <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
-                {rec.type}
+                {rec.case_type || rec.type}
               </span>
               <span style={{
                 fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 600,
@@ -385,7 +329,7 @@ function JudgeActionsSection() {
               {rec.rationale}
             </p>
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-              {rec.bullets.map((b) => (
+              {(rec.bullets || []).map((b) => (
                 <span key={b} style={{
                   fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-2)',
                   background: 'var(--bg-raised)', border: '1px solid var(--border)',
@@ -402,7 +346,9 @@ function JudgeActionsSection() {
   )
 }
 
-function JudgeHumanReviewSection() {
+function JudgeHumanReviewSection({ run }) {
+  if (!run) return null;
+  const items = (run.result?.recommendations || []).filter(r => r.flagged_for_authorization);
   return (
     <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -414,15 +360,15 @@ function JudgeHumanReviewSection() {
           padding: '2px 8px', borderRadius: '3px',
           background: 'rgba(194,113,12,0.08)', color: '#C2710C', border: '1px solid rgba(194,113,12,0.18)',
         }}>
-          3 items pending attorney authorization
+          {items.length} items pending attorney authorization
         </span>
       </div>
       <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)', marginBottom: '12px', lineHeight: 1.6 }}>
         The agent flags decisions that require human authorization before action is taken. No high-risk legal action is executed autonomously.
       </p>
 
-      {HUMAN_REVIEW.map((item) => (
-        <div key={item.client} style={{
+      {items.map((item, i) => (
+        <div key={i} style={{
           background: 'var(--bg-surface)',
           border: '1px solid rgba(194,113,12,0.18)',
           borderRadius: 'var(--radius)',
@@ -431,14 +377,14 @@ function JudgeHumanReviewSection() {
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
             <span style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', fontWeight: 600, color: 'var(--text)' }}>
-              {item.client}
+              {item.client_name || item.client}
             </span>
             <span style={{
               fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
               padding: '2px 6px', borderRadius: '3px',
               background: 'rgba(194,113,12,0.08)', color: '#C2710C', border: '1px solid rgba(194,113,12,0.18)',
             }}>
-              {item.type}
+              {item.case_type || item.type}
             </span>
             <span style={{
               fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500,
@@ -449,10 +395,10 @@ function JudgeHumanReviewSection() {
             </span>
           </div>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '13px', color: 'var(--text-2)', marginTop: '4px' }}>
-            {item.rec}
+            {item.action || item.rec}
           </p>
           <p style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)', marginTop: '4px', lineHeight: 1.5 }}>
-            {item.reason}
+            {item.rationale || item.reason}
           </p>
         </div>
       ))}
@@ -464,6 +410,7 @@ function JudgeHumanReviewSection() {
 
 export default function JudgePage() {
   const liveStats = usePublicStats()
+  const run = useLatestRun()
 
   // Retrieval impact — use live stats if DB has data, else fall back to demo numbers
   const impact = liveStats?.retrieval_impact
@@ -617,9 +564,9 @@ export default function JudgePage() {
         </div>
       </section>
 
-      <JudgeSummarySection />
-      <JudgeActionsSection />
-      <JudgeHumanReviewSection />
+      <JudgeSummarySection run={run} />
+      <JudgeActionsSection run={run} />
+      <JudgeHumanReviewSection run={run} />
 
       {/* ── 3. Agent execution trace ──────────────────────────────────────── */}
       <section style={{ maxWidth: '1100px', margin: '0 auto', padding: '0 2rem 2.5rem' }}>
@@ -659,16 +606,16 @@ export default function JudgePage() {
             ))}
           </div>
           {/* Rows */}
-          {MOCK_STEPS.map((step, i) => (
+          {(run?.steps || []).map((step, i) => (
             <div key={step.id} style={{
               display: 'grid',
               gridTemplateColumns: '80px 1fr 160px 80px 140px',
               height: '44px', alignItems: 'center',
               padding: '0 16px', gap: '12px',
-              borderBottom: i < MOCK_STEPS.length - 1 ? '1px solid var(--border)' : 'none',
+              borderBottom: i < (run?.steps || []).length - 1 ? '1px solid var(--border)' : 'none',
             }}>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--text-3)' }}>
-                {fmtAbsTime(JUDGE_BASE_DATE, step.started_ms)}
+                {fmtAbsTime(run?.started_at || new Date(), step.started_ms)}
               </span>
               <span style={{ display: 'flex', alignItems: 'center', gap: '7px', overflow: 'hidden' }}>
                 <span style={{ fontSize: '9px', color: '#16A34A', flexShrink: 0 }}>●</span>
@@ -700,7 +647,7 @@ export default function JudgePage() {
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <span style={{ fontFamily: 'var(--font-sans)', fontSize: '14px', fontWeight: 600, color: '#16A34A' }}>
-            ✓ Completed in {fmtD(TOTAL_MS)}
+            ✓ Completed in {fmtD(run?.duration_ms || 0)}
           </span>
           <span style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', color: 'var(--text-3)' }}>
             Replaced ~42 hours of manual legal case review in ~21 seconds (1,247 cases × ~2 min each)
@@ -755,7 +702,7 @@ export default function JudgePage() {
           Every branching decision is logged with the evidence that drove it. Decisions marked <span style={{ color: 'var(--accent)', fontWeight: 600 }}>model-driven</span> were made by Gemini Flash evaluating the case profile.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          {MOCK_DECISIONS.map((d, i) => (
+          {(run?.decisions || []).map((d, i) => (
             <div key={i} style={{
               background: 'var(--bg-surface)',
               border: `1px solid ${d.model_driven ? 'rgba(67,56,202,0.25)' : 'var(--border)'}`,

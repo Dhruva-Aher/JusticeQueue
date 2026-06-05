@@ -1,13 +1,18 @@
 'use client'
+import { useState, useEffect } from 'react'
+
 export const dynamic = 'force-dynamic'
 
-const MOCK_QUEUE = [
-  { rank: 1, score: 94, name: 'Maria Santos',   type: 'Eviction',    deadline: 2,  status: 'pending',  flags: ['Minor'] },
-  { rank: 2, score: 87, name: 'James Okafor',   type: 'Immigration', deadline: 5,  status: 'pending',  flags: [] },
-  { rank: 3, score: 71, name: 'Sarah Chen',     type: 'Custody',     deadline: 9,  status: 'reviewed', flags: ['Medical'] },
-  { rank: 4, score: 58, name: 'David Kim',      type: 'Wage Theft',  deadline: 14, status: 'pending',  flags: ['Lang'] },
-  { rank: 5, score: 31, name: 'Alex Rivera',    type: 'Employment',  deadline: 22, status: 'closed',   flags: [] },
-]
+function useLiveQueue() {
+  const [queue, setQueue] = useState([])
+  useEffect(() => {
+    fetch('/api/demo/queue')
+      .then(r => r.json())
+      .then(d => { if (d.cases) setQueue(d.cases) })
+      .catch(() => {})
+  }, [])
+  return queue
+}
 
 const SCORE_STEPS = [
   { label: 'Deadline urgency',   pts: '40 pts', desc: 'Days until the legal deadline' },
@@ -98,6 +103,8 @@ function FlagChip({ label }) {
 }
 
 export default function HomePage() {
+  const liveQueue = useLiveQueue()
+
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
 
@@ -275,7 +282,7 @@ export default function HomePage() {
                 Docket Preview
               </span>
               <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: 'var(--text-3)' }}>
-                5 cases · Agent scored
+                {liveQueue.length > 0 ? `${liveQueue.length} cases · Agent scored` : 'Loading cases...'}
               </span>
             </div>
             <div style={{ display: 'flex', gap: '6px' }}>
@@ -298,38 +305,43 @@ export default function HomePage() {
               <span key={h} style={{ fontFamily: 'var(--font-sans)', fontSize: '10px', fontWeight: 500, color: 'var(--text-3)' }}>{h}</span>
             ))}
           </div>
-          {/* Mock rows */}
-          {MOCK_QUEUE.map((row, i) => (
+          {/* Live rows */}
+          {liveQueue.map((row, i) => {
+            const flags = []
+            if (row.vulnerability_flags?.minor_children) flags.push('Minor')
+            if (row.vulnerability_flags?.language_barrier) flags.push('Lang')
+            if (row.vulnerability_flags?.medical_condition) flags.push('Medical')
+            return (
             <div key={row.rank} style={{
               display: 'grid',
               gridTemplateColumns: '32px 50px 1fr 90px 60px 80px',
               padding: '0 14px',
               height: '44px',
               alignItems: 'center',
-              borderBottom: i < MOCK_QUEUE.length - 1 ? '1px solid var(--border)' : 'none',
+              borderBottom: i < liveQueue.length - 1 ? '1px solid var(--border)' : 'none',
               background: row.rank === 1 ? 'rgba(220,38,38,0.02)' : 'transparent',
             }}>
               <span style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: '11px', color: 'var(--text-3)' }}>
                 {row.rank}
               </span>
-              <ScoreDot score={row.score} />
+              <ScoreDot score={row.priority_score} />
               <div>
                 <div style={{ fontFamily: 'var(--font-sans)', fontSize: '12px', fontWeight: 500, color: row.rank === 1 ? '#DC2626' : 'var(--text)', lineHeight: 1.2 }}>
-                  {row.name}
+                  {row.client_name}
                 </div>
-                {row.flags.length > 0 && (
+                {flags.length > 0 && (
                   <div style={{ marginTop: '2px', display: 'flex', gap: '3px' }}>
-                    {row.flags.map((f) => <FlagChip key={f} label={f} />)}
+                    {flags.map((f) => <FlagChip key={f} label={f} />)}
                   </div>
                 )}
               </div>
-              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: TYPE_COLORS[row.type] || 'var(--text-3)', fontWeight: 500 }}>
-                {row.type}
+              <span style={{ fontFamily: 'var(--font-sans)', fontSize: '11px', color: TYPE_COLORS[row.case_type] || 'var(--text-3)', fontWeight: 500, textTransform: 'capitalize' }}>
+                {row.case_type.replace('_', ' ')}
               </span>
-              <DeadlineDot days={row.deadline} />
+              <DeadlineDot days={row.deadline_days} />
               <StatusPill status={row.status} />
             </div>
-          ))}
+          )})}
         </div>
       </section>
 

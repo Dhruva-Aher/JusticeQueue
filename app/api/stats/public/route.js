@@ -13,6 +13,7 @@ export const maxDuration = 15
 import { connectDB } from '../../../../lib/mongodb.js'
 import Case          from '../../../../lib/models/Case.js'
 import AgentRun      from '../../../../lib/models/AgentRun.js'
+import PastCase      from '../../../../lib/models/PastCase.js'
 
 export async function GET() {
   try {
@@ -93,18 +94,24 @@ export async function GET() {
         },
       ]),
 
-      Case.aggregate([
+      PastCase.aggregate([
         {
           $facet: {
-            past_cases_count: [
-              { $match: { uid: '__seed__' } },
-              { $count: 'n' },
+            total_cases: [ { $count: 'n' } ],
+            with_embeddings: [
+              { $match: { description_embedding: { $exists: true, $not: { $size: 0 } } } },
+              { $count: 'n' }
             ],
-            all_cases: [
-              { $count: 'n' },
+            outcomes: [
+              { $group: { _id: '$outcome', count: { $sum: 1 } } },
+              { $sort: { count: -1 } }
             ],
-          },
-        },
+            categories: [
+              { $group: { _id: '$case_type', count: { $sum: 1 } } },
+              { $sort: { count: -1 } }
+            ]
+          }
+        }
       ]),
     ])
 
@@ -117,7 +124,10 @@ export async function GET() {
 
     const runs         = runResult[0] ?? {}
     const corpusData   = corpusResult[0] ?? {}
-    const allCasesCount = corpusData.all_cases?.[0]?.n ?? 0
+    const allCasesCount = corpusData.total_cases?.[0]?.n ?? 0
+    const withEmbeddingsCount = corpusData.with_embeddings?.[0]?.n ?? 0
+    const outcomeDistribution = Object.fromEntries((corpusData.outcomes ?? []).map(d => [d._id || 'unknown', d.count]))
+    const categoryDistribution = Object.fromEntries((corpusData.categories ?? []).map(d => [d._id || 'unknown', d.count]))
 
     return Response.json({
       ok: true,
@@ -140,6 +150,9 @@ export async function GET() {
       },
       corpus: {
         total_cases: allCasesCount,
+        with_embeddings: withEmbeddingsCount,
+        outcome_distribution: outcomeDistribution,
+        category_distribution: categoryDistribution,
       },
     })
   } catch (err) {

@@ -12,6 +12,7 @@
 
 import 'dotenv/config'
 import { MongoClient } from 'mongodb'
+import { getEmbedding } from '../lib/vectorSearch.js'
 
 const MONGODB_URI = process.env.MONGODB_URI
 if (!MONGODB_URI) { console.error('MONGODB_URI required'); process.exit(1) }
@@ -135,9 +136,10 @@ async function verifySearch(coll) {
     process.exit(1)
   }
 
-  // Test with synthetic query vector
+  // Test with real query vector
   try {
-    const queryVector = new Array(DIMS).fill(0).map(() => (Math.random() - 0.5) * 0.1)
+    console.log('  Generating real embedding for test string "eviction notice minor children"...')
+    const queryVector = await getEmbedding('eviction notice minor children')
     const results = await coll.aggregate([
       { $vectorSearch: {
         index:         INDEX_NAME,
