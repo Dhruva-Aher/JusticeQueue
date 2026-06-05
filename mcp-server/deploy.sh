@@ -9,7 +9,7 @@ MDB_URI="${MDB_URI:?'Set MDB_URI'}"
 MCP_SECRET="${MCP_SECRET:?'Set MCP_SECRET — a random string, e.g.: openssl rand -hex 24'}"
 REGION="${REGION:-us-central1}"
 SERVICE_NAME="justicequeue-mcp"
-IMAGE="gcr.io/${PROJECT_ID}/${SERVICE_NAME}"
+IMAGE="us-central1-docker.pkg.dev/${PROJECT_ID}/justicequeue/${SERVICE_NAME}"
 
 echo "Building image..."
 gcloud builds submit . --tag "$IMAGE" --project "$PROJECT_ID"
