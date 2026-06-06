@@ -196,7 +196,7 @@ The score breakdown is stored per case and displayed as a bar chart in the Case 
 
 ### Setup
 
-The `past_cases` collection holds 30 seeded historical legal aid case outcomes (6 practice areas × 5 cases each: eviction, immigration, custody, wage theft, domestic violence, employment). Each document carries a `description_embedding` field — a 768-dimensional float array produced by Vertex AI `text-embedding-004` from the case `description` field.
+The `past_cases` collection holds 30 seeded historical legal aid case outcomes (6 practice areas × 5 cases each: eviction, immigration, custody, wage theft, employment, and other/domestic violence). Each document carries a `description_embedding` field — a 768-dimensional float array produced by Vertex AI `text-embedding-004` from the case `description` field.
 
 The required Atlas Search index definition:
 
@@ -613,13 +613,23 @@ These are concrete gaps in the current implementation, ordered by likely impact.
 | `GET` | `/api/cases/:id` | ✅ | Single case document with agent_trace |
 | `PATCH` | `/api/cases/:id` | ✅ | Update status |
 | `POST` | `/api/cases/:id/override` | ✅ | Manual score override (written to StaffAction collection) |
+| `GET` | `/api/cases/:id/brief` | ✅ | Generates/retrieves executive legal brief for case |
+| `POST` | `/api/cases/:id/calendar` | ✅ | Schedules court dates on Google Calendar (if enabled) |
+| `POST` | `/api/cases/:id/email` | ✅ | Generates outreach email drafts (if enabled) |
 | `DELETE` | `/api/cases/clear` | ✅ | Delete all cases for user |
+| `GET` | `/api/cases/history` | ✅ | Fetch historical case performance and decisions |
+| `GET` | `/api/cases/retrieval-stats` | ✅ | Granular retrieval metrics across entire corpus |
 | `POST` | `/api/agent/docket` | ✅ | Run 9-step docket preparation workflow (model-directed strategy, tools, cases, evidence, challenge) |
 | `GET` | `/api/agent/runs` | ✅ | List agent runs for user (summary only) |
 | `GET` | `/api/agent/runs/:id` | ✅ | Full AgentRun document |
 | `POST` | `/api/demo/seed` | ✅ | Seed 50 curated demo cases (scores computed by formula) |
 | `GET` | `/api/demo/queue` | ❌ | 5 hardcoded demo cases, no auth |
 | `POST` | `/api/seed/past-cases` | ✅ | Seed 30 historical cases with Vertex AI text-embedding-004 embeddings |
+| `POST` | `/api/admin/seed-corpus` | ✅ | Administrative endpoint for mass-seeding |
+| `POST` | `/api/auth/register` | ❌ | Create new staff account |
+| `GET` | `/api/auth/me` | ✅ | Get current authenticated user profile |
+| `POST` | `/api/fix-scores` | ✅ | Utility route to manually trigger recalculation |
+| `GET` | `/api/stats/latest-run` | ✅ | Quick fetch for the most recent agent execution |
 | `GET` | `/api/stats/public` | ❌ | Aggregate retrieval impact stats (cases improved, avg delta, tier upgrades) — used by judge dashboard |
 | `GET` | `/api/health` | ❌ | Liveness check |
 | `GET` | `/api/health/vector-search` | ❌ | Atlas vector search index status, corpus count, embedding dimensions |
