@@ -46,7 +46,7 @@ JusticeQueue accepts CSV, TXT, or PDF intake files, extracts structured data via
 │                   API Routes (Vercel serverless)                     │
 │                                                                     │
 │  POST /api/intake/upload    — file parsing + intake agent pipeline  │
-│  POST /api/agent/docket     — 13-step docket preparation agent      │
+│  POST /api/agent/docket     — 9-step docket preparation agent      │
 │  GET  /api/agent/runs       — list agent runs for user             │
 │  GET  /api/agent/runs/:id   — full run document with steps[]       │
 │  GET  /api/cases/queue      — sorted active case queue             │
@@ -62,7 +62,7 @@ JusticeQueue accepts CSV, TXT, or PDF intake files, extracts structured data via
         │                       │
         ▼                       ▼
 ┌───────────────┐   ┌──────────────────────────────────────────────────┐
-│ Intake        │   │ Docket Agent (13 steps)                          │
+│ Intake        │   │ Docket Agent (9 steps)                          │
 │ Pipeline      │   │                                                  │
 │               │   │  1. MongoDB query    → cases collection         │
 │ Gemini Flash  │   │  2. JS filter        → urgency buckets          │
@@ -614,7 +614,7 @@ These are concrete gaps in the current implementation, ordered by likely impact.
 | `PATCH` | `/api/cases/:id` | ✅ | Update status |
 | `POST` | `/api/cases/:id/override` | ✅ | Manual score override (written to StaffAction collection) |
 | `DELETE` | `/api/cases/clear` | ✅ | Delete all cases for user |
-| `POST` | `/api/agent/docket` | ✅ | Run 13-step docket preparation workflow (model-directed strategy, tools, cases, evidence, challenge) |
+| `POST` | `/api/agent/docket` | ✅ | Run 9-step docket preparation workflow (model-directed strategy, tools, cases, evidence, challenge) |
 | `GET` | `/api/agent/runs` | ✅ | List agent runs for user (summary only) |
 | `GET` | `/api/agent/runs/:id` | ✅ | Full AgentRun document |
 | `POST` | `/api/demo/seed` | ✅ | Seed 50 curated demo cases (scores computed by formula) |
