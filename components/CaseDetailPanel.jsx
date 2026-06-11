@@ -186,7 +186,6 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
     if (overrideData) {
       setCaseData(overrideData)
       setLoading(false)
-      setActionStatus(null)
       return
     }
     setLoading(true)
