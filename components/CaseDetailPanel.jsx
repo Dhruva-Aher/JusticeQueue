@@ -436,11 +436,13 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
             {!isDemo && status !== 'closed' && (
               <ReviewActionPanel 
                 uid={caseId} 
+                currentScore={caseData.priority_score}
+                currentStatus={status}
                 onComplete={(newStatus, newScore) => {
                   setCaseData(prev => ({ 
                     ...prev, 
                     status: newStatus !== 'modify' ? newStatus : prev.status,
-                    priority_score: newStatus === 'modify' ? newScore : prev.priority_score
+                    priority_score: newStatus === 'approve' ? 95 : (newStatus === 'modify' ? newScore : prev.priority_score)
                   }))
                   if (onCaseUpdated) onCaseUpdated()
                 }}

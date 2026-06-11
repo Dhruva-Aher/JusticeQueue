@@ -5,9 +5,9 @@ import { toast } from 'sonner'
 
 import { getFirebaseAuth } from '../lib/firebase.js'
 
-export default function ReviewActionPanel({ uid, currentScore, onComplete }) {
+export default function ReviewActionPanel({ uid, currentScore, currentStatus, onComplete }) {
   const [isLoading, setIsLoading] = useState(null)
-  const [isResolved, setIsResolved] = useState(false)
+  const [isResolved, setIsResolved] = useState(currentStatus === 'reviewed' || currentStatus === 'closed')
   
   // Dialog states
   const [showModify, setShowModify] = useState(false)
