@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { toast } from 'sonner'
+
+import { getFirebaseAuth } from '../lib/firebase.js'
 
 export default function ReviewActionPanel({ uid, currentScore, onComplete }) {
   const [isLoading, setIsLoading] = useState(null)
@@ -12,12 +14,21 @@ export default function ReviewActionPanel({ uid, currentScore, onComplete }) {
   const [showEscalate, setShowEscalate] = useState(false)
   const [newScore, setNewScore] = useState(currentScore || '')
 
+  useEffect(() => {
+    if (currentScore != null) setNewScore(currentScore)
+  }, [currentScore])
+
   const handleAction = async (action, extraPayload = {}) => {
     setIsLoading(action)
     try {
+      const auth = getFirebaseAuth()
+      const token = await auth?.currentUser?.getIdToken()
       const res = await fetch(`/api/cases/${uid}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ action, ...extraPayload })
       })
       
