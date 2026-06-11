@@ -707,6 +707,7 @@ function DashboardInner() {
         onClose={() => setSelectedId(null)}
         onSelectCase={setSelectedId}
         overrideData={isDemo ? (demoCases.find((c) => c.id === selectedId) ?? null) : null}
+        onCaseUpdated={refetch}
       />
     </div>
   )

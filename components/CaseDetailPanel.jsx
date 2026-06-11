@@ -155,7 +155,7 @@ function AgentTrace({ trace }) {
   )
 }
 
-export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelectCase, overrideData = null }) {
+export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelectCase, overrideData = null, onCaseUpdated }) {
   const isDemo = overrideData !== null
   const [caseData,       setCaseData]       = useState(null)
   const [loading,        setLoading]        = useState(false)
@@ -442,6 +442,7 @@ export default function CaseDetailPanel({ caseId, caseIds = [], onClose, onSelec
                     status: newStatus !== 'modify' ? newStatus : prev.status,
                     priority_score: newStatus === 'modify' ? newScore : prev.priority_score
                   }))
+                  if (onCaseUpdated) onCaseUpdated()
                 }}
               />
             )}
