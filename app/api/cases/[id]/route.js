@@ -83,7 +83,6 @@ export async function PATCH(request, { params }) {
       const updateData = {}
       if (action === 'approve') {
         updateData.status = 'reviewed'
-        updateData.priority_score = 95
       } else if (action === 'escalate' || action === 'request_senior_review') {
         updateData.status = 'reviewed'
       }
