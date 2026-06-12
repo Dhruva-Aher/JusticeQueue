@@ -62,25 +62,24 @@ JusticeQueue accepts CSV, TXT, or PDF intake files, extracts structured data via
         │                       │
         ▼                       ▼
 ┌───────────────┐   ┌──────────────────────────────────────────────────┐
-│ Intake        │   │ Docket Agent (9 steps)                          │
+│ Intake        │   │ Docket Agent (13 steps)                          │
 │ Pipeline      │   │                                                  │
 │               │   │  1. MongoDB query    → cases collection         │
 │ Gemini Flash  │   │  2. JS filter        → urgency buckets          │
 │  (extract)    │   │  3. JS filter        → missing_info detection   │
 │               │   │  4. Gemini Flash     → strategy selection       │
-│ Vertex AI     │   │  5. text-embedding-004 → Atlas $vectorSearch    │
-│  (embed)      │   │  6. CourtListener    → legal opinions (cond.)   │
-│               │   │  7. Gemini Flash     → recommendations          │
-│ $vectorSearch │   │  8. Gemini Pro       → executive report         │
-│  (retrieve)   │   │  9. MongoDB write    → AgentRun document        │
-│               │   │                                                  │
-│ computeScore()│   │  Every branch decision logged to decisions[]    │
-│  (score)      │   └──────────────────────────────────────────────────┘
-│  (score)      │
-│               │
-│ Gemini Flash  │
-│  (rec ≥ 80)   │
-└───────┬───────┘
+│ Vertex AI     │   │  5. Gemini Flash     → tool selection           │
+│  (embed)      │   │  6. Gemini Flash     → case selection           │
+│               │   │  7. text-embedding-004 → Atlas $vectorSearch    │
+│ $vectorSearch │   │  8. Gemini Flash     → evidence sufficiency     │
+│  (retrieve)   │   │  9. CourtListener    → legal opinions (cond.)   │
+│               │   │ 10. Gemini Flash     → recommendations          │
+│ computeScore()│   │ 11. Gemini Flash     → challenge review         │
+│  (score)      │   │ 12. Gemini Pro       → executive report         │
+│               │   │ 13. MongoDB write    → AgentRun document        │
+│ Gemini Flash  │   │                                                  │
+│  (rec ≥ 80)   │   │  Every branch decision logged to decisions[]    │
+└───────┬───────┘   └──────────────────────────────────────────────────┘
         │
         ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -152,21 +151,33 @@ Gemini Flash (Vertex AI) receives the live docket profile — case counts, urgen
 
 > **Model decision stored:** `strategy`, `escalation_level`, `precedent_research`, `courtlistener_depth`, `reasoning`, `alternatives_considered[]`, `model`, `timestamp_ms`, `fallback_used`. This document determines Step 6 behavior.
 
-**Step 5 — Atlas $vectorSearch**  
-For up to 5 cases (critical cases first, then urgent, then high-score), the agent runs `findSimilarCases()` concurrently. Each call generates a Vertex AI text-embedding-004 embedding for the case summary and executes a `$vectorSearch` aggregation against `description_embedding_index` on `past_cases`. Results include `similarity_score`, `outcome`, `outcome_notes`, and `year`. The `via` field records which execution path was used. Tool: MongoDB Vector Search.
+**Step 5 — Tool selection** *(Gemini Flash)*  
+Gemini Flash explicitly selects which APIs run (Atlas $vectorSearch, CourtListener, or both) and rejects others by name based on the chosen strategy. Tool: Gemini Flash.
 
-> **Decision logged after Step 5:** The agent records whether matches were found, the top similarity score, observed outcome distribution, and whether historical data will be incorporated into the Gemini Flash recommendation prompt.
+**Step 6 — Case selection** *(Gemini Flash)*  
+Gemini Flash evaluates the urgency buckets and selects exactly which cases receive retrieval resources; unchosen cases get no Atlas queries. Tool: Gemini Flash.
 
-**Step 6 — CourtListener API** *(conditional on model decision from Step 4)*  
+**Step 7 — Atlas $vectorSearch**  
+For the selected cases (critical cases first, then urgent, then high-score), the agent runs `findSimilarCases()` concurrently. Each call generates a Vertex AI text-embedding-004 embedding for the case summary and executes a `$vectorSearch` aggregation against `description_embedding_index` on `past_cases`. Results include `similarity_score`, `outcome`, `outcome_notes`, and `year`. The `via` field records which execution path was used. Tool: MongoDB Vector Search.
+
+> **Decision logged after Step 7:** The agent records whether matches were found, the top similarity score, observed outcome distribution, and whether historical data will be incorporated into the Gemini Flash recommendation prompt.
+
+**Step 8 — Evidence sufficiency evaluation** *(Gemini Flash)*  
+Gemini Flash evaluates the retrieved Atlas vector search results. It determines if the evidence is sufficient or if it requires escalation or additional retrieval. Tool: Gemini Flash.
+
+**Step 9 — CourtListener API** *(conditional on model decision from Step 4)*  
 If the model decision set `precedent_research: true`, the agent queries the CourtListener public search API for relevant legal opinions. The `courtlistener_depth` value from the model decision controls how many case types are searched. If the model set `precedent_research: false`, this step is recorded with `skipped: true` and zero duration — the model's decision is the direct cause of skipping. Tool: CourtListener API.
 
-**Step 7 — Generate recommendations**  
-Gemini Flash (Vertex AI) receives: the prioritized case list with summaries, historical matches from Step 5 (verbatim similarity scores and outcome notes), and CourtListener opinions from Step 6. It returns a JSON array of per-case recommendations. The executive report prompt explicitly includes the model's strategy and escalation level from Step 4. Tool: Gemini Flash.
+**Step 10 — Generate recommendations**  
+Gemini Flash (Vertex AI) receives: the prioritized case list with summaries, historical matches from Step 7 (verbatim similarity scores and outcome notes), and CourtListener opinions from Step 9. It returns a JSON array of per-case recommendations. The executive report prompt explicitly includes the model's strategy and escalation level from Step 4. Tool: Gemini Flash.
 
-**Step 8 — Compile executive report**  
+**Step 11 — Challenge review** *(Gemini Flash)*  
+Gemini Flash self-critiques the generated recommendations, looking for risks, assumptions, and errors. Its output influences the final executive report. Tool: Gemini Flash.
+
+**Step 12 — Compile executive report**  
 A second Gemini Pro call produces a three-paragraph executive report. The prompt includes the model decision strategy, all agent decisions, vector search findings, and CourtListener citations. Tool: Gemini Pro.
 
-**Step 9 — Persist trace**  
+**Step 13 — Persist trace**  
 `AgentRun.findOneAndUpdate()` writes the completed run document including `steps[]`, `decisions[]`, `model_decision`, `adapted_plan[]`, `result.vector_search_results`, `result.recommendations`, `result.court_opinions`, `result.executive_report`, and `result.reasoning_summary`. Tool: MongoDB Atlas.
 
 ---
@@ -346,7 +357,7 @@ JusticeQueue implements a model-directed pipeline: Gemini Flash makes eight dist
       "decision": "Retrieve legal precedents from CourtListener API",
       "reason": "71 cases detected within the 7-day urgency window",
       "evidence": { "urgent_cases": 71, "critical_cases": 38, "threshold_days": 7 },
-      "outcome": "CourtListener query will execute in Step 5",
+      "outcome": "CourtListener query will execute in Step 9",
       "timestamp_ms": 512
     }
   ]
@@ -382,7 +393,7 @@ The brief includes:
 
 - **Letterhead**: run ID, date generated, date the docket applies to
 - **Operational summary strip**: cases reviewed, critical matters, recommendation count, agent runtime
-- **Executive Summary**: the three-paragraph report generated by Gemini Pro in Step 8 of the docket workflow
+- **Executive Summary**: the three-paragraph report generated by Gemini Pro in Step 12 of the docket workflow
 - **Required Actions**: per-case recommendations sorted by priority (critical → high → medium), including the action, rationale, and deadline warning for each
 - **Documentation Gaps**: amber callout if any cases have incomplete files
 - **Historical Case Matches**: cases matched via Atlas `$vectorSearch`, with similarity scores and outcome notes from the `past_cases` collection
@@ -619,7 +630,7 @@ These are concrete gaps in the current implementation, ordered by likely impact.
 | `DELETE` | `/api/cases/clear` | ✅ | Delete all cases for user |
 | `GET` | `/api/cases/history` | ✅ | Fetch historical case performance and decisions |
 | `GET` | `/api/cases/retrieval-stats` | ✅ | Granular retrieval metrics across entire corpus |
-| `POST` | `/api/agent/docket` | ✅ | Run 9-step docket preparation workflow (model-directed strategy, tools, cases, evidence, challenge) |
+| `POST` | `/api/agent/docket` | ✅ | Run 13-step docket preparation workflow (model-directed strategy, tools, cases, evidence, challenge) |
 | `GET` | `/api/agent/runs` | ✅ | List agent runs for user (summary only) |
 | `GET` | `/api/agent/runs/:id` | ✅ | Full AgentRun document |
 | `POST` | `/api/demo/seed` | ✅ | Seed 50 curated demo cases (scores computed by formula) |
