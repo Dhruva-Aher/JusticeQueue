@@ -14,10 +14,10 @@ Intake → structured scoring → ranked queue, with **Atlas Vector Search** pre
 
 ## Highlights
 
-- **Retrieval impact (historical audit — Grade C)** — Documented run claimed **60** cases with Atlas `$vectorSearch`: **32** improved (**53%**), mean priority **+6**, **4** critical upgrades (max **83 → 98**). **Not re-verified 2026-09-30** (no frozen stats JSON; seed `past_cases.json` has **30** rows). Re-run `GET /api/cases/retrieval-stats` and archive before pitching as Grade A.
+- **Retrieval impact (live — Grade A)** — Public aggregate as of **2026-09-30**: **14** scored cases → **7** improved (**50%**), mean delta **+6**, **1** tier upgrade; top eviction case **83 → 98** (`delta` **15**). Artifact: [`docs/evidence/public-stats-2026-09-30.json`](docs/evidence/public-stats-2026-09-30.json) from [`/api/stats/public`](https://justicequeuelive.vercel.app/api/stats/public).
 - **Deterministic scoring** — Four fixed dimensions + override audit trail; LLM extracts and retrieves, score math stays inspectable.
-- **Operability** — Docket agent with step traces; printable attorney brief; rate-limited uploads (Upstash).
-- **Demo honesty** — `/judge` uses representative/static demo data so recruiters can click without Firebase.
+- **Corpus** — **30** past cases with embeddings (won/settled/declined mix) in live Atlas corpus.
+- **Demo honesty** — `/judge` works without Firebase; live stats are aggregate-only (no PII).
 
 ---
 
@@ -60,11 +60,10 @@ Live walkthrough: open the demo URLs above (judge mode needs no login).
 
 ## Evidence notes
 
-| Claim | Caveat |
+| Claim | Status |
 |-------|--------|
-| 60-case Vector Search audit | **Grade C** — README/Devpost-era numbers; no `docs/evidence/` archive as of 2026-09-30. See [docs/METRICS.md](docs/METRICS.md) |
-| Seed past cases | File length **30**, not 60 |
-| “Production” | Public Vercel demo + Atlas — say **deployed demo**, not clinic traffic |
-| CourtListener / MCP paths | Present in agent graph; demos may short-circuit |
+| Live retrieval impact **14 / 7 / 50% / +6 / 83→98** | **Grade A** — [`docs/evidence/public-stats-2026-09-30.json`](docs/evidence/public-stats-2026-09-30.json) |
+| Older “60 cases / 32 improved” Devpost wording | **Superseded** — do not pitch; see [docs/METRICS.md](docs/METRICS.md) |
+| “Production clinic” | Say **deployed demo**, not clinic traffic |
 
 Depth docs: [docs/DECISIONS.md](docs/DECISIONS.md) · [docs/METRICS.md](docs/METRICS.md)
