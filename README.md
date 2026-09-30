@@ -14,7 +14,7 @@ Intake → structured scoring → ranked queue, with **Atlas Vector Search** pre
 
 ## Highlights
 
-- **Retrieval impact (documented audit)** — On **60** cases with Atlas `$vectorSearch` in context: **32** scores improved (**53%**), mean priority **+6**, **4** critical tier upgrades (max **83 → 98** on an eviction lockout precedent). Treat as a **documented run**, not a production SLA.
+- **Retrieval impact (historical audit — Grade C)** — Documented run claimed **60** cases with Atlas `$vectorSearch`: **32** improved (**53%**), mean priority **+6**, **4** critical upgrades (max **83 → 98**). **Not re-verified 2026-09-30** (no frozen stats JSON; seed `past_cases.json` has **30** rows). Re-run `GET /api/cases/retrieval-stats` and archive before pitching as Grade A.
 - **Deterministic scoring** — Four fixed dimensions + override audit trail; LLM extracts and retrieves, score math stays inspectable.
 - **Operability** — Docket agent with step traces; printable attorney brief; rate-limited uploads (Upstash).
 - **Demo honesty** — `/judge` uses representative/static demo data so recruiters can click without Firebase.
@@ -62,6 +62,9 @@ Live walkthrough: open the demo URLs above (judge mode needs no login).
 
 | Claim | Caveat |
 |-------|--------|
-| 60-case Vector Search audit | Documented in README/Devpost era — keep as **historical measured run**; re-run before tightening wording |
-| “Production” | Public Vercel demo + Atlas — fine to say **deployed demo**, not clinic production traffic |
-| CourtListener / MCP paths | Present in agent graph; demos may short-circuit — say what the judge page actually shows |
+| 60-case Vector Search audit | **Grade C** — README/Devpost-era numbers; no `docs/evidence/` archive as of 2026-09-30. See [docs/METRICS.md](docs/METRICS.md) |
+| Seed past cases | File length **30**, not 60 |
+| “Production” | Public Vercel demo + Atlas — say **deployed demo**, not clinic traffic |
+| CourtListener / MCP paths | Present in agent graph; demos may short-circuit |
+
+Depth docs: [docs/DECISIONS.md](docs/DECISIONS.md) · [docs/METRICS.md](docs/METRICS.md)
