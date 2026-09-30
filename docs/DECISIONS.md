@@ -3,7 +3,7 @@
 Status: **PROPOSED** ≠ **DECIDED** ≠ **IMPLEMENTED** ≠ **VERIFIED**  
 Related: [METRICS.md](./METRICS.md) · [ONBOARDING.md](../ONBOARDING.md) · [DEPLOY.md](../DEPLOY.md)
 
-**Cross-verify (2026-09-30):** Architecture claims Grade **A**. Vector-search impact **60/32/53%** left Grade **C** — no checked-in aggregation artifact; `past_cases.json` has **30** rows.
+**Cross-verify (2026-09-30):** Live `GET /api/stats/public` archived under `docs/evidence/public-stats-2026-09-30.json` — Grade **A** for **14/7/50%/+6** and **83→98**. Older 60-case README numbers **superseded**.
 
 ---
 
@@ -43,14 +43,15 @@ Related: [METRICS.md](./METRICS.md) · [ONBOARDING.md](../ONBOARDING.md) · [DEP
 
 ---
 
-## D4 — Soften public impact metrics until artifact exists
+## D4 — Prefer live public stats over historical Devpost numbers
 
 | | |
 |--|--|
-| **Context** | README claimed 60-case production audit without frozen evidence file. |
-| **Decision** | METRICS grades C6 as caution; README must say “documented historical audit”. |
-| **Why** | FAANG honesty bar. |
-| **Status** | DECIDED · IMPLEMENTED (docs 2026-09-30) |
+| **Context** | README once claimed a 60-case audit without a frozen artifact. |
+| **Decision** | Pitch only archived `/api/stats/public` captures (2026-09-30: 14/7/50%/+6, top 83→98). |
+| **Why** | FAANG honesty; endpoint is re-runnable. |
+| **Evidence** | `docs/evidence/public-stats-2026-09-30.json` |
+| **Status** | DECIDED · IMPLEMENTED · VERIFIED |
 
 ---
 
